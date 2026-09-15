@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http/httptest"
 	"testing"
@@ -21,6 +22,14 @@ func TestHealthEndpoint(t *testing.T) {
 	}
 	if response.StatusCode != fiber.StatusOK {
 		t.Fatalf("expected status %d, got %d", fiber.StatusOK, response.StatusCode)
+	}
+
+	var body map[string]string
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body["status"] != "ok" || body["database"] != "not_configured" {
+		t.Fatalf("unexpected health response: %#v", body)
 	}
 }
 
@@ -44,5 +53,19 @@ func TestSurrealStoreWithoutDatabase(t *testing.T) {
 	_, err := NewSurrealStore(nil).Version(t.Context())
 	if !errors.Is(err, ErrDatabaseNotConfigured) {
 		t.Fatalf("expected ErrDatabaseNotConfigured, got %v", err)
+	}
+}
+
+func TestTransactionLifecycleRejectsNilTransactions(t *testing.T) {
+	store := NewSurrealStore(nil)
+
+	if err := store.Commit(t.Context(), nil); !errors.Is(err, ErrTransactionNil) {
+		t.Fatalf("commit should reject nil transaction, got %v", err)
+	}
+	if err := store.Rollback(t.Context(), nil); !errors.Is(err, ErrTransactionNil) {
+		t.Fatalf("rollback should reject nil transaction, got %v", err)
+	}
+	if err := store.WithTransaction(t.Context(), nil); !errors.Is(err, ErrTransactionCallbackNil) {
+		t.Fatalf("transaction helper should reject nil callback, got %v", err)
 	}
 }

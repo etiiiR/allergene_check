@@ -46,7 +46,7 @@ PORT=8080 go run .
 - `Query`, `QueryRaw`
 - `Select`, `Create`, `Insert`, `Update`, `Upsert`, `Merge`, `Patch`, `Delete`
 - `Relate`, `InsertRelation`
-- interactive transactions with `RunInTransaction`
+- interactive transactions with `Begin`, `Commit`, `Rollback`, `WithTransaction`, and `RunInTransaction`
 - `Version`, `Info`, `Let`, `Unset`, `Authenticate`, `Invalidate`
 - live subscriptions with `WatchTable` and `KillLive`
 
@@ -58,10 +58,63 @@ note, err := Create[Note](ctx, store, models.NewRecordID("notes", "welcome"), da
 results, err := Query[[]Note](ctx, store, "SELECT * FROM notes WHERE done = $done", map[string]any{"done": false})
 ```
 
+### Transaction boilerplate
+
+Use the explicit methods when you need manual transaction control. The SDK CRUD helpers accept the transaction returned by `Begin`:
+
+```go
+tx, err := store.Begin(ctx)
+if err != nil {
+    return err
+}
+
+if _, err = surrealdb.Create[Note](ctx, tx, models.NewRecordID("notes", "welcome"), note); err != nil {
+    _ = store.Rollback(ctx, tx)
+    return err
+}
+
+return store.Commit(ctx, tx)
+```
+
+For automatic commit/rollback handling, use `WithTransaction`:
+
+```go
+err := store.WithTransaction(ctx, func(tx *surrealdb.Transaction) error {
+    if _, err := surrealdb.Create[Note](ctx, tx, models.Table("notes"), note); err != nil {
+        return err // automatically rolls back
+    }
+    _, err := surrealdb.Update[Note](ctx, tx, models.NewRecordID("notes", "welcome"), note)
+    return err // commits when nil, rolls back when non-nil
+})
+```
+
+Interactive transactions use the WebSocket connection and inherit the authenticated namespace/database session.
+
 Connect a WebSocket client to `ws://localhost:3000/ws/live/notes`. Each connection receives a subscription message followed by `CREATE`, `UPDATE`, or `DELETE` change messages from SurrealDB.
+
+## Error handling
+
+[errors.go](errors.go) provides one error type and response contract for HTTP and WebSocket clients:
+
+```json
+{
+  "error": {
+    "code": "database_unavailable",
+    "message": "SurrealDB is unavailable"
+  }
+}
+```
+
+Wrap internal causes with `WrapAppError`. The cause is retained for server logs and `errors.Is`/`errors.As`, but is not sent to clients.
 
 ## Test
 
 ```sh
 go test ./...
+```
+
+The default suite is self-contained. To run the SurrealDB transaction/live-query regression test against the local Compose database:
+
+```sh
+RUN_INTEGRATION_TESTS=1 go test ./...
 ```
