@@ -4,6 +4,9 @@
 
 # Environment files
 .env
+.venv/
+__pycache__/
+*.py[cod]
 
 # macOS
 .DS_Store

@@ -10,7 +10,7 @@ Docker Compose starts the Fiber API and a persistent SurrealDB instance:
 docker-compose up --build
 ```
 
-The API is available at `http://localhost:3000` and SurrealDB at `http://localhost:8000`.
+The API is available at `http://localhost:3000`, SurrealDB at `http://localhost:8000`, and the Python ML service at `http://localhost:8001`.
 SurrealDB data is stored in the named `surrealdb-data` volume.
 
 Stop the stack with:
@@ -38,6 +38,60 @@ PORT=8080 go run .
 - `GET /` — returns a welcome message and stack information
 - `GET /health` — checks the Fiber process and SurrealDB connection
 - `GET /ws/live/:table` — upgrades to WebSocket and streams table changes; add `?diff=true` for JSON Patch diffs
+
+## Python ML service
+
+The nested [ml-service](ml-service) uses FastAPI with Uvicorn and scikit-learn for small stateless training/prediction requests. FastAPI is a good fit here because it provides typed request validation and an OpenAPI UI at `http://localhost:8001/docs`; Uvicorn can run multiple workers for deployments that need process-level replication.
+
+Endpoints:
+
+- `GET /health`
+- `POST /ml/linear-regression`
+- `POST /ml/logistic-regression`
+- `POST /nlp/text-similarity` — NLTK lexical analysis
+- `POST /nlp/bert-similarity` — CPU-only tiny-BERT semantic similarity
+
+Example linear regression request:
+
+```sh
+curl -X POST http://localhost:8001/ml/linear-regression \
+  -H 'Content-Type: application/json' \
+  -d '{"features":[[1],[2],[3],[4]],"target":[3,5,7,9],"predict":[[5],[6]]}'
+```
+
+Example NLTK text similarity request:
+
+```sh
+curl -X POST http://localhost:8001/nlp/text-similarity \
+  -H 'Content-Type: application/json' \
+  -d '{"text_a":"The allergen warning is important.","text_b":"An important allergen warning."}'
+```
+
+Example tiny-BERT semantic similarity request:
+
+```sh
+curl -X POST http://localhost:8001/nlp/bert-similarity \
+  -H 'Content-Type: application/json' \
+  -d '{"text_a":"This product contains peanuts.","text_b":"Peanuts are present in this product."}'
+```
+
+The BERT endpoint uses `prajjwal1/bert-tiny`, forces inference to CPU, mean-pools its hidden states, and returns cosine similarity. The model is cached while building the Docker image and loaded lazily on the first request.
+
+Run the Python tests from the nested service with its development dependencies installed:
+
+```sh
+cd ml-service
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements-dev.txt
+pytest
+```
+
+The standard Python tests skip model loading. To include the BERT regression test:
+
+```sh
+RUN_BERT_TESTS=1 pytest
+```
 
 ## SurrealDB helpers
 
