@@ -1,0 +1,9 @@
+# Build output
+/fiber-api
+/bin/
+
+# Environment files
+.env
+
+# macOS
+.DS_Store

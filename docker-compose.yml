@@ -1,0 +1,40 @@
+services:
+  surrealdb:
+    image: surrealdb/surrealdb:latest
+    user: "0:0"
+    command:
+      - start
+      - --user
+      - ${SURREALDB_USER:-root}
+      - --pass
+      - ${SURREALDB_PASS:-root}
+      - rocksdb:/data/database.db
+    ports:
+      - "8000:8000"
+    volumes:
+      - surrealdb-data:/data
+    healthcheck:
+      test: ["CMD", "/surreal", "isready", "--endpoint", "http://localhost:8000"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  app:
+    build:
+      context: .
+    depends_on:
+      surrealdb:
+        condition: service_healthy
+    environment:
+      PORT: "3000"
+      SURREALDB_URL: ws://surrealdb:8000/rpc
+      SURREALDB_NAMESPACE: ${SURREALDB_NAMESPACE:-main}
+      SURREALDB_DATABASE: ${SURREALDB_DATABASE:-main}
+      SURREALDB_USER: ${SURREALDB_USER:-root}
+      SURREALDB_PASS: ${SURREALDB_PASS:-root}
+    ports:
+      - "3000:3000"
+
+volumes:
+  surrealdb-data:
