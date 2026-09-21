@@ -1,4 +1,11 @@
-FROM golang:1.26-alpine AS build
+FROM node:24-alpine AS frontend
+WORKDIR /web
+COPY web/package*.json ./
+RUN npm ci
+COPY web/ ./
+RUN npm run build
+
+FROM golang:1.27-alpine AS build
 
 WORKDIR /src
 
@@ -12,6 +19,8 @@ FROM alpine:3.22
 
 RUN adduser -D -H appuser
 COPY --from=build /out/fiber-api /usr/local/bin/fiber-api
+WORKDIR /app
+COPY --from=frontend /web/dist ./web/dist
 
 USER appuser
 EXPOSE 3000

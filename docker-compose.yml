@@ -10,7 +10,7 @@ services:
       - ${SURREALDB_PASS:-root}
       - rocksdb:/data/database.db
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - surrealdb-data:/data
     healthcheck:
@@ -28,19 +28,22 @@ services:
         condition: service_healthy
     environment:
       PORT: "3000"
+      LISTEN_HOST: "0.0.0.0"
+      APP_URL: http://localhost:3000
+      ML_SERVICE_URL: http://ml-service:8000
       SURREALDB_URL: ws://surrealdb:8000/rpc
       SURREALDB_NAMESPACE: ${SURREALDB_NAMESPACE:-main}
       SURREALDB_DATABASE: ${SURREALDB_DATABASE:-main}
       SURREALDB_USER: ${SURREALDB_USER:-root}
       SURREALDB_PASS: ${SURREALDB_PASS:-root}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
 
   ml-service:
     build:
       context: ./ml-service
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     healthcheck:
       test:
         - CMD

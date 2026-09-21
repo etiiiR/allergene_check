@@ -12,7 +12,7 @@ import (
 )
 
 func TestRootEndpointContract(t *testing.T) {
-	response, err := newTestApp().Test(httptest.NewRequest("GET", "/", nil))
+	response, err := newTestApp().Test(httptest.NewRequest("GET", "/api/status", nil))
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}

@@ -1,0 +1,198 @@
+<script setup>
+import { computed, ref } from "vue";
+import { Head } from "@inertiajs/vue3";
+import { Plus, Heart, Utensils, Trash2, BookOpen } from "lucide-vue-next";
+import AppShell from "../components/AppShell.vue";
+import EntryModal from "../components/EntryModal.vue";
+import Modal from "../components/Modal.vue";
+import { dayOf, localDate, severity, dateTime, useMutation } from "../lib";
+const props = defineProps({ diary: Object, symptoms: Object });
+const entry = ref(""),
+  date = ref(localDate()),
+  filter = ref("all"),
+  sort = ref("time"),
+  pending = ref(null),
+  { save, busy, error } = useMutation();
+const events = computed(() => {
+  const all = [
+    ...props.diary.meals.map((x) => ({ ...x, kind: "meals" })),
+    ...props.diary.checkins.map((x) => ({ ...x, kind: "checkins" })),
+  ];
+  return all
+    .filter(
+      (x) =>
+        (!date.value || dayOf(x.occurred_at) === date.value) &&
+        (filter.value === "all" ||
+          (filter.value === "meals" && x.kind === "meals") ||
+          (filter.value === "free" &&
+            x.kind === "checkins" &&
+            x.symptom_free) ||
+          (filter.value === "symptoms" &&
+            x.kind === "checkins" &&
+            !x.symptom_free) ||
+          x.symptoms?.[filter.value] > 0),
+    )
+    .sort((a, b) =>
+      sort.value === "severity"
+        ? severity(b) - severity(a)
+        : b.occurred_at.localeCompare(a.occurred_at),
+    );
+});
+</script>
+<template>
+  <Head title="Mein Tagebuch" /><AppShell
+    ><div class="page-heading">
+      <div>
+        <p class="eyebrow">ESSEN. FÜHLEN. FESTHALTEN.</p>
+        <h1>Mein Tagebuch</h1>
+        <p>Ein ehrlicher Blick auf deinen Tag – auch auf die guten Momente.</p>
+      </div>
+      <div class="actions">
+        <button class="button secondary" @click="entry = 'check'">
+          <Heart :size="17" />Check-in</button
+        ><button class="button primary" @click="entry = 'meal'">
+          <Plus :size="17" />Mahlzeit
+        </button>
+      </div>
+    </div>
+    <div class="toolbar">
+      <label>Datum<input type="date" v-model="date" /></label
+      ><button class="text-button" @click="date = ''">Alle Tage</button
+      ><label
+        >Anzeigen<select v-model="filter">
+          <option value="all">Alle Einträge</option>
+          <option value="meals">Mahlzeiten</option>
+          <option value="free">Symptomfrei</option>
+          <option value="symptoms">Mit Beschwerden</option>
+          <option v-for="(name, key) in symptoms" :value="key" :key="key">
+            {{ name }}
+          </option>
+        </select></label
+      ><label
+        >Sortieren<select v-model="sort">
+          <option value="time">Neueste zuerst</option>
+          <option value="severity">Stärkste Symptome</option>
+        </select></label
+      ><span class="result-count">{{ events.length }} Einträge</span>
+    </div>
+    <section v-if="!events.length" class="panel empty-state">
+      <BookOpen :size="32" />
+      <h2>Noch ganz unbeschrieben.</h2>
+      <p>
+        Für diese Auswahl gibt es keine Einträge.<br />Eine Mahlzeit oder ein
+        Check-in ist ein guter Anfang.
+      </p>
+      <button class="button primary" @click="entry = 'check'">
+        Befinden eintragen
+      </button>
+    </section>
+    <div class="diary-list">
+      <article v-for="item in events" :key="item.id" class="panel diary-entry">
+        <div class="entry-time">
+          {{ dateTime(item.occurred_at)
+          }}<span class="event-icon"
+            ><Utensils v-if="item.kind === 'meals'" :size="19" /><Heart
+              v-else
+              :size="19"
+          /></span>
+        </div>
+        <div class="entry-content">
+          <div class="entry-title">
+            <h2>
+              {{
+                item.kind === "meals"
+                  ? item.title
+                  : item.symptom_free
+                    ? "Ein gutes Bauchgefühl"
+                    : "So ging es meinem Bauch"
+              }}
+            </h2>
+            <span
+              class="pill"
+              :class="
+                item.kind === 'meals'
+                  ? 'neutral'
+                  : item.symptom_free
+                    ? 'low'
+                    : 'high'
+              "
+              >{{
+                item.kind === "meals"
+                  ? "Mahlzeit"
+                  : item.symptom_free
+                    ? "Symptomfrei"
+                    : "Beschwerden"
+              }}</span
+            >
+          </div>
+          <template v-if="item.kind === 'meals'"
+            ><p class="helper">{{ item.portions }} Portion(en)</p>
+            <div class="tags">
+              <span
+                class="ingredient-tag"
+                v-for="(i, n) in item.ingredients"
+                :key="n"
+                >{{ i.text }}</span
+              >
+            </div></template
+          ><template v-else
+            ><div class="tags">
+              <span
+                v-for="(value, key) in item.symptoms"
+                v-show="value > 0"
+                :key="key"
+                class="symptom-tag"
+                >{{ symptoms[key] }} <b>{{ value }}/10</b></span
+              >
+            </div>
+            <p class="helper">
+              Stress {{ item.stress }}/10 · Schlaf
+              {{ item.sleep_hours }} Stunden
+            </p></template
+          >
+          <p v-if="item.notes" class="entry-note">{{ item.notes }}</p>
+        </div>
+        <button
+          class="icon-button delete"
+          aria-label="Eintrag löschen"
+          @click="pending = item"
+        >
+          <Trash2 :size="17" />
+        </button>
+      </article>
+    </div>
+    <button v-if="date" class="text-button" @click="entry = 'free'">
+      <Heart :size="16" />Für diesen Tag symptomfrei eintragen
+    </button>
+    <EntryModal
+      v-if="entry"
+      :type="entry"
+      :day="date"
+      @close="entry = ''"
+    /><Modal v-if="pending" title="Eintrag löschen?" @close="pending = null"
+      ><p>
+        Dieser Eintrag wird dauerhaft aus deinem Tagebuch entfernt. Deine Muster
+        werden danach neu berechnet.
+      </p>
+      <p v-if="error" role="alert" class="alert error">{{ error }}</p>
+      <div class="form-actions">
+        <button class="button secondary" @click="pending = null">
+          Behalten</button
+        ><button
+          class="button danger"
+          :disabled="busy"
+          @click="
+            save(
+              '/' + pending.kind + '/' + pending.id,
+              undefined,
+              () => (pending = null),
+              'DELETE',
+            )
+          "
+        >
+          Löschen
+        </button>
+      </div></Modal
+    >
+  </AppShell>
+</template>

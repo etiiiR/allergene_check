@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, model_validator
 from sklearn.linear_model import LinearRegression, LogisticRegression
 import torch
 from transformers import AutoModel, AutoTokenizer
+from app.diary_analysis import router as diary_router
 
 
 BERT_MODEL_NAME = os.getenv("BERT_MODEL_NAME", "prajjwal1/bert-tiny")
@@ -35,6 +36,7 @@ app = FastAPI(
     version="0.1.0",
     description="Basic regression and CPU-only text similarity over JSON data.",
 )
+app.include_router(diary_router)
 
 
 class FeatureRequest(BaseModel):

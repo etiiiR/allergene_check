@@ -1,0 +1,587 @@
+[
+  {
+    "id": "onion",
+    "name": "Onion",
+    "aliases": [
+      "onion",
+      "onions",
+      "zwiebel",
+      "zwiebeln"
+    ],
+    "category": "Vegetables",
+    "level": "higher",
+    "groups": [
+      "fructans"
+    ],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "garlic",
+    "name": "Garlic",
+    "aliases": [
+      "garlic",
+      "knoblauch"
+    ],
+    "category": "Vegetables",
+    "level": "higher",
+    "groups": [
+      "fructans"
+    ],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "apple",
+    "name": "Apple",
+    "aliases": [
+      "apple",
+      "apples",
+      "apfel",
+      "äpfel"
+    ],
+    "category": "Fruit",
+    "level": "higher",
+    "groups": [
+      "excess fructose",
+      "sorbitol"
+    ],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "pear",
+    "name": "Pear",
+    "aliases": [
+      "pear",
+      "pears",
+      "birne",
+      "birnen"
+    ],
+    "category": "Fruit",
+    "level": "higher",
+    "groups": [
+      "excess fructose",
+      "sorbitol"
+    ],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "mango",
+    "name": "Mango",
+    "aliases": [
+      "mango",
+      "mangoes"
+    ],
+    "category": "Fruit",
+    "level": "higher",
+    "groups": [
+      "excess fructose"
+    ],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "milk",
+    "name": "Cow's milk",
+    "aliases": [
+      "cow's milk",
+      "milk",
+      "cow milk",
+      "milch",
+      "vollmilch"
+    ],
+    "category": "Dairy",
+    "level": "higher",
+    "groups": [
+      "lactose"
+    ],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "yogurt",
+    "name": "Yogurt",
+    "aliases": [
+      "yogurt",
+      "yoghurt",
+      "joghurt"
+    ],
+    "category": "Dairy",
+    "level": "higher",
+    "groups": [
+      "lactose"
+    ],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "wheat-pasta",
+    "name": "Wheat pasta",
+    "aliases": [
+      "wheat pasta",
+      "wheat pasta",
+      "weizennudeln"
+    ],
+    "category": "Grains",
+    "level": "higher",
+    "groups": [
+      "fructans"
+    ],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "rye-bread",
+    "name": "Rye bread",
+    "aliases": [
+      "rye bread",
+      "rye bread",
+      "roggenbrot"
+    ],
+    "category": "Grains",
+    "level": "higher",
+    "groups": [
+      "fructans"
+    ],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "kidney-beans",
+    "name": "Kidney beans",
+    "aliases": [
+      "kidney beans",
+      "kidney beans",
+      "kidneybohnen"
+    ],
+    "category": "Legumes",
+    "level": "higher",
+    "groups": [
+      "GOS"
+    ],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "cashew",
+    "name": "Cashews",
+    "aliases": [
+      "cashews",
+      "cashew",
+      "cashews",
+      "cashew nuts"
+    ],
+    "category": "Nuts & seeds",
+    "level": "higher",
+    "groups": [
+      "fructans",
+      "GOS"
+    ],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "honey",
+    "name": "Honey",
+    "aliases": [
+      "honey",
+      "honig"
+    ],
+    "category": "Sweeteners",
+    "level": "higher",
+    "groups": [
+      "excess fructose"
+    ],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "carrot",
+    "name": "Carrot",
+    "aliases": [
+      "carrot",
+      "carrots",
+      "karotte",
+      "karotten",
+      "rüebli"
+    ],
+    "category": "Vegetables",
+    "level": "lower",
+    "groups": [],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "cucumber",
+    "name": "Cucumber",
+    "aliases": [
+      "cucumber",
+      "cucumbers",
+      "gurke",
+      "gurken"
+    ],
+    "category": "Vegetables",
+    "level": "lower",
+    "groups": [],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "potato",
+    "name": "Potato",
+    "aliases": [
+      "potato",
+      "potatoes",
+      "kartoffel",
+      "kartoffeln"
+    ],
+    "category": "Vegetables",
+    "level": "lower",
+    "groups": [],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "lettuce",
+    "name": "Lettuce",
+    "aliases": [
+      "lettuce",
+      "lettuce",
+      "kopfsalat"
+    ],
+    "category": "Vegetables",
+    "level": "lower",
+    "groups": [],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "orange",
+    "name": "Orange",
+    "aliases": [
+      "orange",
+      "oranges",
+      "orangen"
+    ],
+    "category": "Fruit",
+    "level": "lower",
+    "groups": [],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "pineapple",
+    "name": "Pineapple",
+    "aliases": [
+      "pineapple",
+      "ananas"
+    ],
+    "category": "Fruit",
+    "level": "lower",
+    "groups": [],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "oats",
+    "name": "Oats",
+    "aliases": [
+      "oats",
+      "oat",
+      "oats",
+      "haferflocken"
+    ],
+    "category": "Grains",
+    "level": "lower",
+    "groups": [],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "egg",
+    "name": "Egg",
+    "aliases": [
+      "egg",
+      "eggs",
+      "ei",
+      "eier"
+    ],
+    "category": "Protein",
+    "level": "lower",
+    "groups": [],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "chicken",
+    "name": "Plain chicken",
+    "aliases": [
+      "plain chicken",
+      "chicken",
+      "hähnchen",
+      "poulet"
+    ],
+    "category": "Protein",
+    "level": "lower",
+    "groups": [],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "firm-tofu",
+    "name": "Firm tofu",
+    "aliases": [
+      "firm tofu",
+      "firm tofu",
+      "fester tofu"
+    ],
+    "category": "Protein",
+    "level": "lower",
+    "groups": [],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "lactose-free-milk",
+    "name": "Lactose-free milk",
+    "aliases": [
+      "lactose-free milk",
+      "lactose free milk",
+      "lactose-free milk",
+      "laktosefreie milch"
+    ],
+    "category": "Dairy",
+    "level": "lower",
+    "groups": [],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "almond-milk",
+    "name": "Almond milk",
+    "aliases": [
+      "almond milk",
+      "almond milk",
+      "mandelmilch"
+    ],
+    "category": "Dairy",
+    "level": "lower",
+    "groups": [],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "peanut",
+    "name": "Peanuts",
+    "aliases": [
+      "peanuts",
+      "peanut",
+      "peanuts",
+      "erdnüsse"
+    ],
+    "category": "Nuts & seeds",
+    "level": "lower",
+    "groups": [],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "walnut",
+    "name": "Walnuts",
+    "aliases": [
+      "walnuts",
+      "walnut",
+      "walnuts",
+      "walnüsse"
+    ],
+    "category": "Nuts & seeds",
+    "level": "lower",
+    "groups": [],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "maple-syrup",
+    "name": "Maple syrup",
+    "aliases": [
+      "maple syrup",
+      "maple syrup",
+      "ahornsirup"
+    ],
+    "category": "Sweeteners",
+    "level": "lower",
+    "groups": [],
+    "note": "General food reference, not a tested serving recommendation. Portion, variety and preparation matter.",
+    "source": "https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "cumin",
+    "name": "Kreuzkümmel",
+    "aliases": [
+      "cumin",
+      "kreuzkümmel"
+    ],
+    "category": "Spices & herbs",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur zur Zutaten-Erkennung und zum persönlichen Vergleich. Kein geprüfter FODMAP-Wert.",
+    "source": "",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "cinnamon",
+    "name": "Zimt",
+    "aliases": [
+      "cinnamon",
+      "zimt"
+    ],
+    "category": "Spices & herbs",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur zur Zutaten-Erkennung und zum persönlichen Vergleich. Kein geprüfter FODMAP-Wert.",
+    "source": "",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "chili",
+    "name": "Chili",
+    "aliases": [
+      "chili",
+      "chilli",
+      "chilipulver"
+    ],
+    "category": "Spices & herbs",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur zur Zutaten-Erkennung und zum persönlichen Vergleich. Kein geprüfter FODMAP-Wert.",
+    "source": "",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "black-pepper",
+    "name": "Schwarzer Pfeffer",
+    "aliases": [
+      "black pepper",
+      "schwarzer pfeffer",
+      "pfeffer"
+    ],
+    "category": "Spices & herbs",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur zur Zutaten-Erkennung und zum persönlichen Vergleich. Kein geprüfter FODMAP-Wert.",
+    "source": "",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "turmeric",
+    "name": "Kurkuma",
+    "aliases": [
+      "turmeric",
+      "kurkuma"
+    ],
+    "category": "Spices & herbs",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur zur Zutaten-Erkennung und zum persönlichen Vergleich. Kein geprüfter FODMAP-Wert.",
+    "source": "",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "ginger",
+    "name": "Ingwer",
+    "aliases": [
+      "ginger",
+      "ingwer"
+    ],
+    "category": "Spices & herbs",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur zur Zutaten-Erkennung und zum persönlichen Vergleich. Kein geprüfter FODMAP-Wert.",
+    "source": "",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "basil",
+    "name": "Basilikum",
+    "aliases": [
+      "basil",
+      "basilikum"
+    ],
+    "category": "Spices & herbs",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur zur Zutaten-Erkennung und zum persönlichen Vergleich. Kein geprüfter FODMAP-Wert.",
+    "source": "",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "oregano",
+    "name": "Oregano",
+    "aliases": [
+      "oregano"
+    ],
+    "category": "Spices & herbs",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur zur Zutaten-Erkennung und zum persönlichen Vergleich. Kein geprüfter FODMAP-Wert.",
+    "source": "",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "paprika-powder",
+    "name": "Paprikapulver",
+    "aliases": [
+      "paprika powder",
+      "paprikapulver"
+    ],
+    "category": "Spices & herbs",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur zur Zutaten-Erkennung und zum persönlichen Vergleich. Kein geprüfter FODMAP-Wert.",
+    "source": "",
+    "reviewed": "2026-09-21"
+  },
+  {
+    "id": "coriander",
+    "name": "Koriander",
+    "aliases": [
+      "coriander",
+      "koriander"
+    ],
+    "category": "Spices & herbs",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur zur Zutaten-Erkennung und zum persönlichen Vergleich. Kein geprüfter FODMAP-Wert.",
+    "source": "",
+    "reviewed": "2026-09-21"
+  }
+]

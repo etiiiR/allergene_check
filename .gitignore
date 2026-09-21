@@ -10,3 +10,8 @@ __pycache__/
 
 # macOS
 .DS_Store
+.pytest_cache/
+web/node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/

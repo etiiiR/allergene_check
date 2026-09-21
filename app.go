@@ -16,8 +16,14 @@ import (
 func newApp(db *surrealdb.DB) *fiber.App {
 	app := fiber.New(fiber.Config{ErrorHandler: AppErrorHandler})
 	store := NewSurrealStore(db)
+	if db != nil {
+		app.Use(localHostGuard)
+	}
 
-	app.Get("/", rootHandler)
+	app.Get("/api/status", rootHandler)
+	repo := &DiaryRepository{store: store}
+	registerDiaryAPI(app, repo, newAnalysisClient())
+	registerWeb(app, repo)
 	app.Get("/health", healthHandler(store, db != nil))
 	registerLiveQueryRoutes(app, store, db != nil)
 
@@ -52,6 +58,9 @@ func healthHandler(store *SurrealStore, databaseConfigured bool) fiber.Handler {
 
 func registerLiveQueryRoutes(app *fiber.App, store *SurrealStore, databaseConfigured bool) {
 	app.Use("/ws", func(c *fiber.Ctx) error {
+		if !sameOrigin(c) {
+			return NewAppError(403, "origin_rejected", "WebSocket-Verbindung von einer fremden Webseite abgelehnt.")
+		}
 		if websocket.IsWebSocketUpgrade(c) {
 			return c.Next()
 		}
