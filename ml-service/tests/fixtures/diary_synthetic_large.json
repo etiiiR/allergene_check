@@ -1,0 +1,74 @@
+{
+  "metadata": {
+    "name": "synthetic-large-diary-v1",
+    "purpose": "Qualitative regression benchmark for ingredient, symptom, stress, and confounding trends.",
+    "observations": 72,
+    "warning": "This is synthetic data with planted signals. The expected result is a software regression target, never a medical diagnosis or proof of intolerance."
+  },
+  "recipes": [
+    {"id": "recipe_allium", "title": "Zwiebel-Knoblauch-Pfanne", "ingredient_ids": ["onion", "garlic"]},
+    {"id": "recipe_control", "title": "Reis mit Karotte", "ingredient_ids": ["rice", "carrot"]},
+    {"id": "recipe_milk", "title": "Hafer mit Milch", "ingredient_ids": ["milk", "oats"]},
+    {"id": "recipe_cumin", "title": "Karotte mit Kreuzkümmel", "ingredient_ids": ["carrot", "cumin"]},
+    {"id": "recipe_tomato", "title": "Tomaten-Pasta", "ingredient_ids": ["tomato", "wheat"]}
+  ],
+  "daily_scenarios": [
+    {
+      "name": "planted_allium_signal",
+      "recipe_id": "recipe_allium",
+      "start_day": 0,
+      "days": 18,
+      "stress": 7,
+      "symptoms": {"bloating": 8, "pain": 7, "diarrhea": 5, "nausea": 2, "reflux": 0, "constipation": 0}
+    },
+    {
+      "name": "symptom_free_control",
+      "recipe_id": "recipe_control",
+      "start_day": 18,
+      "days": 18,
+      "stress": 2,
+      "symptoms": {"bloating": 0, "pain": 0, "diarrhea": 0, "nausea": 0, "reflux": 0, "constipation": 0}
+    },
+    {
+      "name": "secondary_milk_signal",
+      "recipe_id": "recipe_milk",
+      "start_day": 36,
+      "days": 12,
+      "stress": 5,
+      "symptoms": {"bloating": 6, "pain": 3, "diarrhea": 0, "nausea": 2, "reflux": 0, "constipation": 0}
+    },
+    {
+      "name": "spice_negative_control",
+      "recipe_id": "recipe_cumin",
+      "start_day": 48,
+      "days": 12,
+      "stress": 3,
+      "symptoms": {"bloating": 0, "pain": 0, "diarrhea": 0, "nausea": 0, "reflux": 0, "constipation": 0}
+    },
+    {
+      "name": "different_symptom_control",
+      "recipe_id": "recipe_tomato",
+      "start_day": 60,
+      "days": 12,
+      "stress": 6,
+      "symptoms": {"bloating": 0, "pain": 0, "diarrhea": 0, "nausea": 0, "reflux": 6, "constipation": 0}
+    }
+  ],
+  "health_overrides": [
+    {"day": 0, "normalized_stress": 8.5},
+    {"day": 18, "normalized_stress": 1.5},
+    {"day": 36, "normalized_stress": 5.5},
+    {"day": 60, "normalized_stress": 6.5}
+  ],
+  "expected": {
+    "symptom": "bloating",
+    "conclusion_label": "synthetic_allium_bloating_trend",
+    "primary_ingredients": ["onion", "garlic"],
+    "minimum_primary_difference": 0.7,
+    "negative_control": "cumin",
+    "minimum_observations": 60,
+    "expected_model_status": "exploratory",
+    "expected_stress_status": "more_symptoms_at_higher_stress",
+    "not_a_diagnosis": true
+  }
+}

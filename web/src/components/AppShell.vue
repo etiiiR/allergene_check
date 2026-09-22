@@ -1,84 +1,67 @@
 <script setup>
 import { Link, usePage } from "@inertiajs/vue3";
 import {
-  LayoutDashboard,
   BookOpen,
-  CookingPot,
+  CalendarDays,
   ChartNoAxesCombined,
+  CookingPot,
   Leaf,
-  ArrowUpRight,
-  Heart,
-  Download,
-} from "lucide-vue-next";
+  LayoutDashboard,
+  Settings,
+} from "@lucide/vue";
+
 const page = usePage();
-const reload = () => window.location.reload();
 const nav = [
-  ["/", "Übersicht", LayoutDashboard],
-  ["/diary", "Mein Tagebuch", BookOpen],
-  ["/recipes", "Meine Rezepte", CookingPot],
-  ["/insights", "Meine Muster", ChartNoAxesCombined],
-  ["/foods", "FODMAP-Lexikon", Leaf],
+  ["/", "Heute", LayoutDashboard],
+  ["/diary", "Tagebuch", BookOpen],
+  ["/recipes", "Rezepte", CookingPot],
+  ["/calendar", "Kalender", CalendarDays],
+  ["/insights", "Muster", ChartNoAxesCombined],
+  ["/foods", "FODMAP", Leaf],
 ];
+const reload = () => window.location.reload();
 </script>
+
 <template>
-  <div class="layout">
-    <aside class="sidebar">
-      <Link href="/" class="brand"
-        ><span class="brand-icon"><Leaf :size="23" /></span>Bauchgefühl<span
-          class="brand-dot"
-          >.</span
-        ></Link
+  <div class="app-shell min-h-screen bg-bauch-paper text-bauch-ink antialiased">
+    <header
+      class="mobile-header border-b border-bauch-line/80 bg-bauch-paper/95 shadow-sm backdrop-blur"
+    >
+      <Link href="/" class="brand font-display tracking-[-0.04em]">
+        <span class="brand-icon"><Leaf :size="19" /></span
+        ><span>Bauchgefühl</span><span class="brand-dot">.</span></Link
       >
-      <p class="sidebar-label">DEIN PERSÖNLICHER KOMPASS</p>
-      <nav aria-label="Hauptnavigation">
-        <Link
-          v-for="[href, label, Icon] in nav"
-          :key="href"
-          :href="href"
-          :class="['nav-link', { active: page.url.split('?')[0] === href }]"
-          :aria-current="page.url.split('?')[0] === href ? 'page' : undefined"
-          ><component :is="Icon" :size="19" />{{ label
-          }}<span v-if="page.url.split('?')[0] === href" class="nav-dot"
-        /></Link>
-      </nav>
-      <div class="sidebar-bottom">
-        <div class="gentle-note">
-          <Heart :size="20" /><strong
-            >Kleine Schritte.<br />Ein besseres Bauchgefühl.</strong
-          >
-          <p>
-            Auch gute Tage erzählen etwas. Halte fest, wenn es dir gut geht.
-          </p>
-        </div>
-        <a class="export-link" href="/api/export"
-          ><Download :size="16" /> Tagebuch exportieren</a
-        >
-        <div class="profile">
-          <span>Du</span>
-          <div>
-            <strong>Dein privates Tagebuch</strong
-            ><small>Lokal auf deinem Gerät</small>
-          </div>
-        </div>
-      </div>
-    </aside>
-    <main class="main">
-      <header class="topbar">
-        <span>Ernährung verstehen. Wohlbefinden entdecken.</span
-        ><span class="local-status"><i /> Persönlicher Bereich</span>
-      </header>
+      <span class="header-caption tracking-wide">Dein privates Tagebuch</span>
+      <Link
+        href="/profile"
+        class="header-settings"
+        aria-label="Profil und Zyklus"
+      >
+        <Settings :size="18" />
+      </Link>
+    </header>
+
+    <main class="main mx-auto w-full">
       <div v-if="page.props.loadError" role="alert" class="alert error">
         {{ page.props.loadError }} <button @click="reload">Erneut laden</button>
       </div>
       <div class="page-content"><slot /></div>
-      <footer>
-        Deine Beobachtungen zählen. Muster sind Hinweise, keine Diagnose.<a
-          href="https://www.monashfodmap.com/about-fodmap-and-ibs/high-and-low-fodmap-foods/"
-          target="_blank"
-          rel="noreferrer"
-          >Über FODMAPs <ArrowUpRight :size="13"
-        /></a>
-      </footer>
     </main>
+
+    <nav
+      class="bottom-nav border-bauch-line/80 bg-bauch-paper/95 shadow-[0_-8px_28px_rgba(41,55,47,0.06)] backdrop-blur"
+      aria-label="Hauptnavigation"
+    >
+      <Link
+        v-for="[href, label, Icon] in nav"
+        :key="href"
+        :href="href"
+        :class="['bottom-link', { active: page.url.split('?')[0] === href }]"
+        :aria-current="page.url.split('?')[0] === href ? 'page' : undefined"
+      >
+        <component :is="Icon" :size="19" />
+        <span>{{ label }}</span>
+      </Link>
+    </nav>
   </div>
 </template>

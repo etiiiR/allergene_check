@@ -6,7 +6,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.15
 	github.com/gofiber/websocket/v2 v2.2.1
 	github.com/google/uuid v1.6.0
-	github.com/petaki/inertia-go v1.16.0
+	github.com/romsar/gonertia/v3 v3.0.0
 	github.com/surrealdb/surrealdb.go v1.7.0
 )
 

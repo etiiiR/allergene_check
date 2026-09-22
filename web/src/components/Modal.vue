@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from "vue";
-import { X } from "lucide-vue-next";
+import { X } from "@lucide/vue";
 defineProps({ title: String });
 const emit = defineEmits(["close"]);
 const dialog = ref(null);

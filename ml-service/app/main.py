@@ -14,6 +14,7 @@ from sklearn.linear_model import LinearRegression, LogisticRegression
 import torch
 from transformers import AutoModel, AutoTokenizer
 from app.diary_analysis import router as diary_router
+from app.recipe_scraper import router as recipe_scraper_router
 
 
 BERT_MODEL_NAME = os.getenv("BERT_MODEL_NAME", "prajjwal1/bert-tiny")
@@ -37,6 +38,7 @@ app = FastAPI(
     description="Basic regression and CPU-only text similarity over JSON data.",
 )
 app.include_router(diary_router)
+app.include_router(recipe_scraper_router)
 
 
 class FeatureRequest(BaseModel):

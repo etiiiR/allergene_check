@@ -1,16 +1,17 @@
 package main
 
 import (
-	"crypto/sha256"
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"io"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestRecipeValidation(t *testing.T) {
@@ -42,6 +43,105 @@ func TestCheckinExplicitNegativeAndConflicts(t *testing.T) {
 		t.Fatal("out of bounds severity accepted")
 	}
 }
+
+func TestCheckinTimingAndMealReferenceValidation(t *testing.T) {
+	c := Checkin{
+		OccurredAt:   time.Now().UTC().Format(time.RFC3339),
+		Symptoms:     map[string]int{"bloating": 5},
+		SleepHours:   8,
+		TimingBucket: "mid",
+	}
+	if err := c.validate(); err != nil {
+		t.Fatal(err)
+	}
+
+	c.TimingBucket = "not-a-window"
+	if c.validate() == nil {
+		t.Fatal("invalid timing bucket accepted")
+	}
+
+	c.TimingBucket = "mid"
+	c.ReferenceMealID = "not-a-uuid"
+	if c.validate() == nil {
+		t.Fatal("invalid meal reference accepted")
+	}
+}
+
+func TestProfileSeparatesCycleContext(t *testing.T) {
+	p := UserProfile{
+		BodyGroup:       "female",
+		CycleTracking:   true,
+		CycleLengthDays: 28,
+		PeriodStart:     "2026-01-01",
+	}
+	if err := p.validate(); err != nil {
+		t.Fatal(err)
+	}
+	phase, day := inferredCycleContext("2026-01-14T12:00:00Z", p)
+	if phase != "ovulation" || day != 14 {
+		t.Fatalf("unexpected cycle context: %s, day %d", phase, day)
+	}
+
+	p.BodyGroup = "male"
+	if err := p.validate(); err != nil {
+		t.Fatal(err)
+	}
+	if p.CycleTracking || p.PeriodStart != "" {
+		t.Fatal("cycle data must be cleared outside the female cycle context")
+	}
+}
+
+func TestRecipeFlagsAndStoolObservationsValidate(t *testing.T) {
+	flag := RecipeFlag{RecipeID: uuid.NewString(), Kind: "reaction", Symptoms: map[string]int{"pain": 6}, Severity: 6}
+	if err := flag.validate(); err != nil {
+		t.Fatal(err)
+	}
+	flag.Kind = "made-up-kind"
+	if flag.validate() == nil {
+		t.Fatal("invalid recipe flag accepted")
+	}
+
+	stool := StoolObservation{
+		ObservedAt:      time.Now().UTC().Format(time.RFC3339),
+		ObservedForDate: time.Now().UTC().Format("2006-01-02"),
+		Quality:         "formed",
+	}
+	if err := stool.validate(); err != nil {
+		t.Fatal(err)
+	}
+	stool.Quality = "not-a-quality"
+	if stool.validate() == nil {
+		t.Fatal("invalid stool quality accepted")
+	}
+}
+
+func TestStressObservationValidationKeepsRawMetricsSeparate(t *testing.T) {
+	value := 7.5
+	observation := StressObservation{
+		Source: "apple_healthkit", Metric: "stress_score", Value: 75, Unit: "percent",
+		NormalizedStress: &value, ObservedAt: time.Now().UTC().Format(time.RFC3339),
+	}
+	if err := observation.validate(); err != nil {
+		t.Fatal(err)
+	}
+
+	raw := StressObservation{
+		Source: "android_health_connect", Metric: "hrv", Value: 42, Unit: "ms",
+		ObservedAt: time.Now().UTC().Format(time.RFC3339),
+	}
+	if err := raw.validate(); err != nil {
+		t.Fatal(err)
+	}
+	raw.Metric = "stress_score"
+	if raw.validate() == nil {
+		t.Fatal("stress score without an explicit normalized value must be rejected")
+	}
+	value = 11
+	if observation.validate() == nil {
+		t.Fatal("normalized stress outside 0-10 must be rejected")
+	}
+}
+
 func TestIngredientKeysPreserveSpicesAndAllergens(t *testing.T) {
 	keys := ingredientKeys([]Ingredient{{Text: "Cumin", FoodIDs: []string{"cumin"}, Allergens: []string{"mustard"}}, {Text: " My spice blend ", FoodIDs: []string{}, Allergens: []string{}}})
 	set := map[string]bool{}
@@ -56,11 +156,10 @@ func TestIngredientKeysPreserveSpicesAndAllergens(t *testing.T) {
 }
 func TestInertiaPageProtocolAndSafeRoot(t *testing.T) {
 	app := newTestApp()
-	for _, path := range []string{"/", "/diary", "/recipes", "/insights", "/foods"} {
+	for _, path := range []string{"/", "/diary", "/recipes", "/insights", "/report", "/calendar", "/foods", "/profile"} {
 		req := httptest.NewRequest("GET", path, nil)
 		req.Header.Set("X-Inertia", "true")
-		asset, _ := os.ReadFile("web/dist/assets/app.js")
-		req.Header.Set("X-Inertia-Version", fmt.Sprintf("%x", sha256.Sum256(asset)))
+		req.Header.Set("X-Inertia-Version", fmt.Sprintf("%x", md5.Sum([]byte("development"))))
 		res, err := app.Test(req)
 		if err != nil {
 			t.Fatal(err)

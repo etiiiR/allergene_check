@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --color-bauch-paper: #f5f4ef;
+  --color-bauch-ink: #29372f;
+  --color-bauch-moss: #385847;
+  --color-bauch-sage: #e6ede1;
+  --color-bauch-line: #dde3da;
+}
+
+/* Small shared interaction details. Layout and page composition live in Vue. */
+@utility tap-target {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+@utility quiet-ring {
+  box-shadow:
+    0 0 0 1px rgb(56 88 71 / 0.08),
+    0 8px 24px rgb(41 55 47 / 0.04);
+}
+
+@utility pressable {
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}

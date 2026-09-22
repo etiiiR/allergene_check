@@ -21,9 +21,7 @@ test("recipe → meal → symptom-free check-in → patterns; persistence and cl
     await expect(
       page.getByRole("heading", { name: "Hör auf dein Bauchgefühl." }),
     ).toBeVisible();
-    await page
-      .getByRole("link", { name: "Meine Rezepte", exact: true })
-      .click();
+    await page.getByRole("link", { name: "Rezepte", exact: true }).click();
     await page.getByRole("button", { name: "Rezept hinzufügen" }).click();
     await page.getByLabel("Rezeptname").fill(name);
     await page
@@ -58,7 +56,7 @@ test("recipe → meal → symptom-free check-in → patterns; persistence and cl
     const mealResponse = page.waitForResponse(
       (r) => r.url().endsWith("/api/meals") && r.request().method() === "POST",
     );
-    await page.getByRole("button", { name: "Eintrag speichern" }).click();
+    await page.getByRole("button", { name: "Mahlzeit speichern" }).click();
     const mealResult = await mealResponse;
     expect(mealResult.ok()).toBeTruthy();
     ids.push(["meals", (await mealResult.json()).id]);
@@ -79,12 +77,10 @@ test("recipe → meal → symptom-free check-in → patterns; persistence and cl
       data: recipe,
     });
     expect(restore.ok()).toBeTruthy();
-    await page
-      .getByRole("link", { name: "Mein Tagebuch", exact: true })
-      .click();
+    await page.getByRole("link", { name: "Tagebuch", exact: true }).click();
     await expect(page.getByRole("heading", { name })).toBeVisible();
     await page.getByRole("button", { name: "Check-in", exact: true }).click();
-    await page.getByRole("checkbox", { name: /Mir geht es gut/ }).check();
+    await page.getByRole("button", { name: /Heute geht es gut/ }).click();
     const checkResponse = page.waitForResponse(
       (r) =>
         r.url().endsWith("/api/checkins") && r.request().method() === "POST",
@@ -95,11 +91,9 @@ test("recipe → meal → symptom-free check-in → patterns; persistence and cl
     await expect(
       page.getByRole("heading", { name: "Ein gutes Bauchgefühl" }),
     ).toBeVisible();
-    await page.getByRole("link", { name: "Meine Muster", exact: true }).click();
+    await page.getByRole("link", { name: "Muster", exact: true }).click();
     await expect(page.getByText("Deine Datenbasis wächst.")).toBeVisible();
-    await page
-      .getByRole("link", { name: "Meine Rezepte", exact: true })
-      .click();
+    await page.getByRole("link", { name: "Rezepte", exact: true }).click();
     await page
       .locator("article")
       .filter({ has: page.getByRole("heading", { name }) })
@@ -116,9 +110,7 @@ test("recipe → meal → symptom-free check-in → patterns; persistence and cl
         .first(),
     ).toBeVisible();
     await page.getByRole("button", { name: "Schliessen" }).click();
-    await page
-      .getByRole("link", { name: "FODMAP-Lexikon", exact: true })
-      .click();
+    await page.getByRole("link", { name: "FODMAP", exact: true }).click();
     await page.getByLabel("Lebensmittel suchen").fill("zwiebel");
     await expect(
       page.getByRole("cell", { name: "Onion", exact: true }),
@@ -148,5 +140,321 @@ test("recipe → meal → symptom-free check-in → patterns; persistence and cl
       await request.delete("/api/" + kind + "/" + id, {
         headers: { "X-Diary-Request": "1" },
       });
+  }
+});
+
+test("symptom check-in records its timing window", async ({ page, request }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Befinden", exact: true }).first().click();
+  await page.getByRole("button", { name: "Blähungen", exact: true }).click();
+  await page.getByRole("button", { name: /Später/ }).click();
+
+  const responsePromise = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/checkins") &&
+      response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Eintrag speichern" }).click();
+  const response = await responsePromise;
+  expect(response.ok()).toBeTruthy();
+  const checkin = await response.json();
+  expect(checkin.timing_bucket).toBe("mid");
+
+  const cleanup = await request.delete("/api/checkins/" + checkin.id, {
+    headers: { "X-Diary-Request": "1" },
+  });
+  expect(cleanup.ok()).toBeTruthy();
+});
+
+test("profile keeps cycle tracking in its separate context", async ({ page, request }) => {
+  const original = await (await request.get("/api/diary")).json();
+  try {
+    await page.goto("/profile");
+    await page.getByLabel("Körperkontext").selectOption("female");
+    await page.getByLabel("Zyklus in Check-ins berücksichtigen").check();
+    await page.getByLabel("Beginn der letzten Periode").fill("2026-09-01");
+    await page.getByLabel("Übliche Zykluslänge").fill("28");
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/profile") &&
+        response.request().method() === "PUT",
+    );
+    await page.getByRole("button", { name: "Profil speichern" }).click();
+    expect((await responsePromise).ok()).toBeTruthy();
+    await expect(page.getByRole("status")).toContainText("Profil gespeichert");
+    const saved = await (await request.get("/api/diary")).json();
+    expect(saved.profile.body_group).toBe("female");
+    expect(saved.profile.cycle_tracking).toBeTruthy();
+  } finally {
+    const restore = await request.put("/api/profile", {
+      headers: { "X-Diary-Request": "1" },
+      data: original.profile,
+    });
+    expect(restore.ok()).toBeTruthy();
+  }
+});
+
+test("recipe flags and next-day stool observation feed the diary", async ({ page, request }) => {
+  const created = [];
+  const name = "Flag browser test " + Date.now();
+  const headers = { "X-Diary-Request": "1" };
+  try {
+    const recipeResponse = await request.post("/api/recipes", {
+      headers,
+      data: {
+        title: name,
+        servings: 2,
+        instructions: "",
+        ingredients: [{ text: "1 Zwiebel", food_ids: ["onion"], allergens: [] }],
+      },
+    });
+    expect(recipeResponse.ok()).toBeTruthy();
+    const recipe = await recipeResponse.json();
+    created.push(["recipes", recipe.id]);
+
+    const mealResponse = await request.post("/api/meals", {
+      headers,
+      data: {
+        recipe_id: recipe.id,
+        occurred_at: new Date(Date.now() - 3600000).toISOString(),
+        portions: 1,
+        notes: "",
+      },
+    });
+    expect(mealResponse.ok()).toBeTruthy();
+    const meal = await mealResponse.json();
+    created.push(["meals", meal.id]);
+
+    await page.goto("/recipes");
+    const card = page.locator("article").filter({ hasText: name });
+    await card.getByRole("button", { name: "Verdächtig markieren" }).click();
+    const suspectedResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/recipe-flags") &&
+        response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Verdacht speichern" }).click();
+    const suspected = await (await suspectedResponse).json();
+    created.push(["recipe_flags", suspected.id]);
+
+    await card.getByRole("button", { name: "Reaktion markieren" }).click();
+    await page.getByLabel("Zugehörige Mahlzeit").selectOption(meal.id);
+    const reactionResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/recipe-flags") &&
+        response.request().method() === "POST",
+    );
+    await page.locator("form.flag-form").getByRole("button", { name: "Reaktion markieren" }).click();
+    const reaction = await (await reactionResponse).json();
+    created.push(["recipe_flags", reaction.id]);
+
+    await page.goto("/diary");
+    await page.getByRole("button", { name: "Stuhl", exact: true }).click();
+    await page.getByRole("button", { name: "Wässrig" }).click();
+    const stoolResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/stools") &&
+        response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Beobachtung speichern" }).click();
+    const stool = await (await stoolResponse).json();
+    expect(stool.quality).toBe("watery");
+    created.push(["stools", stool.id]);
+  } finally {
+    for (const [kind, id] of created.reverse()) {
+      const response = await request.delete("/api/" + kind + "/" + id, { headers });
+      expect(response.ok()).toBeTruthy();
+    }
+  }
+});
+
+test("profile imports normalized wearable stress data", async ({ page, request }) => {
+  const externalID = "browser-health-" + Date.now();
+  let stressID = "";
+  const payload = {
+    source: "generic",
+    records: [{
+      external_id: externalID,
+      metric: "stress_score",
+      value: 64,
+      unit: "percent",
+      normalized_stress: 6.4,
+      observed_at: new Date(Date.now() - 3600000).toISOString(),
+    }],
+  };
+  try {
+    await page.goto("/profile");
+    await page.getByLabel("Quelle der Gesundheitsdaten").selectOption("generic");
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "health.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(payload)),
+    });
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/health/import") &&
+        response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Health-Daten importieren" }).click();
+    const response = await responsePromise;
+    expect(response.ok()).toBeTruthy();
+    const imported = await response.json();
+    expect(imported.imported).toBe(1);
+    expect(imported.records[0].normalized_stress).toBe(6.4);
+    stressID = imported.records[0].id;
+    await expect(page.getByRole("status")).toContainText("1 neu importiert");
+
+    const second = await request.post("/api/health/import", {
+      headers: { "X-Diary-Request": "1" },
+      data: payload,
+    });
+    expect(second.ok()).toBeTruthy();
+    expect((await second.json()).updated).toBe(1);
+  } finally {
+    if (stressID) {
+      const cleanup = await request.delete("/api/stress/" + stressID, {
+        headers: { "X-Diary-Request": "1" },
+      });
+      expect(cleanup.ok()).toBeTruthy();
+    }
+  }
+});
+
+test("dashboard saves a manual stress score", async ({ page, request }) => {
+  let stressID = "";
+  try {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Stress manuell" }).click();
+    await page.getByRole("button", { name: "Hoch" }).click();
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/stress") &&
+        response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Stress speichern" }).click();
+    const response = await responsePromise;
+    expect(response.ok()).toBeTruthy();
+    const saved = await response.json();
+    expect(saved.source).toBe("generic");
+    expect(saved.metric).toBe("stress_score");
+    expect(saved.normalized_stress).toBe(9);
+    stressID = saved.id;
+    await page.goto("/insights");
+    await expect(page.getByRole("heading", { name: "Stress & Health-Daten" })).toBeVisible();
+  } finally {
+    if (stressID) {
+      const cleanup = await request.delete("/api/stress/" + stressID, {
+        headers: { "X-Diary-Request": "1" },
+      });
+      expect(cleanup.ok()).toBeTruthy();
+    }
+  }
+});
+
+test("doctor report renders a printable full-data overview", async ({ page }) => {
+  await page.goto("/report");
+  await expect(
+    page.getByRole("heading", { name: "Zusammenfassung für das Arztgespräch" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Drucken / PDF" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Teilen / senden" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Zutatenmuster" })).toBeVisible();
+});
+
+test("calendar shows an open follow-up and lets me add a good check-in", async ({
+  page,
+  request,
+}) => {
+  const ids = [];
+  const headers = { "X-Diary-Request": "1" };
+  const name = "Kalender test " + Date.now();
+  try {
+    const diaryResponse = await request.get("/api/diary");
+    expect(diaryResponse.ok()).toBeTruthy();
+    const diary = await diaryResponse.json();
+    const localKey = (date) =>
+      new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+    const checkinDays = new Set(
+      (diary.checkins || []).map((item) => localKey(new Date(item.occurred_at))),
+    );
+    const now = new Date();
+    let mealAt = null;
+    for (let daysAgo = 1; daysAgo <= 180 && !mealAt; daysAgo += 1) {
+      const candidate = new Date(now);
+      candidate.setDate(candidate.getDate() - daysAgo);
+      candidate.setHours(12, 0, 0, 0);
+      if (!checkinDays.has(localKey(candidate))) mealAt = candidate;
+    }
+    expect(mealAt).not.toBeNull();
+
+    const recipeResponse = await request.post("/api/recipes", {
+      headers,
+      data: {
+        title: name,
+        servings: 1,
+        ingredients: [{ text: "Karotte", food_ids: ["carrot"], allergens: [] }],
+      },
+    });
+    expect(recipeResponse.ok()).toBeTruthy();
+    const recipe = await recipeResponse.json();
+    ids.push(["recipes", recipe.id]);
+
+    const mealResponse = await request.post("/api/meals", {
+      headers,
+      data: {
+        recipe_id: recipe.id,
+        occurred_at: mealAt.toISOString(),
+        portions: 1,
+      },
+    });
+    expect(mealResponse.ok()).toBeTruthy();
+    const meal = await mealResponse.json();
+    ids.push(["meals", meal.id]);
+
+    await page.goto("/calendar");
+    await expect(
+      page.getByRole("heading", { name: "Dein Kalender" }),
+    ).toBeVisible();
+    const monthDifference =
+      (mealAt.getFullYear() - now.getFullYear()) * 12 +
+      mealAt.getMonth() -
+      now.getMonth();
+    const monthButton = monthDifference < 0 ? "Vorheriger Monat" : "Nächster Monat";
+    for (let index = 0; index < Math.abs(monthDifference); index += 1) {
+      await page.getByRole("button", { name: monthButton }).click();
+    }
+    const dateLabel = new Intl.DateTimeFormat("de-CH", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(mealAt);
+    await page.getByRole("button", { name: new RegExp(dateLabel) }).click();
+    await expect(
+      page.locator(".selected-day-panel").getByText("Befinden offen", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText(name, { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Gutes Befinden", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Wie geht es deinem Bauch?" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: /Heute geht es gut/ }).click();
+    const checkResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/checkins") &&
+        response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Eintrag speichern" }).click();
+    const checkin = await (await checkResponse).json();
+    expect(checkin.symptom_free).toBeTruthy();
+    ids.push(["checkins", checkin.id]);
+  } finally {
+    for (const [kind, id] of ids.reverse()) {
+      const cleanup = await request.delete(`/api/${kind}/${id}`, { headers });
+      expect(cleanup.ok()).toBeTruthy();
+    }
   }
 });

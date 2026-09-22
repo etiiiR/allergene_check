@@ -44,6 +44,19 @@ func registerDiaryAPI(app *fiber.App, repo *DiaryRepository, analysis *AnalysisC
 		c.Set("Content-Disposition", "attachment; filename=bauchgefuehl-tagebuch.json")
 		return c.JSON(data)
 	})
+	api.Put("/profile", func(c *fiber.Ctx) error {
+		var profile UserProfile
+		if err := c.BodyParser(&profile); err != nil {
+			return invalid("Ungültiges Profil.")
+		}
+		if err := profile.validate(); err != nil {
+			return err
+		}
+		if err := repo.saveProfile(c.UserContext(), profile); err != nil {
+			return err
+		}
+		return c.JSON(profile)
+	})
 	api.Post("/ingredients/analyze", func(c *fiber.Ctx) error {
 		var req struct {
 			Lines []string `json:"lines"`
@@ -64,6 +77,142 @@ func registerDiaryAPI(app *fiber.App, repo *DiaryRepository, analysis *AnalysisC
 			return err
 		}
 		return c.Type("json").Send(data)
+	})
+	api.Post("/recipes/import", func(c *fiber.Ctx) error {
+		var req struct {
+			URL string `json:"url"`
+		}
+		if err := c.BodyParser(&req); err != nil || len(req.URL) < 1 || len(req.URL) > 2048 {
+			return invalid("Bitte eine gültige Rezept-Adresse eingeben.")
+		}
+		data, err := analysis.post(c.UserContext(), "/diary/scrape", req)
+		if err != nil {
+			return err
+		}
+		return c.Type("json").Send(data)
+	})
+	api.Post("/recipe-flags", func(c *fiber.Ctx) error {
+		var flag RecipeFlag
+		if err := c.BodyParser(&flag); err != nil {
+			return invalid("Ungültige Rezeptmarkierung.")
+		}
+		if err := flag.validate(); err != nil {
+			return err
+		}
+		data, err := repo.load(c.UserContext())
+		if err != nil {
+			return err
+		}
+		foundRecipe := false
+		for _, recipe := range data.Recipes {
+			if recipe.ID == flag.RecipeID {
+				foundRecipe = true
+				break
+			}
+		}
+		if !foundRecipe {
+			return invalid("Das markierte Rezept wurde nicht gefunden.")
+		}
+		if flag.MealID != "" {
+			foundMeal := false
+			for _, meal := range data.Meals {
+				if meal.ID == flag.MealID && meal.RecipeID == flag.RecipeID {
+					foundMeal = true
+					if flag.OccurredAt == "" {
+						flag.OccurredAt = meal.OccurredAt
+					}
+					break
+				}
+			}
+			if !foundMeal {
+				return invalid("Die markierte Mahlzeit gehört nicht zu diesem Rezept.")
+			}
+		}
+		flag.ID = uuid.NewString()
+		if err := repo.save(c.UserContext(), "recipe_flags", flag.ID, flag); err != nil {
+			return err
+		}
+		return c.Status(201).JSON(flag)
+	})
+	api.Post("/stools", func(c *fiber.Ctx) error {
+		var stool StoolObservation
+		if err := c.BodyParser(&stool); err != nil {
+			return invalid("Ungültige Stuhlbeobachtung.")
+		}
+		if err := stool.validate(); err != nil {
+			return err
+		}
+		stool.ID = uuid.NewString()
+		if err := repo.save(c.UserContext(), "stools", stool.ID, stool); err != nil {
+			return err
+		}
+		return c.Status(201).JSON(stool)
+	})
+	api.Post("/stress", func(c *fiber.Ctx) error {
+		var observation StressObservation
+		if err := c.BodyParser(&observation); err != nil {
+			return invalid("Ungültige Gesundheitsmessung.")
+		}
+		if err := observation.validate(); err != nil {
+			return err
+		}
+		observation.ID = uuid.NewString()
+		if err := repo.save(c.UserContext(), "stress", observation.ID, observation); err != nil {
+			return err
+		}
+		return c.Status(201).JSON(observation)
+	})
+	api.Post("/health/import", func(c *fiber.Ctx) error {
+		var request HealthImportRequest
+		if err := c.BodyParser(&request); err != nil || len(request.Records) == 0 || len(request.Records) > 10000 {
+			return invalid("Bitte 1 bis 10000 Gesundheitsmessungen importieren.")
+		}
+		if request.Source != "" {
+			if _, ok := healthSources[request.Source]; !ok {
+				return invalid("Die Gesundheitsquelle ist nicht bekannt.")
+			}
+		}
+		data, err := repo.load(c.UserContext())
+		if err != nil {
+			return err
+		}
+		existing := map[string]string{}
+		for _, old := range data.Stress {
+			if old.Source != "" && old.ExternalID != "" {
+				existing[old.Source+"\x00"+old.ExternalID] = old.ID
+			}
+		}
+		imported, updated := 0, 0
+		stored := make([]StressObservation, 0, len(request.Records))
+		for i := range request.Records {
+			observation := request.Records[i]
+			if observation.Source == "" {
+				observation.Source = request.Source
+			} else if request.Source != "" && observation.Source != request.Source {
+				return invalid("Eine Messung gehört zu einer anderen Quelle als der Import.")
+			}
+			if err := observation.validate(); err != nil {
+				return err
+			}
+			key := observation.Source + "\x00" + observation.ExternalID
+			if observation.ExternalID != "" {
+				if oldID, ok := existing[key]; ok {
+					observation.ID = oldID
+					updated++
+				} else {
+					observation.ID = uuid.NewString()
+					imported++
+				}
+			} else {
+				observation.ID = uuid.NewString()
+				imported++
+			}
+			if err := repo.save(c.UserContext(), "stress", observation.ID, observation); err != nil {
+				return err
+			}
+			stored = append(stored, observation)
+		}
+		return c.JSON(fiber.Map{"imported": imported, "updated": updated, "records": stored})
 	})
 	api.Get("/patterns", func(c *fiber.Ctx) error {
 		symptom := c.Query("symptom", "any")
@@ -169,6 +318,33 @@ func registerDiaryAPI(app *fiber.App, repo *DiaryRepository, analysis *AnalysisC
 		}
 		if err := check.validate(); err != nil {
 			return err
+		}
+		profile, err := repo.loadProfile(c.UserContext())
+		if err != nil {
+			return err
+		}
+		if check.CyclePhase == "unknown" {
+			check.CyclePhase, check.CycleDay = inferredCycleContext(check.OccurredAt, profile)
+		}
+		if profile.BodyGroup != "female" || !profile.CycleTracking {
+			check.CyclePhase = "unknown"
+			check.CycleDay = 0
+		}
+		if check.ReferenceMealID != "" {
+			data, err := repo.load(c.UserContext())
+			if err != nil {
+				return err
+			}
+			found := false
+			for _, meal := range data.Meals {
+				if meal.ID == check.ReferenceMealID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return invalid("Die zugeordnete Mahlzeit wurde nicht gefunden.")
+			}
 		}
 		check.ID = uuid.NewString()
 		if err := repo.save(c.UserContext(), "checkins", check.ID, check); err != nil {

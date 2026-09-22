@@ -1,11 +1,23 @@
 <script setup>
 import { computed, ref } from "vue";
 import { Head } from "@inertiajs/vue3";
-import { Plus, Heart, Utensils, Trash2, BookOpen } from "lucide-vue-next";
+import { Plus, Heart, HeartPulse, Utensils, Trash2, BookOpen, ClipboardCheck } from "@lucide/vue";
 import AppShell from "../components/AppShell.vue";
 import EntryModal from "../components/EntryModal.vue";
 import Modal from "../components/Modal.vue";
-import { dayOf, localDate, severity, dateTime, useMutation } from "../lib";
+import StoolModal from "../components/StoolModal.vue";
+import StressModal from "../components/StressModal.vue";
+import {
+  dayOf,
+  localDate,
+  severity,
+  dateTime,
+  timingLabel,
+  timingPhase,
+  cyclePhaseLabel,
+  stoolQualityLabel,
+  useMutation,
+} from "../lib";
 const props = defineProps({ diary: Object, symptoms: Object });
 const entry = ref(""),
   date = ref(localDate()),
@@ -17,6 +29,8 @@ const events = computed(() => {
   const all = [
     ...props.diary.meals.map((x) => ({ ...x, kind: "meals" })),
     ...props.diary.checkins.map((x) => ({ ...x, kind: "checkins" })),
+    ...(props.diary.stools || []).map((x) => ({ ...x, kind: "stools", occurred_at: x.observed_at })),
+    ...(props.diary.stress_observations || []).map((x) => ({ ...x, kind: "stress", occurred_at: x.observed_at })),
   ];
   return all
     .filter(
@@ -24,6 +38,8 @@ const events = computed(() => {
         (!date.value || dayOf(x.occurred_at) === date.value) &&
         (filter.value === "all" ||
           (filter.value === "meals" && x.kind === "meals") ||
+          (filter.value === "stools" && x.kind === "stools") ||
+          (filter.value === "stress" && x.kind === "stress") ||
           (filter.value === "free" &&
             x.kind === "checkins" &&
             x.symptom_free) ||
@@ -52,6 +68,10 @@ const events = computed(() => {
           <Heart :size="17" />Check-in</button
         ><button class="button primary" @click="entry = 'meal'">
           <Plus :size="17" />Mahlzeit
+        </button><button class="button secondary" @click="entry = 'stool'">
+          <ClipboardCheck :size="17" />Stuhl
+        </button><button class="button secondary" @click="entry = 'stress'">
+          <HeartPulse :size="17" />Stress manuell
         </button>
       </div>
     </div>
@@ -62,6 +82,8 @@ const events = computed(() => {
         >Anzeigen<select v-model="filter">
           <option value="all">Alle Einträge</option>
           <option value="meals">Mahlzeiten</option>
+          <option value="stools">Stuhlbeobachtungen</option>
+          <option value="stress">Stressmessungen</option>
           <option value="free">Symptomfrei</option>
           <option value="symptoms">Mit Beschwerden</option>
           <option v-for="(name, key) in symptoms" :value="key" :key="key">
@@ -88,13 +110,9 @@ const events = computed(() => {
     </section>
     <div class="diary-list">
       <article v-for="item in events" :key="item.id" class="panel diary-entry">
-        <div class="entry-time">
-          {{ dateTime(item.occurred_at)
-          }}<span class="event-icon"
-            ><Utensils v-if="item.kind === 'meals'" :size="19" /><Heart
-              v-else
-              :size="19"
-          /></span>
+            <div class="entry-time">
+              {{ dateTime(item.occurred_at)
+              }}<span class="event-icon"><Utensils v-if="item.kind === 'meals'" :size="19" /><ClipboardCheck v-else-if="item.kind === 'stools'" :size="19" /><HeartPulse v-else-if="item.kind === 'stress'" :size="19" /><Heart v-else :size="19" /></span>
         </div>
         <div class="entry-content">
           <div class="entry-title">
@@ -102,7 +120,11 @@ const events = computed(() => {
               {{
                 item.kind === "meals"
                   ? item.title
-                  : item.symptom_free
+                  : item.kind === "stools"
+                    ? "Stuhlbeobachtung"
+                    : item.kind === "stress"
+                      ? "Stress manuell"
+                    : item.symptom_free
                     ? "Ein gutes Bauchgefühl"
                     : "So ging es meinem Bauch"
               }}
@@ -110,16 +132,24 @@ const events = computed(() => {
             <span
               class="pill"
               :class="
-                item.kind === 'meals'
-                  ? 'neutral'
-                  : item.symptom_free
+                  item.kind === 'meals'
+                    ? 'neutral'
+                    : item.kind === 'stools'
+                      ? 'neutral'
+                    : item.kind === 'stress'
+                      ? 'neutral'
+                    : item.symptom_free
                     ? 'low'
                     : 'high'
               "
               >{{
-                item.kind === "meals"
-                  ? "Mahlzeit"
-                  : item.symptom_free
+                  item.kind === "meals"
+                    ? "Mahlzeit"
+                    : item.kind === "stools"
+                      ? "Stuhl"
+                    : item.kind === "stress"
+                      ? "Stress"
+                    : item.symptom_free
                     ? "Symptomfrei"
                     : "Beschwerden"
               }}</span
@@ -135,7 +165,13 @@ const events = computed(() => {
                 >{{ i.text }}</span
               >
             </div></template
-          ><template v-else
+          ><template v-else-if="item.kind === 'stools'"
+            ><p class="helper">Für {{ item.observed_for_date }}</p>
+            <div class="tags"><span class="stool-tag">{{ stoolQualityLabel(item.quality) }}</span></div>
+          </template><template v-else-if="item.kind === 'stress'"
+            ><div class="tags"><span class="stress-tag">{{ item.normalized_stress ?? item.value }}/10 · manuell</span></div>
+            <p class="helper">Persönlicher Stress-Score ohne Watch- oder Ringmessung.</p>
+          </template><template v-else
             ><div class="tags">
               <span
                 v-for="(value, key) in item.symptoms"
@@ -144,6 +180,13 @@ const events = computed(() => {
                 class="symptom-tag"
                 >{{ symptoms[key] }} <b>{{ value }}/10</b></span
               >
+            </div>
+            <div v-if="!item.symptom_free" class="timing-tag">
+              <span>{{ timingLabel(item.timing_bucket) }}</span>
+              <small>{{ timingPhase(item.timing_bucket) }}</small>
+            </div>
+            <div v-if="item.cycle_phase && item.cycle_phase !== 'unknown'" class="cycle-tag">
+              {{ cyclePhaseLabel(item.cycle_phase) }}<span v-if="item.cycle_day"> · Tag {{ item.cycle_day }}</span>
             </div>
             <p class="helper">
               Stress {{ item.stress }}/10 · Schlaf
@@ -162,12 +205,20 @@ const events = computed(() => {
       </article>
     </div>
     <button v-if="date" class="text-button" @click="entry = 'free'">
-      <Heart :size="16" />Für diesen Tag symptomfrei eintragen
+      <Heart :size="16" />Gutes Befinden für diesen Zeitpunkt eintragen
     </button>
     <EntryModal
-      v-if="entry"
+      v-if="entry === 'meal' || entry === 'check' || entry === 'free'"
       :type="entry"
       :day="date"
+      @close="entry = ''"
+    /><StoolModal
+      v-if="entry === 'stool'"
+      :day="date === localDate() ? '' : date"
+      @close="entry = ''"
+    /><StressModal
+      v-if="entry === 'stress'"
+      :day="date === localDate() ? '' : date"
       @close="entry = ''"
     /><Modal v-if="pending" title="Eintrag löschen?" @close="pending = null"
       ><p>

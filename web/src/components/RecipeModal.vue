@@ -1,7 +1,7 @@
 <script setup>
 import { ref, reactive } from "vue";
 import { usePage } from "@inertiajs/vue3";
-import { Sparkles, Plus, Trash2 } from "lucide-vue-next";
+import { Globe, Sparkles, Plus, Trash2 } from "@lucide/vue";
 import Modal from "./Modal.vue";
 import { api, useMutation, allergenLabels } from "../lib";
 const props = defineProps({ recipe: Object }),
@@ -11,10 +11,18 @@ const page = usePage(),
 const form = reactive(
   props.recipe
     ? JSON.parse(JSON.stringify(props.recipe))
-    : { title: "", servings: 2, instructions: "", ingredients: [] },
+    : {
+        title: "",
+        servings: 2,
+        instructions: "",
+        ingredients: [],
+        source_url: "",
+      },
 );
 const raw = ref(""),
   analyzing = ref(false),
+  importing = ref(false),
+  sourceURL = ref(""),
   parseError = ref("");
 function manual() {
   form.ingredients.push({ text: "", food_ids: [], allergens: [] });
@@ -46,6 +54,30 @@ async function analyze() {
     analyzing.value = false;
   }
 }
+async function importRecipe() {
+  importing.value = true;
+  parseError.value = "";
+  try {
+    const data = await api("/recipes/import", {
+      method: "POST",
+      body: JSON.stringify({ url: sourceURL.value.trim() }),
+    });
+    form.title = data.title || form.title;
+    form.instructions = data.instructions || form.instructions;
+    form.source_url = data.source_url || sourceURL.value.trim();
+    form.ingredients = (data.ingredients || []).map((text) => ({
+      text,
+      food_ids: [],
+      allergens: [],
+    }));
+    sourceURL.value = "";
+    if (data.warnings?.length) parseError.value = data.warnings.join(" ");
+  } catch (e) {
+    parseError.value = e.message;
+  } finally {
+    importing.value = false;
+  }
+}
 function submit() {
   save(
     props.recipe ? "/recipes/" + props.recipe.id : "/recipes",
@@ -75,6 +107,29 @@ function submit() {
             min="1"
             max="50"
         /></label>
+      </div>
+      <div class="recipe-source-import">
+        <label
+          >Rezept von URL übernehmen<input
+            v-model="sourceURL"
+            type="url"
+            maxlength="2048"
+            placeholder="https://beispiel.de/rezept"
+        /></label>
+        <button
+          type="button"
+          class="button secondary"
+          :disabled="importing || !sourceURL.trim()"
+          @click="importRecipe"
+        >
+          <Globe :size="16" />{{
+            importing ? "Wird importiert …" : "Vorschau laden"
+          }}
+        </button>
+        <p class="helper">
+          Es werden nur öffentliche Seiten mit Schema.org-Rezeptdaten gelesen.
+          Bitte Zutaten und Allergene vor dem Speichern prüfen.
+        </p>
       </div>
       <div class="recipe-import">
         <label

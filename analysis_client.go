@@ -37,6 +37,15 @@ func (a *AnalysisClient) post(ctx context.Context, path string, payload any) (js
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+		var detail struct {
+			Detail string `json:"detail"`
+		}
+		if json.Unmarshal(data, &detail) == nil && detail.Detail != "" {
+			return nil, NewAppError(resp.StatusCode, "analysis_request_rejected", detail.Detail)
+		}
+		return nil, NewAppError(resp.StatusCode, "analysis_request_rejected", "Die Analyse-Anfrage wurde abgelehnt.")
+	}
 	if resp.StatusCode != 200 || !json.Valid(data) {
 		return nil, NewAppError(503, "analysis_unavailable", "Die Analyse ist momentan nicht verfügbar.")
 	}
@@ -45,7 +54,22 @@ func (a *AnalysisClient) post(ctx context.Context, path string, payload any) (js
 func analysisPayload(data DiaryData, symptom string, hours int) map[string]any {
 	meals := []map[string]any{}
 	for _, m := range data.Meals {
-		meals = append(meals, map[string]any{"occurred_at": m.OccurredAt, "ingredient_ids": ingredientKeys(m.Ingredients)})
+		meals = append(meals, map[string]any{"id": m.ID, "recipe_id": m.RecipeID, "occurred_at": m.OccurredAt, "ingredient_ids": ingredientKeys(m.Ingredients)})
 	}
-	return map[string]any{"meals": meals, "checkins": data.Checkins, "symptom": symptom, "window_hours": hours}
+	flags := []map[string]any{}
+	for _, flag := range data.RecipeFlags {
+		ingredientIDs := []string{}
+		for _, recipe := range data.Recipes {
+			if recipe.ID == flag.RecipeID {
+				ingredientIDs = ingredientKeys(recipe.Ingredients)
+				break
+			}
+		}
+		flags = append(flags, map[string]any{"id": flag.ID, "recipe_id": flag.RecipeID, "meal_id": flag.MealID, "kind": flag.Kind, "severity": flag.Severity, "symptoms": flag.Symptoms, "occurred_at": flag.OccurredAt, "ingredient_ids": ingredientIDs})
+	}
+	return map[string]any{
+		"meals": meals, "checkins": data.Checkins, "symptom": symptom, "window_hours": hours,
+		"profile_group": data.Profile.BodyGroup, "cycle_enabled": data.Profile.BodyGroup == "female" && data.Profile.CycleTracking,
+		"recipe_flags": flags, "stools": data.Stools, "stress_observations": data.Stress,
+	}
 }

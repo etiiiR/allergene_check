@@ -35,6 +35,37 @@ export const dateTime = (v) =>
   }).format(new Date(v));
 export const dayOf = (v) => localDate(new Date(v));
 export const severity = (c) => Math.max(0, ...Object.values(c.symptoms || {}));
+export const timingWindows = {
+  immediate: { label: "Direkt nach dem Essen", phase: "Frühes Fenster" },
+  early: { label: "30 Minuten bis 2 Stunden", phase: "Frühes Fenster" },
+  mid: { label: "2 bis 6 Stunden", phase: "Dünndarm-orientiertes Fenster" },
+  late: { label: "6 bis 24 Stunden / Folgetag", phase: "Spätes Fenster" },
+  unknown: { label: "Zeitpunkt unklar", phase: "Nicht zugeordnet" },
+};
+export const timingLabel = (bucket) =>
+  timingWindows[bucket]?.label || timingWindows.unknown.label;
+export const timingPhase = (bucket) =>
+  timingWindows[bucket]?.phase || timingWindows.unknown.phase;
+export const cyclePhases = {
+  menstruation: "Menstruation",
+  follicular: "Follikelphase",
+  ovulation: "Ovulationsfenster",
+  luteal: "Lutealphase",
+  unknown: "Nicht zugeordnet",
+};
+export const cyclePhaseLabel = (phase) =>
+  cyclePhases[phase] || cyclePhases.unknown;
+export const stoolQualities = {
+  formed: "Gut geformt",
+  hard: "Hart / schwer",
+  soft: "Weich",
+  watery: "Wässrig",
+  mixed: "Unterschiedlich",
+  no_stool: "Kein Stuhl",
+  unknown: "Nicht sicher",
+};
+export const stoolQualityLabel = (quality) =>
+  stoolQualities[quality] || stoolQualities.unknown;
 export function foodName(id, foods) {
   return id.startsWith("allergen:")
     ? "Allergen: " + (allergenLabels[id.slice(9)] || id.slice(9))

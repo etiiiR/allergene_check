@@ -9,10 +9,12 @@ import {
   Trash2,
   ArrowRight,
   Sparkles,
-} from "lucide-vue-next";
+  Flag,
+} from "@lucide/vue";
 import AppShell from "../components/AppShell.vue";
 import RecipeModal from "../components/RecipeModal.vue";
 import EntryModal from "../components/EntryModal.vue";
+import RecipeFlagModal from "../components/RecipeFlagModal.vue";
 import Modal from "../components/Modal.vue";
 import { api, foodName, useMutation, allergenLabels } from "../lib";
 const props = defineProps({ diary: Object, foods: Array });
@@ -24,7 +26,9 @@ const search = ref(""),
   detail = ref(null),
   analysis = ref(null),
   analysisError = ref(""),
-  analysisBusy = ref(false);
+  analysisBusy = ref(false),
+  flagging = ref(null),
+  flagKind = ref("suspected");
 const { save, busy, error } = useMutation();
 const list = computed(() =>
   props.diary.recipes.filter((r) =>
@@ -40,6 +44,16 @@ function level(r) {
   return known.some((f) => f?.level === "higher")
     ? "FODMAP-Hinweise"
     : "Zutaten prüfen";
+}
+function flagsFor(recipe) {
+  return (props.diary.recipe_flags || []).filter((flag) => flag.recipe_id === recipe.id);
+}
+function openFlag(recipe, kind) {
+  flagging.value = recipe;
+  flagKind.value = kind;
+}
+function removeFlag(flag) {
+  save("/recipe_flags/" + flag.id, undefined, () => {}, "DELETE");
 }
 async function inspect(recipe) {
   detail.value = recipe;
@@ -70,24 +84,29 @@ async function inspect(recipe) {
 </script>
 <template>
   <Head title="Meine Rezepte" /><AppShell
-    ><div class="page-heading">
+    ><div class="page-heading mb-6">
       <div>
         <p class="eyebrow">DEINE KÜCHE. DEINE ZUTATEN.</p>
-        <h1>Meine Rezepte</h1>
-        <p>Lieblingsgerichte speichern und ihre Zutaten besser kennenlernen.</p>
+        <h1 class="font-display text-bauch-ink">Meine Rezepte</h1>
+        <p class="max-w-prose">
+          Lieblingsgerichte speichern und ihre Zutaten besser kennenlernen.
+        </p>
       </div>
-      <button class="button primary" @click="creating = true">
+      <button
+        class="button primary tap-target rounded-xl shadow-sm hover:-translate-y-0.5 hover:shadow-md"
+        @click="creating = true"
+      >
         <Plus :size="18" />Rezept hinzufügen
       </button>
     </div>
-    <div class="search-box">
+    <div class="search-box quiet-ring rounded-xl">
       <Search :size="18" /><input
         aria-label="Rezepte suchen"
         v-model="search"
         placeholder="Nach Rezept oder Zutat suchen …"
       /><span>{{ list.length }} Rezepte</span>
     </div>
-    <div v-if="!list.length" class="panel empty-state">
+    <div v-if="!list.length" class="panel empty-state quiet-ring rounded-2xl">
       <CookingPot :size="34" />
       <h2>Hier ist Platz für deine Lieblingsgerichte.</h2>
       <p>
@@ -99,7 +118,11 @@ async function inspect(recipe) {
       </button>
     </div>
     <div class="recipe-grid">
-      <article class="panel recipe-card" v-for="(r, index) in list" :key="r.id">
+      <article
+        class="panel recipe-card quiet-ring rounded-2xl"
+        v-for="(r, index) in list"
+        :key="r.id"
+      >
         <div class="recipe-art" :class="'art-' + (index % 3)">
           <CookingPot :size="52" :stroke-width="1" /><span class="pill light"
             >{{ r.servings }} Portionen</span
@@ -112,6 +135,9 @@ async function inspect(recipe) {
             {{ r.ingredients.map((i) => i.text).join(" · ") }}
           </p>
           <span class="pill neutral">{{ level(r) }}</span>
+          <span v-if="flagsFor(r).length" class="pill high recipe-flag-pill">
+            <Flag :size="12" />{{ flagsFor(r).length }} persönliche Markierung{{ flagsFor(r).length === 1 ? "" : "en" }}
+          </span>
           <div class="recipe-actions">
             <button class="text-button" @click="inspect(r)">
               Verträglichkeit ansehen <ArrowRight :size="14" />
@@ -132,7 +158,18 @@ async function inspect(recipe) {
               </button>
             </div>
           </div>
-          <button class="button secondary full" @click="meal = r">
+          <div class="recipe-flag-actions">
+            <button class="text-button" @click="openFlag(r, 'suspected')">
+              <Flag :size="14" />Verdächtig markieren
+            </button>
+            <button class="text-button" @click="openFlag(r, 'reaction')">
+              <Sparkles :size="14" />Reaktion markieren
+            </button>
+          </div>
+          <button
+            class="button secondary full rounded-xl hover:-translate-y-0.5"
+            @click="meal = r"
+          >
             <Plus :size="16" />Ins Tagebuch eintragen
           </button>
         </div>
@@ -185,6 +222,17 @@ async function inspect(recipe) {
           Eine Referenz, keine Bewertung deiner gegessenen Portion. Nicht
           markierte Allergene sind nicht ausgeschlossen.
         </p>
+        <div v-if="flagsFor(detail).length" class="existing-flag-list">
+          <strong>Deine Markierungen</strong>
+          <div v-for="flag in flagsFor(detail)" :key="flag.id" class="existing-flag">
+            <span>{{ flag.kind === "reaction" ? "Als Reaktion markiert" : "Als verdächtig markiert" }}</span>
+            <button class="text-button" @click="removeFlag(flag)">Entfernen</button>
+          </div>
+        </div>
+        <div class="recipe-flag-actions detail-flag-actions">
+          <button class="text-button" @click="openFlag(detail, 'suspected')"><Flag :size="14" />Verdacht ergänzen</button>
+          <button class="text-button" @click="openFlag(detail, 'reaction')"><Sparkles :size="14" />Reaktion ergänzen</button>
+        </div>
       </div>
       <div class="detail-section">
         <h3>
@@ -216,7 +264,7 @@ async function inspect(recipe) {
             </p>
             <p v-else>Noch zu wenig Vergleichsdaten für eine Einschätzung.</p>
             <small
-              >{{ a.exposed }} beobachtete Tage mit · {{ a.unexposed }} ohne
+              >{{ a.exposed }} beobachtete Momente mit · {{ a.unexposed }} ohne
               diese Zutat</small
             >
             <p v-if="a.co_occurring.length" class="helper">
@@ -236,6 +284,13 @@ async function inspect(recipe) {
         unterschiedliche Themen.
       </p>
     </Modal>
+    <RecipeFlagModal
+      v-if="flagging"
+      :recipe="flagging"
+      :kind="flagKind"
+      :meals="props.diary.meals"
+      @close="flagging = null"
+    />
     <Modal v-if="pending" title="Rezept löschen?" @close="pending = null"
       ><p>
         Das Rezept wird entfernt. Bereits gespeicherte Mahlzeiten behalten ihre

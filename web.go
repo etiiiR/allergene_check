@@ -2,16 +2,14 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
 	"embed"
-	"fmt"
+	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
-	inertia "github.com/petaki/inertia-go"
+	inertia "github.com/romsar/gonertia/v3"
 )
 
 //go:embed web/app.gohtml
@@ -20,10 +18,23 @@ var webTemplates embed.FS
 // The official community Go adapter handles the Inertia protocol. Fiber's
 // net/http bridge keeps database/ML services shared with the JSON endpoints.
 func registerWeb(app *fiber.App, repo *DiaryRepository) {
-	asset, _ := os.ReadFile("web/dist/assets/app.js")
-	manager := inertia.New(envOrDefault("APP_URL", "http://localhost:3000"), "web/app.gohtml", fmt.Sprintf("%x", sha256.Sum256(asset)), webTemplates)
+	base, err := inertia.NewFromFileFS(webTemplates, "web/app.gohtml", inertia.WithVersion(envOrDefault("ASSET_VERSION", "development")), inertia.WithContainerID("app"))
+	if err != nil {
+		log.Panicf("initialize Gonertia: %v", err)
+	}
+	manager, err := inertia.NewVite(base,
+		inertia.WithFallbackManifest("web/dist/.vite/manifest.json"),
+		// Vite's manifest already contains the "assets/" prefix. The public
+		// Fiber route is /assets, so adding another prefix would yield the
+		// broken /assets/assets/app.js URL.
+		inertia.WithBuildDir("/"),
+		inertia.WithEntryPoints("src/main.js"),
+	)
+	if err != nil {
+		log.Panicf("initialize Gonertia Vite integration: %v", err)
+	}
 	app.Static("/assets", "./web/dist/assets")
-	pages := map[string]string{"/": "Dashboard", "/diary": "Diary", "/recipes": "Recipes", "/insights": "Insights", "/foods": "Foods"}
+	pages := map[string]string{"/": "Dashboard", "/diary": "Diary", "/recipes": "Recipes", "/insights": "Insights", "/report": "Report", "/calendar": "Calendar", "/foods": "Foods", "/profile": "Profile"}
 	for path, component := range pages {
 		app.Get(path, adaptor.HTTPHandler(manager.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Cache-Control", "no-store")
@@ -35,7 +46,7 @@ func registerWeb(app *fiber.App, repo *DiaryRepository) {
 				loadError = "Das Tagebuch konnte nicht geladen werden. Bitte prüfe die Datenbank und lade die Seite erneut."
 			}
 			props := map[string]any{"diary": data, "foods": foods, "symptoms": symptomNames, "allergens": allergenNames, "loadError": loadError}
-			if err := manager.Render(w, r, component, props); err != nil {
+			if err := manager.Render(w, r, component, inertia.Props(props)); err != nil {
 				http.Error(w, "Die Seite konnte nicht geladen werden.", 500)
 			}
 		}))))
