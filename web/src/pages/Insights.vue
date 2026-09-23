@@ -52,6 +52,7 @@ async function load() {
   }
 }
 onMounted(load);
+const showAll = ref(false);
 const rows = computed(() =>
   [...(result.value?.associations || [])]
     .filter(
@@ -82,14 +83,16 @@ const rows = computed(() =>
         <Link href="/report" class="button secondary report-link">
           Arztbericht
         </Link>
-        <span class="pill low"
-          ><Sparkles :size="14" />Deine persönlichen Muster</span
-        >
       </div>
     </div>
     <div class="toolbar">
       <label
-        >Symptom<select v-model="symptom" @change="load" :disabled="loading">
+        >Symptom<select
+          class="d-select"
+          v-model="symptom"
+          @change="load"
+          :disabled="loading"
+        >
           <option value="any">Alle Beschwerden</option>
           <option v-for="(n, k) in symptoms" :key="k" :value="k">
             {{ n }}
@@ -97,6 +100,7 @@ const rows = computed(() =>
         </select></label
       ><label
         >Allgemeines Fenster<select
+          class="d-select"
           v-model.number="hours"
           @change="load"
           :disabled="loading"
@@ -107,24 +111,25 @@ const rows = computed(() =>
           <option :value="24">Bis zu 24 Stunden</option>
         </select></label
       ><label
-        >Vergleichen<select v-model="kind">
+        >Vergleichen<select class="d-select" v-model="kind">
           <option value="all">Alles</option>
           <option value="ingredients">Zutaten & Gewürze</option>
           <option value="allergens">Allergene</option>
         </select></label
       ><label
-        >Sortieren<select v-model="sort">
+        >Sortieren<select class="d-select" v-model="sort">
           <option value="difference">Grösster Unterschied</option>
           <option value="count">Meiste Beobachtungen</option>
         </select></label
       >
     </div>
     <p v-if="error" role="alert" class="alert error">
-      {{ error }} <button @click="load">Erneut versuchen</button>
+      {{ error }} <UiButton @click="load">Erneut versuchen</UiButton>
     </p>
-    <p v-if="loading" role="status" class="loading">
-      Deine Beobachtungen werden verglichen …
-    </p>
+    <UiSkeleton
+      v-if="loading"
+      label="Deine Beobachtungen werden verglichen …"
+    />
     <template v-if="result && !loading"
       ><div class="stats-grid">
         <article class="stat">
@@ -137,230 +142,22 @@ const rows = computed(() =>
         <article class="stat">
           <div>
             <p>Mit Beschwerden</p>
-            <strong>{{ result.symptomatic_moments ?? result.symptomatic_days }}</strong
+            <strong>{{
+              result.symptomatic_moments ?? result.symptomatic_days
+            }}</strong
             ><small>Ab 3 von 10</small>
           </div>
         </article>
         <article class="stat">
           <div>
             <p>Vergleichsmomente</p>
-            <strong>{{ result.comparison_moments ?? result.comparison_days }}</strong
+            <strong>{{
+              result.comparison_moments ?? result.comparison_days
+            }}</strong
             ><small>Unter 3 von 10</small>
           </div>
         </article>
       </div>
-      <section v-if="result.timing_summary" class="panel timing-overview">
-        <div class="section-heading">
-          <div>
-            <h2>Digestive Timeline</h2>
-            <small>Wann beginnen deine Beschwerden typischerweise?</small>
-          </div>
-          <Sparkles :size="18" class="muted" />
-        </div>
-        <div class="digestive-map" aria-label="Grobe Verdauungsabschnitte">
-          <span>Magen</span><span>Dünndarm</span><span>Dickdarm</span>
-        </div>
-        <div class="digestive-track" aria-label="Beschwerde-Zeitfenster">
-          <div
-            v-for="item in result.timing_summary.filter((x) => x.bucket !== 'unknown')"
-            :key="item.bucket"
-            class="digestive-step"
-          >
-            <span class="digestive-dot" :class="'timing-' + item.bucket"></span>
-            <strong>{{ item.range }}</strong>
-            <small>{{ item.count }} {{ item.count === 1 ? "Moment" : "Momente" }}</small>
-            <span>{{ item.phase }}</span>
-          </div>
-        </div>
-        <p class="helper">
-          Die Abschnitte oben sind nur eine grobe Orientierung. Ein Zeitfenster
-          beweist nicht, dass Beschwerden sicher aus einem bestimmten
-          Verdauungsabschnitt stammen.
-        </p>
-      </section>
-      <section
-        v-if="result.non_food_assessment"
-        class="panel non-food-card"
-        :class="{ possible: result.non_food_assessment.status === 'possible_other_driver' }"
-      >
-        <div class="section-heading">
-          <div>
-            <h2>{{ result.non_food_assessment.label }}</h2>
-            <small>Hinweis aus deinen dokumentierten Momenten</small>
-          </div>
-          <CircleAlert :size="19" />
-        </div>
-        <p>{{ result.non_food_assessment.explanation }}</p>
-        <div class="non-food-stats">
-          <span>
-            <strong>{{ result.non_food_assessment.moments_with_food_window }}</strong>
-            mit Essensfenster
-          </span>
-          <span>
-            <strong>{{ result.non_food_assessment.moments_without_food_window }}</strong>
-            ohne passenden Bezug
-          </span>
-        </div>
-        <p class="helper">
-          Ohne passenden Bezug kann auch ein nicht protokolliertes Essen,
-          Stress, Schlaf, Medikamente oder ein anderes gesundheitliches Thema
-          dahinterliegen. Das ist kein Ausschluss und keine Diagnose.
-        </p>
-      </section>
-      <section
-        v-if="result.cycle_summary?.some((item) => item.moments > 0)"
-        class="panel cycle-overview"
-      >
-        <div class="section-heading">
-          <div>
-            <h2>Zyklus-Kontext</h2>
-            <small>Separat vom allgemeinen Essensmuster betrachtet</small>
-          </div>
-          <CalendarDays :size="19" class="muted" />
-        </div>
-        <div class="cycle-summary-grid">
-          <div
-            v-for="item in result.cycle_summary.filter((x) => x.moments > 0)"
-            :key="item.phase"
-            class="cycle-summary-item"
-          >
-            <strong>{{ item.label }}</strong>
-            <span>{{ item.symptomatic_moments }} / {{ item.moments }} mit Beschwerden</span>
-            <div class="cycle-bar">
-              <i :style="{ width: (item.rate || 0) * 100 + '%' }" />
-            </div>
-          </div>
-        </div>
-        <p class="helper">
-          Die Phasen sind grob aus den hinterlegten Angaben abgeleitet und
-          werden nicht mit einem männlichen oder anderen Kontext zusammengelegt.
-        </p>
-      </section>
-      <section
-        v-if="result.possible_ingredients?.length"
-        class="panel candidate-overview"
-      >
-        <div class="section-heading">
-          <div>
-            <h2>Mögliche Unverträglichkeiten</h2>
-            <small>Manuelle Hinweise, Stuhlbeobachtungen und Essensmuster zusammengeführt</small>
-          </div>
-          <Sparkles :size="19" class="muted" />
-        </div>
-        <div class="candidate-list">
-          <div v-for="item in result.possible_ingredients" :key="item.ingredient_id" class="candidate-item">
-            <div>
-              <strong>{{ foodName(item.ingredient_id, foods) }}</strong>
-              <small>{{ item.reasons.join(" · ") }}</small>
-            </div>
-            <span class="candidate-score">{{ item.evidence_score }}</span>
-          </div>
-        </div>
-        <p class="helper">
-          Diese Liste priorisiert persönliche Markierungen und zeitlich folgende
-          Verdauungsbeobachtungen. Sie sagt nicht sicher voraus, was du nicht
-          verträgst — einzelne Zutaten sollten gezielt und sicher weiterbeobachtet werden.
-        </p>
-      </section>
-      <section
-        v-if="result.stool_summary?.some((item) => item.count > 0)"
-        class="panel stool-overview"
-      >
-        <div class="section-heading">
-          <div>
-            <h2>Stuhlbeobachtungen</h2>
-            <small>Am Folgetag deiner dokumentierten Mahlzeiten</small>
-          </div>
-        </div>
-        <div class="stool-summary-row">
-          <span v-for="item in result.stool_summary.filter((x) => x.count > 0)" :key="item.quality">
-            <strong>{{ item.count }}</strong>{{ item.label }}
-          </span>
-        </div>
-        <p class="helper">
-          Auffällige Beobachtungen werden nur als zusätzlicher persönlicher
-          Hinweis in der Zutatenliste verwendet, nicht als Diagnose.
-        </p>
-      </section>
-      <section
-        v-if="result.stress_summary?.total"
-        class="panel health-insights-card"
-      >
-        <div class="section-heading">
-          <div>
-            <h2>Stress & Health-Daten</h2>
-            <small>Importierte Messungen rund um deine Check-ins</small>
-          </div>
-          <HeartPulse :size="19" class="muted" />
-        </div>
-        <div class="health-insights-stats">
-          <span>
-            <strong>{{ result.stress_summary.normalized_count }}</strong>
-            normalisierte Scores
-          </span>
-          <span>
-            <strong>{{ result.stress_summary.raw_metric_count }}</strong>
-            Rohwerte separat
-          </span>
-          <span>
-            <strong>{{ result.stress_summary.last_normalized_score ?? "—" }}</strong>
-            letzter Score / 10
-          </span>
-        </div>
-        <div class="health-source-list">
-          <span v-for="item in result.stress_summary.by_source" :key="item.source">
-            {{ healthSourceLabel(item.source) }} · {{ item.count }}
-          </span>
-        </div>
-        <p class="helper">
-          Verwendet wird nur ein vom Anbieter ausdrücklich gelieferter
-          Stress-Score. HRV, Puls, Schlaf- und Readiness-Werte werden nicht
-          automatisch in Stress umgerechnet; Bedeutung und Verfügbarkeit hängen
-          von Watch, Ring und Anbieter ab.
-        </p>
-        <small v-if="result.stress_summary.by_metric?.length" class="health-metric-note">
-          Messarten: {{ result.stress_summary.by_metric.map((item) => `${healthMetricLabel(item.metric)} (${item.count})`).join(" · ") }}
-        </small>
-      </section>
-      <section
-        v-if="result.stress_assessment?.moments"
-        class="panel stress-analysis-card"
-        :class="{ elevated: result.stress_assessment.status === 'more_symptoms_at_higher_stress' }"
-      >
-        <div class="section-heading">
-          <div>
-            <h2>Stress im Beschwerdemuster</h2>
-            <small>Manuelle und importierte Werte pro Check-in zusammengeführt</small>
-          </div>
-          <HeartPulse :size="19" class="muted" />
-        </div>
-        <div class="stress-assessment-copy">
-          <strong>{{ result.stress_assessment.label }}</strong>
-          <p>{{ result.stress_assessment.explanation }}</p>
-        </div>
-        <div class="stress-comparison-grid">
-          <div>
-            <span>Stress ab 6/10</span>
-            <strong>{{ result.stress_assessment.high_stress_symptomatic }} / {{ result.stress_assessment.high_stress_moments }}</strong>
-            <small>{{ result.stress_assessment.high_stress_rate === null ? "Noch offen" : Math.round(result.stress_assessment.high_stress_rate * 100) + "% mit Beschwerden" }}</small>
-          </div>
-          <div>
-            <span>Stress unter 6/10</span>
-            <strong>{{ result.stress_assessment.lower_stress_symptomatic }} / {{ result.stress_assessment.lower_stress_moments }}</strong>
-            <small>{{ result.stress_assessment.lower_stress_rate === null ? "Noch offen" : Math.round(result.stress_assessment.lower_stress_rate * 100) + "% mit Beschwerden" }}</small>
-          </div>
-          <div>
-            <span>Durchschnitt</span>
-            <strong>{{ result.stress_assessment.average_stress }}/10</strong>
-            <small>{{ result.stress_assessment.moments }} Stress-Momente</small>
-          </div>
-        </div>
-        <p class="helper">
-          Das vergleicht nur deine dokumentierten Situationen. Stress kann mit
-          Schlaf, Alltag, Medikamenten und anderen Faktoren zusammenhängen und
-          beweist keine Ursache für Beschwerden.
-        </p>
-      </section>
       <div class="notice">
         <strong>{{
           result.model_status === "insufficient_data"
@@ -383,7 +180,11 @@ const rows = computed(() =>
           symptomfreie Zeitpunkte liefern wertvolle Vergleichsdaten.
         </p>
       </div>
-      <div v-for="a in rows" :key="a.ingredient_id" class="panel pattern-card">
+      <div
+        v-for="a in showAll ? rows : rows.slice(0, 3)"
+        :key="a.ingredient_id"
+        class="panel pattern-card"
+      >
         <div class="section-heading">
           <div>
             <span class="eyebrow">{{
@@ -418,7 +219,8 @@ const rows = computed(() =>
             <span
               >Ohne diese Zutat
               <small
-                >{{ a.symptomatic_unexposed }} / {{ a.unexposed }} Momente</small
+                >{{ a.symptomatic_unexposed }} /
+                {{ a.unexposed }} Momente</small
               ></span
             >
             <div class="compare-track baseline">
@@ -441,6 +243,305 @@ const rows = computed(() =>
           Wahrscheinlichkeit
         </p>
       </div>
+      <UiButton
+        v-if="rows.length > 3"
+        class="button secondary"
+        @click="showAll = !showAll"
+        >{{
+          showAll
+            ? "Weniger Muster anzeigen"
+            : `Alle ${rows.length} Muster ansehen`
+        }}</UiButton
+      >
+      <section
+        v-if="result.non_food_assessment"
+        class="panel non-food-card"
+        :class="{
+          possible:
+            result.non_food_assessment.status === 'possible_other_driver',
+        }"
+      >
+        <div class="section-heading">
+          <div>
+            <h2>{{ result.non_food_assessment.label }}</h2>
+            <small>Hinweis aus deinen dokumentierten Momenten</small>
+          </div>
+          <CircleAlert :size="19" />
+        </div>
+        <p>{{ result.non_food_assessment.explanation }}</p>
+        <div class="non-food-stats">
+          <span>
+            <strong>{{
+              result.non_food_assessment.moments_with_food_window
+            }}</strong>
+            mit Essensfenster
+          </span>
+          <span>
+            <strong>{{
+              result.non_food_assessment.moments_without_food_window
+            }}</strong>
+            ohne passenden Bezug
+          </span>
+        </div>
+        <p class="helper">
+          Ohne passenden Bezug kann auch ein nicht protokolliertes Essen,
+          Stress, Schlaf, Medikamente oder ein anderes gesundheitliches Thema
+          dahinterliegen. Das ist kein Ausschluss und keine Diagnose.
+        </p>
+      </section>
+      <section
+        v-if="result.stress_assessment?.moments"
+        class="panel stress-analysis-card"
+        :class="{
+          elevated:
+            result.stress_assessment.status ===
+            'more_symptoms_at_higher_stress',
+        }"
+      >
+        <div class="section-heading">
+          <div>
+            <h2>Stress im Beschwerdemuster</h2>
+            <small
+              >Manuelle und importierte Werte pro Check-in
+              zusammengeführt</small
+            >
+          </div>
+          <HeartPulse :size="19" class="muted" />
+        </div>
+        <div class="stress-assessment-copy">
+          <strong>{{ result.stress_assessment.label }}</strong>
+          <p>{{ result.stress_assessment.explanation }}</p>
+        </div>
+        <div class="stress-comparison-grid">
+          <div>
+            <span>Stress ab 6/10</span>
+            <strong
+              >{{ result.stress_assessment.high_stress_symptomatic }} /
+              {{ result.stress_assessment.high_stress_moments }}</strong
+            >
+            <small>{{
+              result.stress_assessment.high_stress_rate === null
+                ? "Noch offen"
+                : Math.round(result.stress_assessment.high_stress_rate * 100) +
+                  "% mit Beschwerden"
+            }}</small>
+          </div>
+          <div>
+            <span>Stress unter 6/10</span>
+            <strong
+              >{{ result.stress_assessment.lower_stress_symptomatic }} /
+              {{ result.stress_assessment.lower_stress_moments }}</strong
+            >
+            <small>{{
+              result.stress_assessment.lower_stress_rate === null
+                ? "Noch offen"
+                : Math.round(result.stress_assessment.lower_stress_rate * 100) +
+                  "% mit Beschwerden"
+            }}</small>
+          </div>
+          <div>
+            <span>Durchschnitt</span>
+            <strong>{{ result.stress_assessment.average_stress }}/10</strong>
+            <small>{{ result.stress_assessment.moments }} Stress-Momente</small>
+          </div>
+        </div>
+        <p class="helper">
+          Das vergleicht nur deine dokumentierten Situationen. Stress kann mit
+          Schlaf, Alltag, Medikamenten und anderen Faktoren zusammenhängen und
+          beweist keine Ursache für Beschwerden.
+        </p>
+      </section>
+      <details class="insight-details">
+        <summary>
+          Weitere Zusammenhänge<small
+            >Zeitfenster, Zyklus, Stuhl und Health-Daten</small
+          >
+        </summary>
+        <section v-if="result.timing_summary" class="panel timing-overview">
+          <div class="section-heading">
+            <div>
+              <h2>Digestive Timeline</h2>
+              <small>Wann beginnen deine Beschwerden typischerweise?</small>
+            </div>
+            <Sparkles :size="18" class="muted" />
+          </div>
+          <div class="digestive-map" aria-label="Grobe Verdauungsabschnitte">
+            <span>Magen</span><span>Dünndarm</span><span>Dickdarm</span>
+          </div>
+          <div class="digestive-track" aria-label="Beschwerde-Zeitfenster">
+            <div
+              v-for="item in result.timing_summary.filter(
+                (x) => x.bucket !== 'unknown',
+              )"
+              :key="item.bucket"
+              class="digestive-step"
+            >
+              <span
+                class="digestive-dot"
+                :class="'timing-' + item.bucket"
+              ></span>
+              <strong>{{ item.range }}</strong>
+              <small
+                >{{ item.count }}
+                {{ item.count === 1 ? "Moment" : "Momente" }}</small
+              >
+              <span>{{ item.phase }}</span>
+            </div>
+          </div>
+          <p class="helper">
+            Die Abschnitte oben sind nur eine grobe Orientierung. Ein
+            Zeitfenster beweist nicht, dass Beschwerden sicher aus einem
+            bestimmten Verdauungsabschnitt stammen.
+          </p>
+        </section>
+
+        <section
+          v-if="result.cycle_summary?.some((item) => item.moments > 0)"
+          class="panel cycle-overview"
+        >
+          <div class="section-heading">
+            <div>
+              <h2>Zyklus-Kontext</h2>
+              <small>Separat vom allgemeinen Essensmuster betrachtet</small>
+            </div>
+            <CalendarDays :size="19" class="muted" />
+          </div>
+          <div class="cycle-summary-grid">
+            <div
+              v-for="item in result.cycle_summary.filter((x) => x.moments > 0)"
+              :key="item.phase"
+              class="cycle-summary-item"
+            >
+              <strong>{{ item.label }}</strong>
+              <span
+                >{{ item.symptomatic_moments }} / {{ item.moments }} mit
+                Beschwerden</span
+              >
+              <div class="cycle-bar">
+                <i :style="{ width: (item.rate || 0) * 100 + '%' }" />
+              </div>
+            </div>
+          </div>
+          <p class="helper">
+            Die Phasen sind grob aus den hinterlegten Angaben abgeleitet und
+            werden nicht mit einem männlichen oder anderen Kontext
+            zusammengelegt.
+          </p>
+        </section>
+        <section
+          v-if="result.possible_ingredients?.length"
+          class="panel candidate-overview"
+        >
+          <div class="section-heading">
+            <div>
+              <h2>Mögliche Unverträglichkeiten</h2>
+              <small
+                >Manuelle Hinweise, Stuhlbeobachtungen und Essensmuster
+                zusammengeführt</small
+              >
+            </div>
+            <Sparkles :size="19" class="muted" />
+          </div>
+          <div class="candidate-list">
+            <div
+              v-for="item in result.possible_ingredients"
+              :key="item.ingredient_id"
+              class="candidate-item"
+            >
+              <div>
+                <strong>{{ foodName(item.ingredient_id, foods) }}</strong>
+                <small>{{ item.reasons.join(" · ") }}</small>
+              </div>
+              <span class="candidate-score">{{ item.evidence_score }}</span>
+            </div>
+          </div>
+          <p class="helper">
+            Diese Liste priorisiert persönliche Markierungen und zeitlich
+            folgende Verdauungsbeobachtungen. Sie sagt nicht sicher voraus, was
+            du nicht verträgst — einzelne Zutaten sollten gezielt und sicher
+            weiterbeobachtet werden.
+          </p>
+        </section>
+        <section
+          v-if="result.stool_summary?.some((item) => item.count > 0)"
+          class="panel stool-overview"
+        >
+          <div class="section-heading">
+            <div>
+              <h2>Stuhlbeobachtungen</h2>
+              <small>Am Folgetag deiner dokumentierten Mahlzeiten</small>
+            </div>
+          </div>
+          <div class="stool-summary-row">
+            <span
+              v-for="item in result.stool_summary.filter((x) => x.count > 0)"
+              :key="item.quality"
+            >
+              <strong>{{ item.count }}</strong
+              >{{ item.label }}
+            </span>
+          </div>
+          <p class="helper">
+            Auffällige Beobachtungen werden nur als zusätzlicher persönlicher
+            Hinweis in der Zutatenliste verwendet, nicht als Diagnose.
+          </p>
+        </section>
+        <section
+          v-if="result.stress_summary?.total"
+          class="panel health-insights-card"
+        >
+          <div class="section-heading">
+            <div>
+              <h2>Stress & Health-Daten</h2>
+              <small>Importierte Messungen rund um deine Check-ins</small>
+            </div>
+            <HeartPulse :size="19" class="muted" />
+          </div>
+          <div class="health-insights-stats">
+            <span>
+              <strong>{{ result.stress_summary.normalized_count }}</strong>
+              normalisierte Scores
+            </span>
+            <span>
+              <strong>{{ result.stress_summary.raw_metric_count }}</strong>
+              Rohwerte separat
+            </span>
+            <span>
+              <strong>{{
+                result.stress_summary.last_normalized_score ?? "—"
+              }}</strong>
+              letzter Score / 10
+            </span>
+          </div>
+          <div class="health-source-list">
+            <span
+              v-for="item in result.stress_summary.by_source"
+              :key="item.source"
+            >
+              {{ healthSourceLabel(item.source) }} · {{ item.count }}
+            </span>
+          </div>
+          <p class="helper">
+            Verwendet wird nur ein vom Anbieter ausdrücklich gelieferter
+            Stress-Score. HRV, Puls, Schlaf- und Readiness-Werte werden nicht
+            automatisch in Stress umgerechnet; Bedeutung und Verfügbarkeit
+            hängen von Watch, Ring und Anbieter ab.
+          </p>
+          <small
+            v-if="result.stress_summary.by_metric?.length"
+            class="health-metric-note"
+          >
+            Messarten:
+            {{
+              result.stress_summary.by_metric
+                .map(
+                  (item) => `${healthMetricLabel(item.metric)} (${item.count})`,
+                )
+                .join(" · ")
+            }}
+          </small>
+        </section>
+      </details>
       <details class="panel methodology">
         <summary>Wie entstehen diese Muster?</summary>
         <p>

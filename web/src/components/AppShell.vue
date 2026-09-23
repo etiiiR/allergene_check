@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from "vue";
 import { Link, usePage } from "@inertiajs/vue3";
 import {
   BookOpen,
@@ -8,60 +9,113 @@ import {
   Leaf,
   LayoutDashboard,
   Settings,
+  FileText,
+  Activity,
 } from "@lucide/vue";
-
+import ToastHost from "./ui/ToastHost.vue";
+import { workspace } from "../ui/workspace";
 const page = usePage();
 const nav = [
   ["/", "Heute", LayoutDashboard],
   ["/diary", "Tagebuch", BookOpen],
-  ["/recipes", "Rezepte", CookingPot],
   ["/calendar", "Kalender", CalendarDays],
+  ["/recipes", "Rezepte", CookingPot],
   ["/insights", "Muster", ChartNoAxesCombined],
-  ["/foods", "FODMAP", Leaf],
 ];
+const extra = [
+  ["/foods", "FODMAP", Leaf],
+  ["/report", "Arztbericht", FileText],
+  ["/profile", "Profil und Zyklus", Settings],
+];
+const path = computed(() => page.url.split("?")[0]);
+const currentLabel = computed(
+  () =>
+    [...nav, ...extra].find(([url]) => path.value === url)?.[1] || "Tagebuch",
+);
 const reload = () => window.location.reload();
 </script>
-
 <template>
-  <div class="app-shell min-h-screen bg-bauch-paper text-bauch-ink antialiased">
-    <header
-      class="mobile-header border-b border-bauch-line/80 bg-bauch-paper/95 shadow-sm backdrop-blur"
-    >
-      <Link href="/" class="brand font-display tracking-[-0.04em]">
-        <span class="brand-icon"><Leaf :size="19" /></span
-        ><span>Bauchgefühl</span><span class="brand-dot">.</span></Link
+  <div class="app-shell" data-theme="bauch">
+    <a href="#main-content" class="skip-link">Zum Inhalt</a>
+    <aside class="desktop-sidebar no-print">
+      <Link href="/" class="brand"
+        ><span class="brand-icon"><Activity :size="19" /></span
+        >Bauchgefühl</Link
       >
-      <span class="header-caption tracking-wide">Dein privates Tagebuch</span>
-      <Link
-        href="/profile"
-        class="header-settings"
-        aria-label="Profil und Zyklus"
-      >
-        <Settings :size="18" />
-      </Link>
-    </header>
-
-    <main class="main mx-auto w-full">
-      <div v-if="page.props.loadError" role="alert" class="alert error">
-        {{ page.props.loadError }} <button @click="reload">Erneut laden</button>
+      <p class="nav-caption">DEIN TAGEBUCH</p>
+      <nav aria-label="Hauptnavigation" class="side-nav">
+        <Link
+          v-for="[href, label, Icon] in nav"
+          :key="href"
+          :href="href"
+          :class="{ active: path === href }"
+          :aria-current="path === href ? 'page' : undefined"
+          ><component :is="Icon" :size="18" />{{ label }}</Link
+        >
+      </nav>
+      <div class="sidebar-bottom">
+        <p class="nav-caption">NACHSCHLAGEN & TEILEN</p>
+        <nav aria-label="Weitere Seiten" class="side-nav">
+          <Link
+            v-for="[href, label, Icon] in extra"
+            :key="href"
+            :href="href"
+            :class="{ active: path === href }"
+            :aria-current="path === href ? 'page' : undefined"
+            ><component :is="Icon" :size="18" />{{ label }}</Link
+          >
+        </nav>
+        <p class="sidebar-note">Deine Beobachtungen.<br />In deinem Tempo.</p>
       </div>
-      <div class="page-content"><slot /></div>
-    </main>
-
-    <nav
-      class="bottom-nav border-bauch-line/80 bg-bauch-paper/95 shadow-[0_-8px_28px_rgba(41,55,47,0.06)] backdrop-blur"
-      aria-label="Hauptnavigation"
-    >
+    </aside>
+    <div class="app-body">
+      <header class="mobile-header no-print">
+        <Link href="/" class="brand mobile-brand"
+          ><span class="brand-icon"><Activity :size="18" /></span
+          >Bauchgefühl</Link
+        >
+        <span class="desktop-breadcrumb"
+          >Tagebuch <span>/</span> {{ currentLabel }}</span
+        >
+        <details class="header-more">
+          <summary aria-label="Weitere Seiten">
+            Mehr <span aria-hidden="true">⌄</span>
+          </summary>
+          <nav aria-label="Weitere Seiten">
+            <Link v-for="[href, label, Icon] in extra" :key="href" :href="href"
+              ><component :is="Icon" :size="17" />{{ label }}</Link
+            >
+          </nav>
+        </details>
+        <Link
+          href="/profile"
+          class="icon-button header-settings"
+          aria-label="Profil und Zyklus"
+          ><Settings :size="18"
+        /></Link>
+      </header>
+      <main id="main-content" class="main" tabindex="-1">
+        <div v-if="page.props.loadError" role="alert" class="alert error">
+          {{ page.props.loadError }}
+          <UiButton @click="reload">Erneut laden</UiButton>
+        </div>
+        <div id="entry-workspace"></div>
+        <div v-show="!workspace.stack.length" class="page-content">
+          <slot />
+        </div>
+      </main>
+    </div>
+    <nav class="bottom-nav no-print" aria-label="Hauptnavigation">
       <Link
         v-for="[href, label, Icon] in nav"
         :key="href"
         :href="href"
-        :class="['bottom-link', { active: page.url.split('?')[0] === href }]"
-        :aria-current="page.url.split('?')[0] === href ? 'page' : undefined"
+        class="bottom-link"
+        :class="{ active: path === href }"
+        :aria-current="path === href ? 'page' : undefined"
+        ><component :is="Icon" :size="20" /><span>{{ label }}</span></Link
       >
-        <component :is="Icon" :size="19" />
-        <span>{{ label }}</span>
-      </Link>
     </nav>
+    <ToastHost />
   </div>
 </template>

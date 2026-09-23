@@ -1,7 +1,7 @@
 <script setup>
 import { reactive } from "vue";
 import { HeartPulse } from "@lucide/vue";
-import Modal from "./Modal.vue";
+import EntryPanel from "./EntryPanel.vue";
 import { localDate, localTime, useMutation } from "../lib";
 
 const props = defineProps({ day: String });
@@ -40,37 +40,51 @@ function submit() {
 </script>
 
 <template>
-  <Modal title="Stress manuell festhalten" @close="emit('close')">
+  <EntryPanel
+    :busy="busy"
+    title="Stress manuell festhalten"
+    @close="emit('close')"
+  >
     <form class="form stress-form" @submit.prevent="submit">
       <div class="entry-intro">
         <span class="entry-step"><HeartPulse :size="17" /></span>
         <div>
           <strong>Wie gestresst fühlst du dich gerade?</strong>
-          <small>Nutze dies, wenn keine Watch- oder Ringmessung vorliegt.</small>
+          <small
+            >Nutze dies, wenn keine Watch- oder Ringmessung vorliegt.</small
+          >
         </div>
       </div>
       <div class="picker-label">
         <span>Dein Stresslevel</span><small>{{ form.stress }}/10</small>
       </div>
       <div class="stress-choice-grid">
-        <button
+        <UiButton
           v-for="choice in choices"
           :key="choice.value"
           type="button"
-          class="level-choice pressable rounded-lg"
+          class="level-choice pressable"
           :class="{ selected: form.stress === choice.value }"
+          :aria-pressed="form.stress === choice.value"
           @click="form.stress = choice.value"
         >
-          <strong>{{ choice.label }}</strong><small>{{ choice.hint }}</small>
-        </button>
+          <strong>{{ choice.label }}</strong
+          ><small>{{ choice.hint }}</small>
+        </UiButton>
       </div>
       <label>
         Zeitpunkt
-        <input v-model="form.observed_at" type="datetime-local" required />
+        <input
+          class="d-input"
+          v-model="form.observed_at"
+          type="datetime-local"
+          required
+        />
       </label>
       <label>
         Notiz <span class="optional">optional</span>
         <textarea
+          class="d-textarea"
           v-model="form.notes"
           maxlength="1000"
           rows="3"
@@ -83,13 +97,13 @@ function submit() {
       </p>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <div class="form-actions">
-        <button type="button" class="button secondary" @click="emit('close')">
+        <UiButton type="button" class="button secondary" @click="emit('close')">
           Abbrechen
-        </button>
-        <button class="button primary" :disabled="busy">
+        </UiButton>
+        <UiButton class="button primary" :loading="busy" :disabled="busy">
           {{ busy ? "Wird gespeichert …" : "Stress speichern" }}
-        </button>
+        </UiButton>
       </div>
     </form>
-  </Modal>
+  </EntryPanel>
 </template>

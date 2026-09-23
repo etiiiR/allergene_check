@@ -1,34 +1,58 @@
 @import "tailwindcss";
-
+@plugin "daisyui" {
+  themes: false;
+  prefix: "d-";
+  include: button, badge, card, alert, skeleton, input, select, textarea;
+  logs: false;
+}
+@plugin "daisyui/theme" {
+  name: "bauch";
+  default: true;
+  color-scheme: light;
+  --color-base-100: #ffffff;
+  --color-base-200: #f8fafc;
+  --color-base-300: #e2e8f0;
+  --color-base-content: #17232e;
+  --color-primary: #0f766e;
+  --color-primary-content: #ffffff;
+  --color-secondary: #334155;
+  --color-secondary-content: #ffffff;
+  --color-accent: #e6f4f1;
+  --color-accent-content: #115e59;
+  --color-neutral: #17232e;
+  --color-neutral-content: #ffffff;
+  --color-info: #0369a1;
+  --color-info-content: #ffffff;
+  --color-success: #166534;
+  --color-success-content: #ffffff;
+  --color-warning: #854d0e;
+  --color-warning-content: #ffffff;
+  --color-error: #b91c1c;
+  --color-error-content: #ffffff;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
 @theme {
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
-  --color-bauch-paper: #f5f4ef;
-  --color-bauch-ink: #29372f;
-  --color-bauch-moss: #385847;
-  --color-bauch-sage: #e6ede1;
-  --color-bauch-line: #dde3da;
+  --font-display: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --color-bauch-paper: #f8fafc;
+  --color-bauch-ink: #17232e;
+  --color-bauch-moss: #0f766e;
+  --color-bauch-sage: #e6f4f1;
+  --color-bauch-line: #e2e8f0;
 }
-
-/* Small shared interaction details. Layout and page composition live in Vue. */
 @utility tap-target {
   min-width: 44px;
   min-height: 44px;
 }
-
-@utility quiet-ring {
-  box-shadow:
-    0 0 0 1px rgb(56 88 71 / 0.08),
-    0 8px 24px rgb(41 55 47 / 0.04);
-}
-
 @utility pressable {
   transition:
-    transform 160ms ease,
-    box-shadow 160ms ease,
-    background-color 160ms ease;
-}
-
-.font-display {
-  font-family: var(--font-display);
+    background-color 140ms ease,
+    border-color 140ms ease;
 }

@@ -1,0 +1,225 @@
+import { test, expect } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+
+// Exercise populated screens as well as the existing CRUD suite. Fixtures are
+// tracked by returned IDs; cleanup never targets the user's other records.
+const created = [];
+const headers = { "X-Diary-Request": "1" };
+let originalIDs;
+const diaryIDs = (data) =>
+  Object.fromEntries(
+    ["recipes", "meals", "checkins", "stress_observations"].map((key) => [
+      key,
+      (data[key] || []).map((item) => item.id).sort(),
+    ]),
+  );
+test.beforeAll(async ({ request }) => {
+  originalIDs = diaryIDs(await (await request.get("/api/diary")).json());
+  const create = async (kind, data) => {
+    const response = await request.post(`/api/${kind}`, { headers, data });
+    expect(response.ok()).toBeTruthy();
+    const item = await response.json();
+    created.push([kind, item.id]);
+    return item;
+  };
+  const recipe = await create("recipes", {
+    title: "UX Test · Ofengemüse mit Kräutern und Joghurtsauce",
+    servings: 2,
+    ingredients: [
+      { text: "Karotte", food_ids: ["carrot"], allergens: [] },
+      { text: "Zwiebel", food_ids: ["onion"], allergens: [] },
+      { text: "Milch", food_ids: ["milk"], allergens: ["milk"] },
+    ],
+  });
+  await create("meals", {
+    recipe_id: recipe.id,
+    occurred_at: new Date(Date.now() - 7200000).toISOString(),
+    portions: 1,
+    notes: "UX test fixture",
+  });
+  await create("checkins", {
+    occurred_at: new Date(Date.now() - 600000).toISOString(),
+    symptom_free: false,
+    symptoms: { bloating: 6 },
+    timing_bucket: "mid",
+    stress: 7,
+    sleep_hours: 7,
+    notes: "UX test fixture",
+  });
+  await create("checkins", {
+    occurred_at: new Date(Date.now() - 86400000).toISOString(),
+    symptom_free: true,
+    symptoms: {},
+    stress: 2,
+    sleep_hours: 8,
+    notes: "UX test fixture",
+  });
+});
+test.afterAll(async ({ request }) => {
+  for (const [kind, id] of created.reverse()) {
+    const response = await request.delete(`/api/${kind}/${id}`, { headers });
+    expect(response.ok()).toBeTruthy();
+  }
+  expect(diaryIDs(await (await request.get("/api/diary")).json())).toEqual(
+    originalIDs,
+  );
+});
+
+const routes = [
+  "/",
+  "/diary",
+  "/calendar",
+  "/recipes",
+  "/insights",
+  "/foods",
+  "/profile",
+  "/report",
+];
+for (const route of routes) {
+  test(`responsive and accessible: ${route}`, async ({ page }, testInfo) => {
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(route);
+    await expect(page.locator("main h1").first()).toBeVisible();
+    if (route === "/insights" || route === "/report") {
+      await expect(page.locator(".skeleton-panel")).toHaveCount(0);
+    }
+    for (const width of [320, 390, 768, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await expect(page.locator("dialog, [aria-modal=true]")).toHaveCount(0);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+        `overflow on ${route} at ${width}`,
+      ).toBeTruthy();
+      const nav = page.getByRole("navigation", {
+        name: "Hauptnavigation",
+        exact: true,
+      });
+      await expect(nav).toHaveCount(1);
+      await expect(nav.getByRole("link")).toHaveCount(5);
+      await page.screenshot({
+        path: testInfo.outputPath(`page-${width}.png`),
+        fullPage: true,
+        animations: "disabled",
+      });
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    const a11y = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+      .analyze();
+    expect(a11y.violations).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+}
+
+test("inline editor retains failed inputs, re-enables saving, and restores focus", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const trigger = page.getByRole("button", { name: "Befinden", exact: true });
+  await trigger.click();
+  const heading = page.getByRole("heading", {
+    name: "Wie geht es deinem Bauch?",
+  });
+  await expect(heading).toBeFocused();
+  await expect(page.locator("dialog, [aria-modal=true]")).toHaveCount(0);
+  await page.getByRole("button", { name: "Blähungen", exact: true }).click();
+  await page.getByRole("button", { name: "Später 2–6 h", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Stress, Schlaf oder Notiz ergänzen" })
+    .click();
+  await page.getByLabel("Notiz").fill("Nur ein UI-Test, nicht speichern.");
+  await page.route("**/api/checkins", (route) =>
+    route.fulfill({
+      status: 422,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: { message: "Testfehler: Bitte erneut versuchen." },
+      }),
+    }),
+  );
+  await page.getByRole("button", { name: "Eintrag speichern" }).click();
+  await expect(page.locator("form [role=alert]")).toContainText("Testfehler");
+  await expect(page.getByLabel("Notiz")).toHaveValue(
+    "Nur ein UI-Test, nicht speichern.",
+  );
+  await expect(
+    page.getByRole("button", { name: "Eintrag speichern" }),
+  ).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "Blähungen", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".toast-enter-active")).toHaveCount(0);
+  const a11y = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .analyze();
+  expect(a11y.violations).toEqual([]);
+  await page.screenshot({
+    path: testInfo.outputPath("editor.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.getByRole("button", { name: "Zurück zur Übersicht" }).click();
+  await expect(trigger).toBeFocused();
+});
+
+test("good moment can switch to symptoms and navigation leaves the editor", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "Gutes Befinden", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: /Zu diesem Zeitpunkt geht es gut/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page
+    .getByRole("button", { name: "Stattdessen Beschwerden festhalten" })
+    .click();
+  await page.getByRole("button", { name: "Blähungen", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Blähungen", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+  await page.getByRole("link", { name: "Rezepte", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Meine Rezepte" }),
+  ).toBeVisible();
+  await expect(page.locator(".entry-workspace")).toHaveCount(0);
+  await page.getByRole("link", { name: "Heute", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Dein Tag, im Überblick." }),
+  ).toBeVisible();
+});
+
+test("reduced motion disables transitions and report print hides app chrome", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  expect(
+    await page
+      .locator(".page-content")
+      .evaluate((el) => getComputedStyle(el).animationName),
+  ).toBe("none");
+  await page.goto("/report");
+  await expect(page.locator("#patient-report")).toBeVisible();
+  await page.emulateMedia({ media: "print" });
+  await expect(page.locator(".desktop-sidebar")).toBeHidden();
+  await expect(page.locator(".mobile-header")).toBeHidden();
+  await expect(page.locator(".bottom-nav")).toBeHidden();
+  await expect(page.locator("#patient-report")).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("print.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+});

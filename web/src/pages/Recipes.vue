@@ -15,7 +15,7 @@ import AppShell from "../components/AppShell.vue";
 import RecipeModal from "../components/RecipeModal.vue";
 import EntryModal from "../components/EntryModal.vue";
 import RecipeFlagModal from "../components/RecipeFlagModal.vue";
-import Modal from "../components/Modal.vue";
+import EntryPanel from "../components/EntryPanel.vue";
 import { api, foodName, useMutation, allergenLabels } from "../lib";
 const props = defineProps({ diary: Object, foods: Array });
 const search = ref(""),
@@ -46,7 +46,9 @@ function level(r) {
     : "Zutaten prüfen";
 }
 function flagsFor(recipe) {
-  return (props.diary.recipe_flags || []).filter((flag) => flag.recipe_id === recipe.id);
+  return (props.diary.recipe_flags || []).filter(
+    (flag) => flag.recipe_id === recipe.id,
+  );
 }
 function openFlag(recipe, kind) {
   flagging.value = recipe;
@@ -86,43 +88,37 @@ async function inspect(recipe) {
   <Head title="Meine Rezepte" /><AppShell
     ><div class="page-heading mb-6">
       <div>
-        <p class="eyebrow">DEINE KÜCHE. DEINE ZUTATEN.</p>
+        <p class="eyebrow">REZEPTSAMMLUNG</p>
         <h1 class="font-display text-bauch-ink">Meine Rezepte</h1>
         <p class="max-w-prose">
-          Lieblingsgerichte speichern und ihre Zutaten besser kennenlernen.
+          Einmal speichern. Schnell wieder als Mahlzeit eintragen.
         </p>
       </div>
-      <button
-        class="button primary tap-target rounded-xl shadow-sm hover:-translate-y-0.5 hover:shadow-md"
-        @click="creating = true"
-      >
+      <UiButton class="button primary tap-target" @click="creating = true">
         <Plus :size="18" />Rezept hinzufügen
-      </button>
+      </UiButton>
     </div>
-    <div class="search-box quiet-ring rounded-xl">
+    <div class="search-box">
       <Search :size="18" /><input
+        class="d-input"
         aria-label="Rezepte suchen"
         v-model="search"
         placeholder="Nach Rezept oder Zutat suchen …"
       /><span>{{ list.length }} Rezepte</span>
     </div>
-    <div v-if="!list.length" class="panel empty-state quiet-ring rounded-2xl">
+    <div v-if="!list.length" class="panel empty-state">
       <CookingPot :size="34" />
       <h2>Hier ist Platz für deine Lieblingsgerichte.</h2>
       <p>
         Füge ein Rezept hinzu. Die Textanalyse hilft dir,<br />Zutaten zu
         erkennen und später Muster zu entdecken.
       </p>
-      <button class="button primary" @click="creating = true">
+      <UiButton class="button primary" @click="creating = true">
         Mein erstes Rezept
-      </button>
+      </UiButton>
     </div>
     <div class="recipe-grid">
-      <article
-        class="panel recipe-card quiet-ring rounded-2xl"
-        v-for="(r, index) in list"
-        :key="r.id"
-      >
+      <article class="panel recipe-card" v-for="(r, index) in list" :key="r.id">
         <div class="recipe-art" :class="'art-' + (index % 3)">
           <CookingPot :size="52" :stroke-width="1" /><span class="pill light"
             >{{ r.servings }} Portionen</span
@@ -136,42 +132,41 @@ async function inspect(recipe) {
           </p>
           <span class="pill neutral">{{ level(r) }}</span>
           <span v-if="flagsFor(r).length" class="pill high recipe-flag-pill">
-            <Flag :size="12" />{{ flagsFor(r).length }} persönliche Markierung{{ flagsFor(r).length === 1 ? "" : "en" }}
+            <Flag :size="12" />{{ flagsFor(r).length }} persönliche Markierung{{
+              flagsFor(r).length === 1 ? "" : "en"
+            }}
           </span>
           <div class="recipe-actions">
-            <button class="text-button" @click="inspect(r)">
+            <UiButton class="text-button" @click="inspect(r)">
               Verträglichkeit ansehen <ArrowRight :size="14" />
-            </button>
+            </UiButton>
             <div>
-              <button
+              <UiButton
                 class="icon-button"
                 @click="editing = r"
                 aria-label="Rezept bearbeiten"
               >
-                <Pencil :size="16" /></button
-              ><button
+                <Pencil :size="16" /></UiButton
+              ><UiButton
                 class="icon-button"
                 @click="pending = r"
                 aria-label="Rezept löschen"
               >
                 <Trash2 :size="16" />
-              </button>
+              </UiButton>
             </div>
           </div>
           <div class="recipe-flag-actions">
-            <button class="text-button" @click="openFlag(r, 'suspected')">
+            <UiButton class="text-button" @click="openFlag(r, 'suspected')">
               <Flag :size="14" />Verdächtig markieren
-            </button>
-            <button class="text-button" @click="openFlag(r, 'reaction')">
+            </UiButton>
+            <UiButton class="text-button" @click="openFlag(r, 'reaction')">
               <Sparkles :size="14" />Reaktion markieren
-            </button>
+            </UiButton>
           </div>
-          <button
-            class="button secondary full rounded-xl hover:-translate-y-0.5"
-            @click="meal = r"
-          >
+          <UiButton class="button secondary full" @click="meal = r">
             <Plus :size="16" />Ins Tagebuch eintragen
-          </button>
+          </UiButton>
         </div>
       </article>
     </div>
@@ -188,7 +183,7 @@ async function inspect(recipe) {
       :recipe-id="meal.id"
       @close="meal = null"
     />
-    <Modal v-if="detail" :title="detail.title" @close="detail = null"
+    <EntryPanel v-if="detail" :title="detail.title" @close="detail = null"
       ><div class="detail-section">
         <h3>Zutaten & Hinweise</h3>
         <div class="food-detail" v-for="(i, n) in detail.ingredients" :key="n">
@@ -224,21 +219,38 @@ async function inspect(recipe) {
         </p>
         <div v-if="flagsFor(detail).length" class="existing-flag-list">
           <strong>Deine Markierungen</strong>
-          <div v-for="flag in flagsFor(detail)" :key="flag.id" class="existing-flag">
-            <span>{{ flag.kind === "reaction" ? "Als Reaktion markiert" : "Als verdächtig markiert" }}</span>
-            <button class="text-button" @click="removeFlag(flag)">Entfernen</button>
+          <div
+            v-for="flag in flagsFor(detail)"
+            :key="flag.id"
+            class="existing-flag"
+          >
+            <span>{{
+              flag.kind === "reaction"
+                ? "Als Reaktion markiert"
+                : "Als verdächtig markiert"
+            }}</span>
+            <UiButton class="text-button" @click="removeFlag(flag)"
+              >Entfernen</UiButton
+            >
           </div>
         </div>
         <div class="recipe-flag-actions detail-flag-actions">
-          <button class="text-button" @click="openFlag(detail, 'suspected')"><Flag :size="14" />Verdacht ergänzen</button>
-          <button class="text-button" @click="openFlag(detail, 'reaction')"><Sparkles :size="14" />Reaktion ergänzen</button>
+          <UiButton class="text-button" @click="openFlag(detail, 'suspected')"
+            ><Flag :size="14" />Verdacht ergänzen</UiButton
+          >
+          <UiButton class="text-button" @click="openFlag(detail, 'reaction')"
+            ><Sparkles :size="14" />Reaktion ergänzen</UiButton
+          >
         </div>
       </div>
       <div class="detail-section">
         <h3>
           <Sparkles :size="18" /> Passt dieses Rezept zu meinen Beobachtungen?
         </h3>
-        <p v-if="analysisBusy" role="status">Dein Tagebuch wird verglichen …</p>
+        <UiSkeleton
+          v-if="analysisBusy"
+          label="Dein Tagebuch wird verglichen …"
+        />
         <p v-if="analysisError" role="alert" class="alert error">
           {{ analysisError }}
         </p>
@@ -283,7 +295,7 @@ async function inspect(recipe) {
         Mögliche Zusammenhänge, keine Diagnose. FODMAPs und Allergien sind
         unterschiedliche Themen.
       </p>
-    </Modal>
+    </EntryPanel>
     <RecipeFlagModal
       v-if="flagging"
       :recipe="flagging"
@@ -291,16 +303,16 @@ async function inspect(recipe) {
       :meals="props.diary.meals"
       @close="flagging = null"
     />
-    <Modal v-if="pending" title="Rezept löschen?" @close="pending = null"
+    <EntryPanel v-if="pending" title="Rezept löschen?" @close="pending = null"
       ><p>
         Das Rezept wird entfernt. Bereits gespeicherte Mahlzeiten behalten ihre
         ursprünglichen Zutaten.
       </p>
       <p v-if="error" class="alert error">{{ error }}</p>
       <div class="form-actions">
-        <button class="button secondary" @click="pending = null">
-          Behalten</button
-        ><button
+        <UiButton class="button secondary" @click="pending = null">
+          Behalten</UiButton
+        ><UiButton
           class="button danger"
           :disabled="busy"
           @click="
@@ -313,8 +325,8 @@ async function inspect(recipe) {
           "
         >
           Löschen
-        </button>
-      </div></Modal
+        </UiButton>
+      </div></EntryPanel
     >
   </AppShell>
 </template>

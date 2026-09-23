@@ -14,6 +14,7 @@ import {
 } from "@lucide/vue";
 import AppShell from "../components/AppShell.vue";
 import { api, foodName } from "../lib";
+import { notify } from "../ui/feedback";
 
 const props = defineProps({ diary: Object, foods: Array, symptoms: Object });
 const result = ref(null);
@@ -145,10 +146,20 @@ function buildShareText() {
     `Datenbasis: ${meals.value.length} Mahlzeiten, ${checkins.value.length} Check-ins, ${props.diary?.stools?.length || 0} Stuhlbeobachtungen`,
     "",
     "Häufig dokumentierte Beschwerden:",
-    ...symptomRows.value.slice(0, 5).map((item) => `- ${item.label}: ${item.moments} Momente, maximal ${item.maximum}/10`),
+    ...symptomRows.value
+      .slice(0, 5)
+      .map(
+        (item) =>
+          `- ${item.label}: ${item.moments} Momente, maximal ${item.maximum}/10`,
+      ),
     "",
     "Mögliche Zutatenmuster:",
-    ...associations.value.slice(0, 5).map((item) => `- ${foodName(item.ingredient_id, props.foods)}: ${differenceLabel(item)}, ${item.exposed} exponierte Momente`),
+    ...associations.value
+      .slice(0, 5)
+      .map(
+        (item) =>
+          `- ${foodName(item.ingredient_id, props.foods)}: ${differenceLabel(item)}, ${item.exposed} exponierte Momente`,
+      ),
     stress
       ? `Stress: ${stress.label}; hoch ${stress.high_stress_rate === null ? "–" : Math.round(stress.high_stress_rate * 100) + "%"}, niedriger ${stress.lower_stress_rate === null ? "–" : Math.round(stress.lower_stress_rate * 100) + "%"}`
       : "Stress: keine auswertbaren Check-in-Werte",
@@ -170,6 +181,7 @@ async function copyReport() {
   try {
     await navigator.clipboard.writeText(text);
     shareStatus.value = "Zusammenfassung in die Zwischenablage kopiert.";
+    notify(shareStatus.value);
   } catch {
     shareStatus.value = "Kopieren ist in diesem Browser nicht verfügbar.";
   }
@@ -185,6 +197,7 @@ async function shareReport() {
         text,
       });
       shareStatus.value = "Zusammenfassung geteilt.";
+      notify(shareStatus.value);
       return;
     } catch (e) {
       if (e?.name === "AbortError") return;
@@ -218,30 +231,61 @@ watch(reportLabel, (value) => {
         <div>
           <p class="eyebrow"><FileText :size="14" /> GESUNDHEITSÜBERSICHT</p>
           <h1>Arztbericht vorbereiten</h1>
-          <p>Eine kompakte Zusammenfassung für dein Gespräch mit einer Fachperson.</p>
+          <p>
+            Eine kompakte Zusammenfassung für dein Gespräch mit einer
+            Fachperson.
+          </p>
         </div>
         <div class="report-action-buttons">
-          <button class="button secondary" :disabled="!result" @click="printReport">
+          <UiButton
+            class="button secondary"
+            :disabled="!result"
+            @click="printReport"
+          >
             <Printer :size="16" /> Drucken / PDF
-          </button>
-          <button class="button primary" :disabled="!result" @click="shareReport">
+          </UiButton>
+          <UiButton
+            class="button primary"
+            :disabled="!result"
+            @click="shareReport"
+          >
             <Share2 :size="16" /> Teilen / senden
-          </button>
+          </UiButton>
         </div>
       </div>
 
       <div class="report-label-field no-print">
         <label>
-          Name oder Initialen <span class="optional">optional, nur lokal gespeichert</span>
-          <input v-model="reportLabel" maxlength="80" placeholder="z. B. M. M." />
+          Name oder Initialen
+          <span class="optional">optional, nur lokal gespeichert</span>
+          <input
+            class="d-input"
+            v-model="reportLabel"
+            maxlength="80"
+            placeholder="z. B. M. M."
+          />
         </label>
-        <button class="text-button" :disabled="!result" @click="copyReport">Text kopieren</button>
+        <UiButton class="text-button" :disabled="!result" @click="copyReport"
+          >Text kopieren</UiButton
+        >
       </div>
-      <p v-if="shareStatus" class="alert success no-print" role="status">{{ shareStatus }}</p>
-      <p v-if="error" class="alert error no-print" role="alert">{{ error }} <button @click="load">Erneut versuchen</button></p>
-      <p v-if="loading" class="loading no-print" role="status">Die persönliche Übersicht wird erstellt …</p>
+      <p v-if="shareStatus" class="alert success no-print" role="status">
+        {{ shareStatus }}
+      </p>
+      <p v-if="error" class="alert error no-print" role="alert">
+        {{ error }} <UiButton @click="load">Erneut versuchen</UiButton>
+      </p>
+      <UiSkeleton
+        v-if="loading"
+        label="Bericht wird vorbereitet …"
+        class="no-print"
+      />
 
-      <article v-if="result && !loading" class="patient-report" id="patient-report">
+      <article
+        v-if="result && !loading"
+        class="patient-report"
+        id="patient-report"
+      >
         <header class="report-document-header">
           <div>
             <p class="eyebrow">BAUCHGEFÜHL · PERSÖNLICHE DATENÜBERSICHT</p>
@@ -255,16 +299,31 @@ watch(reportLabel, (value) => {
         </header>
 
         <div class="report-meta-row">
-          <span><CalendarDays :size="14" /> Zeitraum: <strong>{{ periodLabel }}</strong></span>
+          <span
+            ><CalendarDays :size="14" /> Zeitraum:
+            <strong>{{ periodLabel }}</strong></span
+          >
           <span><Activity :size="14" /> {{ profileLabel }}</span>
           <span><ShieldCheck :size="14" /> {{ dataQualityLabel }}</span>
         </div>
 
         <section class="report-kpis">
-          <div><strong>{{ meals.length }}</strong><span>Mahlzeiten</span></div>
-          <div><strong>{{ checkins.length }}</strong><span>Check-ins</span></div>
-          <div><strong>{{ props.diary?.stools?.length || 0 }}</strong><span>Stuhlbeobachtungen</span></div>
-          <div><strong>{{ props.diary?.stress_observations?.length || 0 }}</strong><span>Health-Messungen</span></div>
+          <div>
+            <strong>{{ meals.length }}</strong
+            ><span>Mahlzeiten</span>
+          </div>
+          <div>
+            <strong>{{ checkins.length }}</strong
+            ><span>Check-ins</span>
+          </div>
+          <div>
+            <strong>{{ props.diary?.stools?.length || 0 }}</strong
+            ><span>Stuhlbeobachtungen</span>
+          </div>
+          <div>
+            <strong>{{ props.diary?.stress_observations?.length || 0 }}</strong
+            ><span>Health-Messungen</span>
+          </div>
         </section>
 
         <div class="report-grid">
@@ -273,10 +332,15 @@ watch(reportLabel, (value) => {
             <div v-if="symptomRows.length" class="report-list">
               <div v-for="item in symptomRows.slice(0, 6)" :key="item.key">
                 <strong>{{ item.label }}</strong>
-                <span>{{ item.moments }} Momente · max. {{ item.maximum }}/10 · Ø {{ item.average.toFixed(1) }}/10</span>
+                <span
+                  >{{ item.moments }} Momente · max. {{ item.maximum }}/10 · Ø
+                  {{ item.average.toFixed(1) }}/10</span
+                >
               </div>
             </div>
-            <p v-else class="report-muted">Noch keine Beschwerden dokumentiert.</p>
+            <p v-else class="report-muted">
+              Noch keine Beschwerden dokumentiert.
+            </p>
           </section>
 
           <section class="report-section">
@@ -284,11 +348,23 @@ watch(reportLabel, (value) => {
             <div v-if="associations.length" class="report-list">
               <div v-for="item in associations" :key="item.ingredient_id">
                 <strong>{{ foodName(item.ingredient_id, foods) }}</strong>
-                <span>{{ differenceLabel(item) }} · {{ item.exposed }} exponiert / {{ item.unexposed }} verglichen</span>
-                <small v-if="item.co_occurring?.length">Überschneidet sich mit: {{ item.co_occurring.map((id) => foodName(id, foods)).join(", ") }}</small>
+                <span
+                  >{{ differenceLabel(item) }} · {{ item.exposed }} exponiert /
+                  {{ item.unexposed }} verglichen</span
+                >
+                <small v-if="item.co_occurring?.length"
+                  >Überschneidet sich mit:
+                  {{
+                    item.co_occurring
+                      .map((id) => foodName(id, foods))
+                      .join(", ")
+                  }}</small
+                >
               </div>
             </div>
-            <p v-else class="report-muted">Noch keine vergleichbaren Zutatenmuster.</p>
+            <p v-else class="report-muted">
+              Noch keine vergleichbaren Zutatenmuster.
+            </p>
           </section>
 
           <section class="report-section">
@@ -296,29 +372,57 @@ watch(reportLabel, (value) => {
             <div v-if="overlapRows.length" class="report-list compact">
               <div v-for="item in overlapRows" :key="item.ingredient_id">
                 <strong>{{ foodName(item.ingredient_id, foods) }}</strong>
-                <span>Gemeinsam dokumentiert mit {{ item.co_occurring.map((id) => foodName(id, foods)).join(", ") }}</span>
+                <span
+                  >Gemeinsam dokumentiert mit
+                  {{
+                    item.co_occurring
+                      .map((id) => foodName(id, foods))
+                      .join(", ")
+                  }}</span
+                >
               </div>
             </div>
-            <p v-else class="report-muted">Keine klaren Überlappungen erkannt.</p>
-            <p class="report-note">Gemeinsam gegessene Zutaten lassen sich statistisch oft nicht voneinander trennen.</p>
+            <p v-else class="report-muted">
+              Keine klaren Überlappungen erkannt.
+            </p>
+            <p class="report-note">
+              Gemeinsam gegessene Zutaten lassen sich statistisch oft nicht
+              voneinander trennen.
+            </p>
           </section>
 
           <section class="report-section">
             <h3>Stress und andere Faktoren</h3>
             <template v-if="result.stress_assessment?.moments">
               <strong>{{ result.stress_assessment.label }}</strong>
-              <p>{{ result.stress_assessment.high_stress_symptomatic }}/{{ result.stress_assessment.high_stress_moments }} bei Stress ab 6/10 gegenüber {{ result.stress_assessment.lower_stress_symptomatic }}/{{ result.stress_assessment.lower_stress_moments }} unter 6/10.</p>
-              <small>Durchschnitt: {{ result.stress_assessment.average_stress }}/10 · {{ result.stress_assessment.moments }} Momente</small>
+              <p>
+                {{ result.stress_assessment.high_stress_symptomatic }}/{{
+                  result.stress_assessment.high_stress_moments
+                }}
+                bei Stress ab 6/10 gegenüber
+                {{ result.stress_assessment.lower_stress_symptomatic }}/{{
+                  result.stress_assessment.lower_stress_moments
+                }}
+                unter 6/10.
+              </p>
+              <small
+                >Durchschnitt: {{ result.stress_assessment.average_stress }}/10
+                · {{ result.stress_assessment.moments }} Momente</small
+              >
             </template>
             <p v-else class="report-muted">Keine auswertbaren Stresswerte.</p>
-            <p v-if="result.non_food_assessment" class="report-note"><strong>{{ result.non_food_assessment.label }}.</strong> {{ result.non_food_assessment.explanation }}</p>
+            <p v-if="result.non_food_assessment" class="report-note">
+              <strong>{{ result.non_food_assessment.label }}.</strong>
+              {{ result.non_food_assessment.explanation }}
+            </p>
           </section>
 
           <section class="report-section">
             <h3>Beschwerde-Zeitfenster</h3>
             <div v-if="timingRows.length" class="report-list compact">
               <div v-for="item in timingRows" :key="item.bucket">
-                <strong>{{ item.label }}</strong><span>{{ item.count }} Momente · {{ item.range }}</span>
+                <strong>{{ item.label }}</strong
+                ><span>{{ item.count }} Momente · {{ item.range }}</span>
               </div>
             </div>
             <p v-else class="report-muted">Keine Zeitfenster dokumentiert.</p>
@@ -327,9 +431,13 @@ watch(reportLabel, (value) => {
           <section class="report-section">
             <h3>Stuhlbeobachtungen</h3>
             <div v-if="stoolRows.length" class="report-tags">
-              <span v-for="item in stoolRows" :key="item.quality">{{ item.count }}× {{ item.label }}</span>
+              <span v-for="item in stoolRows" :key="item.quality"
+                >{{ item.count }}× {{ item.label }}</span
+              >
             </div>
-            <p v-else class="report-muted">Keine Stuhlbeobachtungen dokumentiert.</p>
+            <p v-else class="report-muted">
+              Keine Stuhlbeobachtungen dokumentiert.
+            </p>
           </section>
         </div>
 
@@ -337,10 +445,19 @@ watch(reportLabel, (value) => {
           <CircleAlert :size="16" />
           <div>
             <strong>Einordnung für die Fachperson</strong>
-            <p>Die Übersicht fasst persönliche Beobachtungen zusammen. Sie ist keine Diagnose, kein Allergietest und kein Beweis für eine Unverträglichkeit. Unprotokollierte Mahlzeiten, Schlaf, Stress, Medikamente und andere gesundheitliche Faktoren können die Muster beeinflussen.</p>
+            <p>
+              Die Übersicht fasst persönliche Beobachtungen zusammen. Sie ist
+              keine Diagnose, kein Allergietest und kein Beweis für eine
+              Unverträglichkeit. Unprotokollierte Mahlzeiten, Schlaf, Stress,
+              Medikamente und andere gesundheitliche Faktoren können die Muster
+              beeinflussen.
+            </p>
           </div>
         </section>
-        <footer class="report-footer">Bauchgefühl · Private lokale Zusammenfassung · Bitte gemeinsam mit einer medizinischen Fachperson besprechen</footer>
+        <footer class="report-footer">
+          Bauchgefühl · Private lokale Zusammenfassung · Bitte gemeinsam mit
+          einer medizinischen Fachperson besprechen
+        </footer>
       </article>
     </div>
   </AppShell>

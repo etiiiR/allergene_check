@@ -19,7 +19,7 @@ test("recipe → meal → symptom-free check-in → patterns; persistence and cl
   try {
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: "Hör auf dein Bauchgefühl." }),
+      page.getByRole("heading", { name: "Dein Tag, im Überblick." }),
     ).toBeVisible();
     await page.getByRole("link", { name: "Rezepte", exact: true }).click();
     await page.getByRole("button", { name: "Rezept hinzufügen" }).click();
@@ -80,7 +80,9 @@ test("recipe → meal → symptom-free check-in → patterns; persistence and cl
     await page.getByRole("link", { name: "Tagebuch", exact: true }).click();
     await expect(page.getByRole("heading", { name })).toBeVisible();
     await page.getByRole("button", { name: "Check-in", exact: true }).click();
-    await page.getByRole("button", { name: /Heute geht es gut/ }).click();
+    await page
+      .getByRole("button", { name: /Zu diesem Zeitpunkt geht es gut/ })
+      .click();
     const checkResponse = page.waitForResponse(
       (r) =>
         r.url().endsWith("/api/checkins") && r.request().method() === "POST",
@@ -109,7 +111,7 @@ test("recipe → meal → symptom-free check-in → patterns; persistence and cl
         .getByText("Noch zu wenig Vergleichsdaten für eine Einschätzung.")
         .first(),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Schliessen" }).click();
+    await page.getByRole("button", { name: "Zurück zur Übersicht" }).click();
     await page.getByRole("link", { name: "FODMAP", exact: true }).click();
     await page.getByLabel("Lebensmittel suchen").fill("zwiebel");
     await expect(
@@ -118,7 +120,7 @@ test("recipe → meal → symptom-free check-in → patterns; persistence and cl
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: "Hör auf dein Bauchgefühl." }),
+      page.getByRole("heading", { name: "Dein Tag, im Überblick." }),
     ).toBeVisible();
     expect(
       await page.evaluate(
@@ -143,9 +145,15 @@ test("recipe → meal → symptom-free check-in → patterns; persistence and cl
   }
 });
 
-test("symptom check-in records its timing window", async ({ page, request }) => {
+test("symptom check-in records its timing window", async ({
+  page,
+  request,
+}) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Befinden", exact: true }).first().click();
+  await page
+    .getByRole("button", { name: "Befinden", exact: true })
+    .first()
+    .click();
   await page.getByRole("button", { name: "Blähungen", exact: true }).click();
   await page.getByRole("button", { name: /Später/ }).click();
 
@@ -166,7 +174,10 @@ test("symptom check-in records its timing window", async ({ page, request }) => 
   expect(cleanup.ok()).toBeTruthy();
 });
 
-test("profile keeps cycle tracking in its separate context", async ({ page, request }) => {
+test("profile keeps cycle tracking in its separate context", async ({
+  page,
+  request,
+}) => {
   const original = await (await request.get("/api/diary")).json();
   try {
     await page.goto("/profile");
@@ -181,7 +192,9 @@ test("profile keeps cycle tracking in its separate context", async ({ page, requ
     );
     await page.getByRole("button", { name: "Profil speichern" }).click();
     expect((await responsePromise).ok()).toBeTruthy();
-    await expect(page.getByRole("status")).toContainText("Profil gespeichert");
+    await expect(page.locator(".profile-settings [role=status]")).toContainText(
+      "Profil gespeichert",
+    );
     const saved = await (await request.get("/api/diary")).json();
     expect(saved.profile.body_group).toBe("female");
     expect(saved.profile.cycle_tracking).toBeTruthy();
@@ -194,7 +207,10 @@ test("profile keeps cycle tracking in its separate context", async ({ page, requ
   }
 });
 
-test("recipe flags and next-day stool observation feed the diary", async ({ page, request }) => {
+test("recipe flags and next-day stool observation feed the diary", async ({
+  page,
+  request,
+}) => {
   const created = [];
   const name = "Flag browser test " + Date.now();
   const headers = { "X-Diary-Request": "1" };
@@ -205,7 +221,9 @@ test("recipe flags and next-day stool observation feed the diary", async ({ page
         title: name,
         servings: 2,
         instructions: "",
-        ingredients: [{ text: "1 Zwiebel", food_ids: ["onion"], allergens: [] }],
+        ingredients: [
+          { text: "1 Zwiebel", food_ids: ["onion"], allergens: [] },
+        ],
       },
     });
     expect(recipeResponse.ok()).toBeTruthy();
@@ -244,7 +262,10 @@ test("recipe flags and next-day stool observation feed the diary", async ({ page
         response.url().endsWith("/api/recipe-flags") &&
         response.request().method() === "POST",
     );
-    await page.locator("form.flag-form").getByRole("button", { name: "Reaktion markieren" }).click();
+    await page
+      .locator("form.flag-form")
+      .getByRole("button", { name: "Reaktion markieren" })
+      .click();
     const reaction = await (await reactionResponse).json();
     created.push(["recipe_flags", reaction.id]);
 
@@ -262,29 +283,38 @@ test("recipe flags and next-day stool observation feed the diary", async ({ page
     created.push(["stools", stool.id]);
   } finally {
     for (const [kind, id] of created.reverse()) {
-      const response = await request.delete("/api/" + kind + "/" + id, { headers });
+      const response = await request.delete("/api/" + kind + "/" + id, {
+        headers,
+      });
       expect(response.ok()).toBeTruthy();
     }
   }
 });
 
-test("profile imports normalized wearable stress data", async ({ page, request }) => {
+test("profile imports normalized wearable stress data", async ({
+  page,
+  request,
+}) => {
   const externalID = "browser-health-" + Date.now();
   let stressID = "";
   const payload = {
     source: "generic",
-    records: [{
-      external_id: externalID,
-      metric: "stress_score",
-      value: 64,
-      unit: "percent",
-      normalized_stress: 6.4,
-      observed_at: new Date(Date.now() - 3600000).toISOString(),
-    }],
+    records: [
+      {
+        external_id: externalID,
+        metric: "stress_score",
+        value: 64,
+        unit: "percent",
+        normalized_stress: 6.4,
+        observed_at: new Date(Date.now() - 3600000).toISOString(),
+      },
+    ],
   };
   try {
     await page.goto("/profile");
-    await page.getByLabel("Quelle der Gesundheitsdaten").selectOption("generic");
+    await page
+      .getByLabel("Quelle der Gesundheitsdaten")
+      .selectOption("generic");
     await page.locator('input[type="file"]').setInputFiles({
       name: "health.json",
       mimeType: "application/json",
@@ -295,14 +325,18 @@ test("profile imports normalized wearable stress data", async ({ page, request }
         response.url().endsWith("/api/health/import") &&
         response.request().method() === "POST",
     );
-    await page.getByRole("button", { name: "Health-Daten importieren" }).click();
+    await page
+      .getByRole("button", { name: "Health-Daten importieren" })
+      .click();
     const response = await responsePromise;
     expect(response.ok()).toBeTruthy();
     const imported = await response.json();
     expect(imported.imported).toBe(1);
     expect(imported.records[0].normalized_stress).toBe(6.4);
     stressID = imported.records[0].id;
-    await expect(page.getByRole("status")).toContainText("1 neu importiert");
+    await expect(page.locator(".profile-settings [role=status]")).toContainText(
+      "1 neu importiert",
+    );
 
     const second = await request.post("/api/health/import", {
       headers: { "X-Diary-Request": "1" },
@@ -324,6 +358,7 @@ test("dashboard saves a manual stress score", async ({ page, request }) => {
   let stressID = "";
   try {
     await page.goto("/");
+    await page.getByText("Weitere Beobachtungen", { exact: true }).click();
     await page.getByRole("button", { name: "Stress manuell" }).click();
     await page.getByRole("button", { name: "Hoch" }).click();
     const responsePromise = page.waitForResponse(
@@ -340,7 +375,10 @@ test("dashboard saves a manual stress score", async ({ page, request }) => {
     expect(saved.normalized_stress).toBe(9);
     stressID = saved.id;
     await page.goto("/insights");
-    await expect(page.getByRole("heading", { name: "Stress & Health-Daten" })).toBeVisible();
+    await page.locator(".insight-details > summary").click();
+    await expect(
+      page.getByRole("heading", { name: "Stress & Health-Daten" }),
+    ).toBeVisible();
   } finally {
     if (stressID) {
       const cleanup = await request.delete("/api/stress/" + stressID, {
@@ -351,14 +389,22 @@ test("dashboard saves a manual stress score", async ({ page, request }) => {
   }
 });
 
-test("doctor report renders a printable full-data overview", async ({ page }) => {
+test("doctor report renders a printable full-data overview", async ({
+  page,
+}) => {
   await page.goto("/report");
   await expect(
     page.getByRole("heading", { name: "Zusammenfassung für das Arztgespräch" }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Drucken / PDF" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Teilen / senden" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Zutatenmuster" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Drucken / PDF" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Teilen / senden" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Zutatenmuster" }),
+  ).toBeVisible();
 });
 
 test("calendar shows an open follow-up and lets me add a good check-in", async ({
@@ -377,7 +423,9 @@ test("calendar shows an open follow-up and lets me add a good check-in", async (
         .toISOString()
         .slice(0, 10);
     const checkinDays = new Set(
-      (diary.checkins || []).map((item) => localKey(new Date(item.occurred_at))),
+      (diary.checkins || []).map((item) =>
+        localKey(new Date(item.occurred_at)),
+      ),
     );
     const now = new Date();
     let mealAt = null;
@@ -421,7 +469,8 @@ test("calendar shows an open follow-up and lets me add a good check-in", async (
       (mealAt.getFullYear() - now.getFullYear()) * 12 +
       mealAt.getMonth() -
       now.getMonth();
-    const monthButton = monthDifference < 0 ? "Vorheriger Monat" : "Nächster Monat";
+    const monthButton =
+      monthDifference < 0 ? "Vorheriger Monat" : "Nächster Monat";
     for (let index = 0; index < Math.abs(monthDifference); index += 1) {
       await page.getByRole("button", { name: monthButton }).click();
     }
@@ -433,15 +482,21 @@ test("calendar shows an open follow-up and lets me add a good check-in", async (
     }).format(mealAt);
     await page.getByRole("button", { name: new RegExp(dateLabel) }).click();
     await expect(
-      page.locator(".selected-day-panel").getByText("Befinden offen", { exact: true }),
+      page
+        .locator(".selected-day-panel")
+        .getByText("Befinden offen", { exact: true }),
     ).toBeVisible();
     await expect(page.getByText(name, { exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "Gutes Befinden", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Gutes Befinden", exact: true })
+      .click();
     await expect(
       page.getByRole("heading", { name: "Wie geht es deinem Bauch?" }),
     ).toBeVisible();
-    await page.getByRole("button", { name: /Heute geht es gut/ }).click();
+    await page
+      .getByRole("button", { name: /Zu diesem Zeitpunkt geht es gut/ })
+      .click();
     const checkResponse = page.waitForResponse(
       (response) =>
         response.url().endsWith("/api/checkins") &&

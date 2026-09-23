@@ -1,5 +1,6 @@
 import { ref } from "vue";
 import { router } from "@inertiajs/vue3";
+import { notify } from "./ui/feedback";
 export const allergenLabels = {
   gluten: "Glutenhaltiges Getreide",
   milk: "Milch",
@@ -102,6 +103,7 @@ export function useMutation() {
   const busy = ref(false),
     error = ref("");
   async function save(path, data, done = () => {}, method = "POST") {
+    if (busy.value) return;
     busy.value = true;
     error.value = "";
     try {
@@ -109,7 +111,25 @@ export function useMutation() {
         method,
         body: data === undefined ? undefined : JSON.stringify(data),
       });
+      const labels = {
+        meals: "Mahlzeit gespeichert.",
+        checkins: "Befinden gespeichert.",
+        stools: "Beobachtung gespeichert.",
+        stress: "Stress gespeichert.",
+        recipes: "Rezept gespeichert.",
+        "recipe-flags": "Markierung gespeichert.",
+      };
+      notify(
+        method === "DELETE"
+          ? "Eintrag gelöscht."
+          : labels[path.split("/")[1]] || "Gespeichert.",
+      );
       router.reload({
+        onError: () =>
+          notify(
+            "Gespeichert. Die Ansicht konnte nicht aktualisiert werden. Bitte neu laden.",
+            "error",
+          ),
         onFinish: () => {
           busy.value = false;
           done();
@@ -117,6 +137,7 @@ export function useMutation() {
       });
     } catch (e) {
       error.value = e.message;
+      notify(e.message, "error");
       busy.value = false;
     }
   }

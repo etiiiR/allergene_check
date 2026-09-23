@@ -2,7 +2,7 @@
 import { computed, reactive } from "vue";
 import { usePage } from "@inertiajs/vue3";
 import { Flag, Heart, Save } from "@lucide/vue";
-import Modal from "./Modal.vue";
+import EntryPanel from "./EntryPanel.vue";
 import { useMutation } from "../lib";
 
 const props = defineProps({ recipe: Object, kind: String, meals: Array });
@@ -53,10 +53,18 @@ function submit() {
 </script>
 
 <template>
-  <Modal :title="kind === 'reaction' ? 'Reaktion markieren' : 'Rezept markieren'" @close="emit('close')">
+  <EntryPanel
+    :busy="busy"
+    :title="kind === 'reaction' ? 'Reaktion markieren' : 'Rezept markieren'"
+    @close="emit('close')"
+  >
     <form class="form flag-form" @submit.prevent="submit">
       <div class="entry-intro">
-        <span class="entry-step"><Heart v-if="kind === 'reaction'" :size="17" /><Flag v-else :size="17" /></span>
+        <span class="entry-step"
+          ><Heart v-if="kind === 'reaction'" :size="17" /><Flag
+            v-else
+            :size="17"
+        /></span>
         <div>
           <strong>{{ recipe.title }}</strong>
           <small>
@@ -71,7 +79,7 @@ function submit() {
 
       <label v-if="kind === 'reaction'" class="profile-field">
         Zugehörige Mahlzeit <span class="optional">optional</span>
-        <select v-model="form.meal_id">
+        <select class="d-select" v-model="form.meal_id">
           <option value="">Keine konkrete Mahlzeit auswählen</option>
           <option v-for="meal in recipeMeals" :key="meal.id" :value="meal.id">
             {{ meal.occurred_at.slice(0, 16).replace("T", " · ") }}
@@ -80,36 +88,46 @@ function submit() {
       </label>
 
       <template v-if="kind === 'reaction'">
-        <div class="picker-label"><span>Was hast du bemerkt?</span><small>Eine Auswahl reicht</small></div>
+        <div class="picker-label">
+          <span>Was hast du bemerkt?</span><small>Eine Auswahl reicht</small>
+        </div>
         <div class="symptom-choice-grid">
-          <button
+          <UiButton
             v-for="(label, key) in symptoms"
             :key="key"
             type="button"
-            class="symptom-choice pressable rounded-lg"
+            class="symptom-choice pressable"
             :class="{ selected: selectedSymptom.key === key }"
+            :aria-pressed="selectedSymptom.key === key"
             @click="selectedSymptom.key = key"
           >
             {{ label }}
-          </button>
+          </UiButton>
         </div>
         <div class="level-choice-grid">
-          <button
+          <UiButton
             v-for="choice in severityChoices"
             :key="choice.value"
             type="button"
-            class="level-choice pressable rounded-lg"
+            class="level-choice pressable"
             :class="{ selected: selectedSymptom.severity === choice.value }"
+            :aria-pressed="selectedSymptom.severity === choice.value"
             @click="selectedSymptom.severity = choice.value"
           >
             {{ choice.label }}
-          </button>
+          </UiButton>
         </div>
       </template>
 
       <label>
         Notiz <span class="optional">optional</span>
-        <textarea v-model="form.notes" maxlength="1500" rows="3" placeholder="Warum möchtest du es markieren?" />
+        <textarea
+          class="d-textarea"
+          v-model="form.notes"
+          maxlength="1500"
+          rows="3"
+          placeholder="Warum möchtest du es markieren?"
+        />
       </label>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <p class="helper">
@@ -117,11 +135,19 @@ function submit() {
         keine Unverträglichkeit oder Allergie.
       </p>
       <div class="form-actions">
-        <button type="button" class="button secondary" @click="emit('close')">Abbrechen</button>
-        <button class="button primary" :disabled="busy">
-          <Save :size="16" />{{ busy ? "Wird gespeichert …" : kind === "reaction" ? "Reaktion markieren" : "Verdacht speichern" }}
-        </button>
+        <UiButton type="button" class="button secondary" @click="emit('close')"
+          >Abbrechen</UiButton
+        >
+        <UiButton class="button primary" :loading="busy" :disabled="busy">
+          <Save :size="16" />{{
+            busy
+              ? "Wird gespeichert …"
+              : kind === "reaction"
+                ? "Reaktion markieren"
+                : "Verdacht speichern"
+          }}
+        </UiButton>
       </div>
     </form>
-  </Modal>
+  </EntryPanel>
 </template>

@@ -2,7 +2,7 @@
 import { ref, reactive } from "vue";
 import { usePage } from "@inertiajs/vue3";
 import { Globe, Sparkles, Plus, Trash2 } from "@lucide/vue";
-import Modal from "./Modal.vue";
+import EntryPanel from "./EntryPanel.vue";
 import { api, useMutation, allergenLabels } from "../lib";
 const props = defineProps({ recipe: Object }),
   emit = defineEmits(["close"]);
@@ -88,19 +88,22 @@ function submit() {
 }
 </script>
 <template>
-  <Modal
+  <EntryPanel
+    :busy="busy"
     :title="recipe ? 'Rezept bearbeiten' : 'Ein neues Lieblingsrezept'"
     @close="emit('close')"
     ><form class="form recipe-form" @submit.prevent="submit">
       <div class="form-row">
         <label
           >Rezeptname<input
+            class="d-input"
             v-model="form.title"
             required
             maxlength="160"
             placeholder="z. B. Ofengemüse mit Kräutern" /></label
         ><label class="short-field"
           >Portionen<input
+            class="d-input"
             v-model.number="form.servings"
             required
             type="number"
@@ -111,21 +114,23 @@ function submit() {
       <div class="recipe-source-import">
         <label
           >Rezept von URL übernehmen<input
+            class="d-input"
             v-model="sourceURL"
             type="url"
             maxlength="2048"
             placeholder="https://beispiel.de/rezept"
         /></label>
-        <button
+        <UiButton
           type="button"
           class="button secondary"
+          :loading="importing"
           :disabled="importing || !sourceURL.trim()"
           @click="importRecipe"
         >
           <Globe :size="16" />{{
             importing ? "Wird importiert …" : "Vorschau laden"
           }}
-        </button>
+        </UiButton>
         <p class="helper">
           Es werden nur öffentliche Seiten mit Schema.org-Rezeptdaten gelesen.
           Bitte Zutaten und Allergene vor dem Speichern prüfen.
@@ -134,20 +139,22 @@ function submit() {
       <div class="recipe-import">
         <label
           >Zutaten aus deinem Rezept<textarea
+            class="d-textarea"
             v-model="raw"
             rows="4"
             placeholder="Eine Zutat pro Zeile, z. B.&#10;2 Karotten&#10;1 Zwiebel&#10;1 TL Kreuzkümmel"
           /></label
-        ><button
+        ><UiButton
           type="button"
           class="button secondary"
+          :loading="analyzing"
           :disabled="analyzing || !raw.trim()"
           @click="analyze"
         >
           <Sparkles :size="16" />{{
             analyzing ? "Wird erkannt …" : "Zutaten erkennen"
           }}
-        </button>
+        </UiButton>
         <p class="helper">
           Textanalyse schlägt Zuordnungen vor. Prüfe Lebensmittel und Allergene
           vor dem Speichern.
@@ -164,19 +171,24 @@ function submit() {
         <div class="ingredient-top">
           <label
             >Zutat {{ index + 1
-            }}<input v-model="item.text" required maxlength="500" /></label
-          ><button
+            }}<input
+              class="d-input"
+              v-model="item.text"
+              required
+              maxlength="500" /></label
+          ><UiButton
             type="button"
             class="icon-button"
             aria-label="Zutat entfernen"
             @click="form.ingredients.splice(index, 1)"
           >
             <Trash2 :size="17" />
-          </button>
+          </UiButton>
         </div>
         <div class="form-row">
           <label
             >Lebensmittel-Zuordnung<select
+              class="d-select"
               :value="item.food_ids[0] || ''"
               @change="
                 item.food_ids = $event.target.value ? [$event.target.value] : []
@@ -189,6 +201,7 @@ function submit() {
             </select></label
           ><label
             >Enthaltene Allergene<select
+              class="d-select"
               v-model="item.allergens"
               multiple
               size="3"
@@ -205,24 +218,30 @@ function submit() {
           Cmd/Strg. Nicht aufgeführt bedeutet nicht allergenfrei.
         </p>
       </div>
-      <button type="button" class="text-button" @click="manual">
+      <UiButton type="button" class="text-button" @click="manual">
         <Plus :size="16" />Zutat manuell hinzufügen
-      </button>
+      </UiButton>
       <label
         >Zubereitung <span class="optional">optional</span
-        ><textarea v-model="form.instructions" rows="3" maxlength="15000" />
+        ><textarea
+          class="d-textarea"
+          v-model="form.instructions"
+          rows="3"
+          maxlength="15000"
+        />
       </label>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <div class="form-actions">
-        <button type="button" class="button secondary" @click="emit('close')">
-          Abbrechen</button
-        ><button
+        <UiButton type="button" class="button secondary" @click="emit('close')">
+          Abbrechen</UiButton
+        ><UiButton
           class="button primary"
+          :loading="busy"
           :disabled="busy || !form.ingredients.length"
         >
           {{ busy ? "Wird gespeichert …" : "Rezept speichern" }}
-        </button>
+        </UiButton>
       </div>
-    </form></Modal
+    </form></EntryPanel
   >
 </template>

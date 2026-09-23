@@ -2,7 +2,7 @@
 import { computed, reactive, ref } from "vue";
 import { Link, usePage } from "@inertiajs/vue3";
 import { Check, ChevronDown, Clock3, Heart, Plus, Utensils } from "@lucide/vue";
-import Modal from "./Modal.vue";
+import EntryPanel from "./EntryPanel.vue";
 import { localTime, useMutation } from "../lib";
 
 const props = defineProps({
@@ -178,11 +178,19 @@ function submit() {
 </script>
 
 <template>
-  <Modal
+  <EntryPanel
+    :busy="busy"
     :title="meal ? 'Mahlzeit eintragen' : 'Wie geht es deinem Bauch?'"
     @close="emit('close')"
   >
-    <form class="form quick-entry-form text-bauch-ink" @submit.prevent="submit">
+    <form class="form quick-entry-form" @submit.prevent="submit">
+      <label class="entry-date"
+        >Zeitpunkt<input
+          class="d-input"
+          v-model="form.occurred_at"
+          type="datetime-local"
+          required
+      /></label>
       <template v-if="meal">
         <div class="entry-intro">
           <span class="entry-step"><Utensils :size="17" /></span>
@@ -193,12 +201,13 @@ function submit() {
         </div>
 
         <div v-if="recentRecipes.length" class="quick-recipe-grid">
-          <button
+          <UiButton
             v-for="recipe in recentRecipes"
             :key="recipe.id"
             type="button"
-            class="quick-recipe pressable rounded-xl hover:shadow-sm"
+            class="quick-recipe pressable"
             :class="{ selected: form.recipe_id === recipe.id }"
+            :aria-pressed="form.recipe_id === recipe.id"
             @click="chooseRecipe(recipe.id)"
           >
             <span class="quick-recipe-icon"><Utensils :size="16" /></span>
@@ -207,13 +216,9 @@ function submit() {
               <small>{{ recipe.ingredients.length }} Zutaten</small>
             </span>
             <Check v-if="form.recipe_id === recipe.id" :size="17" />
-          </button>
+          </UiButton>
         </div>
-        <Link
-          v-else
-          href="/recipes"
-          class="entry-empty-link pressable rounded-xl hover:shadow-sm"
-        >
+        <Link v-else href="/recipes" class="entry-empty-link pressable">
           <span class="quick-recipe-icon"><Plus :size="17" /></span>
           <span
             ><strong>Noch kein Rezept gespeichert</strong
@@ -221,22 +226,36 @@ function submit() {
           >
           <ChevronDown :size="17" class="rotate-link" />
         </Link>
+        <label v-if="(page.props.diary?.recipes?.length || 0) > 6">
+          Alle gespeicherten Rezepte
+          <select class="d-select" v-model="form.recipe_id">
+            <option value="">Rezept wählen</option>
+            <option
+              v-for="recipe in page.props.diary.recipes"
+              :key="recipe.id"
+              :value="recipe.id"
+            >
+              {{ recipe.title }}
+            </option>
+          </select>
+        </label>
 
         <div v-if="recentRecipes.length" class="portion-picker">
           <div class="picker-label">
             <span>Portionen</span><small>Standard: 1</small>
           </div>
           <div class="choice-row">
-            <button
+            <UiButton
               v-for="portion in portionChoices"
               :key="portion"
               type="button"
-              class="choice-button pressable rounded-lg"
+              class="choice-button pressable"
               :class="{ selected: form.portions === portion }"
+              :aria-pressed="form.portions === portion"
               @click="form.portions = portion"
             >
               {{ portion }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </template>
@@ -250,37 +269,47 @@ function submit() {
           </div>
         </div>
 
-        <button
+        <UiButton
           type="button"
-          class="feeling-good pressable rounded-xl hover:shadow-sm"
+          class="feeling-good pressable"
           :class="{ selected: form.symptom_free }"
+          :aria-pressed="form.symptom_free"
           @click="chooseFree"
         >
           <span class="feeling-icon"><Check :size="18" /></span>
           <span
-            ><strong>Heute geht es gut</strong
+            ><strong>Zu diesem Zeitpunkt geht es gut</strong
             ><small>Symptomfrei markieren</small></span
           >
           <Check v-if="form.symptom_free" :size="18" />
-        </button>
+        </UiButton>
 
+        <UiButton
+          v-if="form.symptom_free"
+          type="button"
+          class="text-button"
+          @click="form.symptom_free = false"
+        >
+          Stattdessen Beschwerden festhalten
+        </UiButton>
         <div v-if="!form.symptom_free" class="symptom-picker">
           <div class="picker-label">
             <span>Was spürst du?</span><small>Eine Auswahl reicht</small>
           </div>
           <div class="symptom-choice-grid">
-            <button
+            <UiButton
               v-for="key in showAllSymptoms ? symptomKeys : commonSymptoms"
               :key="key"
               type="button"
-              class="symptom-choice pressable rounded-lg"
+              class="symptom-choice pressable"
               :class="{ selected: selectedSymptom === key }"
+              :aria-pressed="selectedSymptom === key"
               @click="chooseSymptom(key)"
             >
               {{ symptoms[key] }}
-            </button>
+            </UiButton>
           </div>
-          <button
+          <UiButton
             v-if="symptomKeys.length > commonSymptoms.length"
             type="button"
             class="more-button"
@@ -288,7 +317,7 @@ function submit() {
           >
             {{ showAllSymptoms ? "Weniger anzeigen" : "Weitere Beschwerden" }}
             <ChevronDown :size="15" :class="{ rotated: showAllSymptoms }" />
-          </button>
+          </UiButton>
         </div>
 
         <div v-if="selectedSymptom" class="level-picker">
@@ -297,17 +326,18 @@ function submit() {
             ><small>{{ selectedLevel }}/10</small>
           </div>
           <div class="level-choice-grid">
-            <button
+            <UiButton
               v-for="level in levelChoices"
               :key="level.value"
               type="button"
-              class="level-choice pressable rounded-lg"
+              class="level-choice pressable"
               :class="{ selected: selectedLevel === level.value }"
+              :aria-pressed="selectedLevel === level.value"
               @click="chooseLevel(level.value)"
             >
               <strong>{{ level.label }}</strong
               ><small>{{ level.hint }}</small>
-            </button>
+            </UiButton>
           </div>
         </div>
 
@@ -317,16 +347,18 @@ function submit() {
             ><small>Ungefähres Fenster reicht</small>
           </div>
           <div class="timing-choice-grid">
-            <button
+            <UiButton
               v-for="choice in timingChoices"
               :key="choice.value"
               type="button"
-              class="timing-choice pressable rounded-lg"
+              class="timing-choice pressable"
               :class="{ selected: form.timing_bucket === choice.value }"
+              :aria-pressed="form.timing_bucket === choice.value"
               @click="chooseTiming(choice.value)"
             >
-              <strong>{{ choice.label }}</strong><small>{{ choice.hint }}</small>
-            </button>
+              <strong>{{ choice.label }}</strong
+              ><small>{{ choice.hint }}</small>
+            </UiButton>
           </div>
           <div v-if="recentMeals.length" class="reference-meal-picker">
             <div class="picker-label">
@@ -334,48 +366,54 @@ function submit() {
               ><small>Optional</small>
             </div>
             <div class="reference-meal-list">
-              <button
+              <UiButton
                 v-for="meal in recentMeals"
                 :key="meal.id"
                 type="button"
-                class="reference-meal pressable rounded-lg"
+                class="reference-meal pressable"
                 :class="{ selected: form.reference_meal_id === meal.id }"
+                :aria-pressed="form.reference_meal_id === meal.id"
                 @click="chooseReferenceMeal(meal.id)"
               >
                 <Utensils :size="14" /><span>{{ meal.title }}</span
                 ><Check v-if="form.reference_meal_id === meal.id" :size="14" />
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
 
-        <div v-if="cycleEnabled" class="cycle-checkin-picker">
+        <details v-if="cycleEnabled" class="cycle-checkin-picker">
+          <summary>Zyklus-Kontext ergänzen</summary>
           <div class="picker-label">
             <span>Zyklus-Kontext</span>
-            <small>{{ form.cycle_day ? `Tag ${form.cycle_day}` : "optional" }}</small>
+            <small>{{
+              form.cycle_day ? `Tag ${form.cycle_day}` : "optional"
+            }}</small>
           </div>
           <div class="cycle-choice-grid">
-            <button
+            <UiButton
               v-for="choice in cycleChoices"
               :key="choice.value"
               type="button"
-              class="cycle-choice pressable rounded-lg"
+              class="cycle-choice pressable"
               :class="{ selected: form.cycle_phase === choice.value }"
+              :aria-pressed="form.cycle_phase === choice.value"
               @click="chooseCyclePhase(choice.value)"
             >
               {{ choice.label }}
-            </button>
+            </UiButton>
           </div>
           <small class="cycle-note"
             >Grobe Kalender-Schätzung — keine medizinische oder
             verhütungsbezogene Aussage.</small
           >
-        </div>
+        </details>
       </template>
 
-      <button
+      <UiButton
         type="button"
         class="details-toggle pressable"
+        :aria-expanded="showDetails"
         @click="showDetails = !showDetails"
       >
         <span
@@ -383,20 +421,17 @@ function submit() {
           {{
             showDetails
               ? "Details ausblenden"
-              : "Zeit, Stress, Schlaf oder Notiz ergänzen"
+              : "Stress, Schlaf oder Notiz ergänzen"
           }}</span
         >
         <ChevronDown :size="16" :class="{ rotated: showDetails }" />
-      </button>
+      </UiButton>
 
       <div v-if="showDetails" class="entry-details">
-        <label>
-          Zeitpunkt
-          <input v-model="form.occurred_at" type="datetime-local" required />
-        </label>
         <div v-if="!meal" class="form-row">
           <label
             >Stress (manuell)<input
+              class="d-input"
               v-model.number="form.stress"
               type="number"
               min="0"
@@ -404,6 +439,7 @@ function submit() {
           /></label>
           <label
             >Schlaf<input
+              class="d-input"
               v-model.number="form.sleep_hours"
               type="number"
               min="0"
@@ -418,6 +454,7 @@ function submit() {
         <label>
           Notiz <span class="optional">optional</span>
           <textarea
+            class="d-textarea"
             v-model="form.notes"
             maxlength="3000"
             rows="3"
@@ -435,15 +472,19 @@ function submit() {
         }}
       </p>
       <div class="form-actions">
-        <button
+        <UiButton
           type="button"
           class="button secondary"
           @click="emit('close')"
           :disabled="busy"
         >
           Abbrechen
-        </button>
-        <button class="button primary" :disabled="busy || !canSubmit">
+        </UiButton>
+        <UiButton
+          class="button primary"
+          :loading="busy"
+          :disabled="busy || !canSubmit"
+        >
           {{
             busy
               ? "Wird gespeichert …"
@@ -451,8 +492,8 @@ function submit() {
                 ? "Mahlzeit speichern"
                 : "Eintrag speichern"
           }}
-        </button>
+        </UiButton>
       </div>
     </form>
-  </Modal>
+  </EntryPanel>
 </template>

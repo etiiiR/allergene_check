@@ -1,10 +1,18 @@
 <script setup>
 import { computed, ref } from "vue";
 import { Head } from "@inertiajs/vue3";
-import { Plus, Heart, HeartPulse, Utensils, Trash2, BookOpen, ClipboardCheck } from "@lucide/vue";
+import {
+  Plus,
+  Heart,
+  HeartPulse,
+  Utensils,
+  Trash2,
+  BookOpen,
+  ClipboardCheck,
+} from "@lucide/vue";
 import AppShell from "../components/AppShell.vue";
 import EntryModal from "../components/EntryModal.vue";
-import Modal from "../components/Modal.vue";
+import EntryPanel from "../components/EntryPanel.vue";
 import StoolModal from "../components/StoolModal.vue";
 import StressModal from "../components/StressModal.vue";
 import {
@@ -29,8 +37,16 @@ const events = computed(() => {
   const all = [
     ...props.diary.meals.map((x) => ({ ...x, kind: "meals" })),
     ...props.diary.checkins.map((x) => ({ ...x, kind: "checkins" })),
-    ...(props.diary.stools || []).map((x) => ({ ...x, kind: "stools", occurred_at: x.observed_at })),
-    ...(props.diary.stress_observations || []).map((x) => ({ ...x, kind: "stress", occurred_at: x.observed_at })),
+    ...(props.diary.stools || []).map((x) => ({
+      ...x,
+      kind: "stools",
+      occurred_at: x.observed_at,
+    })),
+    ...(props.diary.stress_observations || []).map((x) => ({
+      ...x,
+      kind: "stress",
+      occurred_at: x.observed_at,
+    })),
   ];
   return all
     .filter(
@@ -54,32 +70,51 @@ const events = computed(() => {
         : b.occurred_at.localeCompare(a.occurred_at),
     );
 });
+const groups = computed(() => {
+  if (sort.value === "severity")
+    return [{ label: "Nach Beschwerdestärke", items: events.value }];
+  const days = new Map();
+  for (const item of events.value) {
+    const key = dayOf(item.occurred_at);
+    if (!days.has(key)) days.set(key, []);
+    days.get(key).push(item);
+  }
+  return [...days].map(([key, items]) => ({
+    label: new Intl.DateTimeFormat("de-CH", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(new Date(key + "T12:00:00")),
+    items,
+  }));
+});
 </script>
 <template>
   <Head title="Mein Tagebuch" /><AppShell
     ><div class="page-heading">
       <div>
-        <p class="eyebrow">ESSEN. FÜHLEN. FESTHALTEN.</p>
+        <p class="eyebrow">VERLAUF</p>
         <h1>Mein Tagebuch</h1>
-        <p>Ein ehrlicher Blick auf deinen Tag – auch auf die guten Momente.</p>
+        <p>Mahlzeiten und Beobachtungen, nach Zeitpunkt geordnet.</p>
       </div>
       <div class="actions">
-        <button class="button secondary" @click="entry = 'check'">
-          <Heart :size="17" />Check-in</button
-        ><button class="button primary" @click="entry = 'meal'">
-          <Plus :size="17" />Mahlzeit
-        </button><button class="button secondary" @click="entry = 'stool'">
-          <ClipboardCheck :size="17" />Stuhl
-        </button><button class="button secondary" @click="entry = 'stress'">
+        <UiButton class="button secondary" @click="entry = 'check'">
+          <Heart :size="17" />Check-in</UiButton
+        ><UiButton class="button primary" @click="entry = 'meal'">
+          <Plus :size="17" />Mahlzeit </UiButton
+        ><UiButton class="button secondary" @click="entry = 'stool'">
+          <ClipboardCheck :size="17" />Stuhl </UiButton
+        ><UiButton class="button secondary" @click="entry = 'stress'">
           <HeartPulse :size="17" />Stress manuell
-        </button>
+        </UiButton>
       </div>
     </div>
     <div class="toolbar">
-      <label>Datum<input type="date" v-model="date" /></label
-      ><button class="text-button" @click="date = ''">Alle Tage</button
+      <label>Datum<input class="d-input" type="date" v-model="date" /></label
+      ><UiButton class="text-button" @click="date = ''">Alle Tage</UiButton
       ><label
-        >Anzeigen<select v-model="filter">
+        >Anzeigen<select class="d-select" v-model="filter">
           <option value="all">Alle Einträge</option>
           <option value="meals">Mahlzeiten</option>
           <option value="stools">Stuhlbeobachtungen</option>
@@ -91,7 +126,7 @@ const events = computed(() => {
           </option>
         </select></label
       ><label
-        >Sortieren<select v-model="sort">
+        >Sortieren<select class="d-select" v-model="sort">
           <option value="time">Neueste zuerst</option>
           <option value="severity">Stärkste Symptome</option>
         </select></label
@@ -104,109 +139,146 @@ const events = computed(() => {
         Für diese Auswahl gibt es keine Einträge.<br />Eine Mahlzeit oder ein
         Check-in ist ein guter Anfang.
       </p>
-      <button class="button primary" @click="entry = 'check'">
+      <UiButton class="button primary" @click="entry = 'check'">
         Befinden eintragen
-      </button>
+      </UiButton>
     </section>
     <div class="diary-list">
-      <article v-for="item in events" :key="item.id" class="panel diary-entry">
+      <section v-for="group in groups" :key="group.label" class="diary-group">
+        <h2>{{ group.label }}</h2>
+        <div class="diary-list">
+          <article
+            v-for="item in group.items"
+            :key="item.kind + item.id"
+            class="panel diary-entry"
+          >
             <div class="entry-time">
               {{ dateTime(item.occurred_at)
-              }}<span class="event-icon"><Utensils v-if="item.kind === 'meals'" :size="19" /><ClipboardCheck v-else-if="item.kind === 'stools'" :size="19" /><HeartPulse v-else-if="item.kind === 'stress'" :size="19" /><Heart v-else :size="19" /></span>
-        </div>
-        <div class="entry-content">
-          <div class="entry-title">
-            <h2>
-              {{
-                item.kind === "meals"
-                  ? item.title
-                  : item.kind === "stools"
-                    ? "Stuhlbeobachtung"
-                    : item.kind === "stress"
-                      ? "Stress manuell"
-                    : item.symptom_free
-                    ? "Ein gutes Bauchgefühl"
-                    : "So ging es meinem Bauch"
-              }}
-            </h2>
-            <span
-              class="pill"
-              :class="
-                  item.kind === 'meals'
-                    ? 'neutral'
-                    : item.kind === 'stools'
+              }}<span class="event-icon"
+                ><Utensils
+                  v-if="item.kind === 'meals'"
+                  :size="19" /><ClipboardCheck
+                  v-else-if="item.kind === 'stools'"
+                  :size="19" /><HeartPulse
+                  v-else-if="item.kind === 'stress'"
+                  :size="19" /><Heart v-else :size="19"
+              /></span>
+            </div>
+            <div class="entry-content">
+              <div class="entry-title">
+                <h2>
+                  {{
+                    item.kind === "meals"
+                      ? item.title
+                      : item.kind === "stools"
+                        ? "Stuhlbeobachtung"
+                        : item.kind === "stress"
+                          ? "Stress manuell"
+                          : item.symptom_free
+                            ? "Ein gutes Bauchgefühl"
+                            : "So ging es meinem Bauch"
+                  }}
+                </h2>
+                <span
+                  class="pill"
+                  :class="
+                    item.kind === 'meals'
                       ? 'neutral'
-                    : item.kind === 'stress'
-                      ? 'neutral'
-                    : item.symptom_free
-                    ? 'low'
-                    : 'high'
-              "
-              >{{
-                  item.kind === "meals"
-                    ? "Mahlzeit"
-                    : item.kind === "stools"
-                      ? "Stuhl"
-                    : item.kind === "stress"
-                      ? "Stress"
-                    : item.symptom_free
-                    ? "Symptomfrei"
-                    : "Beschwerden"
-              }}</span
+                      : item.kind === 'stools'
+                        ? 'neutral'
+                        : item.kind === 'stress'
+                          ? 'neutral'
+                          : item.symptom_free
+                            ? 'low'
+                            : 'high'
+                  "
+                  >{{
+                    item.kind === "meals"
+                      ? "Mahlzeit"
+                      : item.kind === "stools"
+                        ? "Stuhl"
+                        : item.kind === "stress"
+                          ? "Stress"
+                          : item.symptom_free
+                            ? "Symptomfrei"
+                            : "Beschwerden"
+                  }}</span
+                >
+              </div>
+              <template v-if="item.kind === 'meals'"
+                ><p class="helper">{{ item.portions }} Portion(en)</p>
+                <div class="tags">
+                  <span
+                    class="ingredient-tag"
+                    v-for="(i, n) in item.ingredients"
+                    :key="n"
+                    >{{ i.text }}</span
+                  >
+                </div></template
+              ><template v-else-if="item.kind === 'stools'"
+                ><p class="helper">Für {{ item.observed_for_date }}</p>
+                <div class="tags">
+                  <span class="stool-tag">{{
+                    stoolQualityLabel(item.quality)
+                  }}</span>
+                </div> </template
+              ><template v-else-if="item.kind === 'stress'"
+                ><div class="tags">
+                  <span class="stress-tag"
+                    >{{ item.normalized_stress ?? item.value }}/10 ·
+                    manuell</span
+                  >
+                </div>
+                <p class="helper">
+                  Persönlicher Stress-Score ohne Watch- oder Ringmessung.
+                </p> </template
+              ><template v-else
+                ><div class="tags">
+                  <span
+                    v-for="(value, key) in item.symptoms"
+                    v-show="value > 0"
+                    :key="key"
+                    class="symptom-tag"
+                    >{{ symptoms[key] }} <b>{{ value }}/10</b></span
+                  >
+                </div>
+                <div v-if="!item.symptom_free" class="timing-tag">
+                  <span>{{ timingLabel(item.timing_bucket) }}</span>
+                  <small>{{ timingPhase(item.timing_bucket) }}</small>
+                </div>
+                <div
+                  v-if="item.cycle_phase && item.cycle_phase !== 'unknown'"
+                  class="cycle-tag"
+                >
+                  {{ cyclePhaseLabel(item.cycle_phase)
+                  }}<span v-if="item.cycle_day">
+                    · Tag {{ item.cycle_day }}</span
+                  >
+                </div>
+                <p class="helper">
+                  Stress {{ item.stress }}/10 · Schlaf
+                  {{ item.sleep_hours }} Stunden
+                </p></template
+              >
+              <details v-if="item.notes" class="entry-note">
+                <summary>Notiz ansehen</summary>
+                <p>{{ item.notes }}</p>
+              </details>
+            </div>
+            <UiButton
+              class="icon-button delete"
+              aria-label="Eintrag löschen"
+              @click="pending = item"
             >
-          </div>
-          <template v-if="item.kind === 'meals'"
-            ><p class="helper">{{ item.portions }} Portion(en)</p>
-            <div class="tags">
-              <span
-                class="ingredient-tag"
-                v-for="(i, n) in item.ingredients"
-                :key="n"
-                >{{ i.text }}</span
-              >
-            </div></template
-          ><template v-else-if="item.kind === 'stools'"
-            ><p class="helper">Für {{ item.observed_for_date }}</p>
-            <div class="tags"><span class="stool-tag">{{ stoolQualityLabel(item.quality) }}</span></div>
-          </template><template v-else-if="item.kind === 'stress'"
-            ><div class="tags"><span class="stress-tag">{{ item.normalized_stress ?? item.value }}/10 · manuell</span></div>
-            <p class="helper">Persönlicher Stress-Score ohne Watch- oder Ringmessung.</p>
-          </template><template v-else
-            ><div class="tags">
-              <span
-                v-for="(value, key) in item.symptoms"
-                v-show="value > 0"
-                :key="key"
-                class="symptom-tag"
-                >{{ symptoms[key] }} <b>{{ value }}/10</b></span
-              >
-            </div>
-            <div v-if="!item.symptom_free" class="timing-tag">
-              <span>{{ timingLabel(item.timing_bucket) }}</span>
-              <small>{{ timingPhase(item.timing_bucket) }}</small>
-            </div>
-            <div v-if="item.cycle_phase && item.cycle_phase !== 'unknown'" class="cycle-tag">
-              {{ cyclePhaseLabel(item.cycle_phase) }}<span v-if="item.cycle_day"> · Tag {{ item.cycle_day }}</span>
-            </div>
-            <p class="helper">
-              Stress {{ item.stress }}/10 · Schlaf
-              {{ item.sleep_hours }} Stunden
-            </p></template
-          >
-          <p v-if="item.notes" class="entry-note">{{ item.notes }}</p>
+              <Trash2 :size="17" />
+            </UiButton>
+          </article>
         </div>
-        <button
-          class="icon-button delete"
-          aria-label="Eintrag löschen"
-          @click="pending = item"
-        >
-          <Trash2 :size="17" />
-        </button>
-      </article>
+      </section>
     </div>
-    <button v-if="date" class="text-button" @click="entry = 'free'">
+    <UiButton v-if="date" class="text-button" @click="entry = 'free'">
       <Heart :size="16" />Gutes Befinden für diesen Zeitpunkt eintragen
-    </button>
+    </UiButton>
     <EntryModal
       v-if="entry === 'meal' || entry === 'check' || entry === 'free'"
       :type="entry"
@@ -220,16 +292,19 @@ const events = computed(() => {
       v-if="entry === 'stress'"
       :day="date === localDate() ? '' : date"
       @close="entry = ''"
-    /><Modal v-if="pending" title="Eintrag löschen?" @close="pending = null"
+    /><EntryPanel
+      v-if="pending"
+      title="Eintrag löschen?"
+      @close="pending = null"
       ><p>
         Dieser Eintrag wird dauerhaft aus deinem Tagebuch entfernt. Deine Muster
         werden danach neu berechnet.
       </p>
       <p v-if="error" role="alert" class="alert error">{{ error }}</p>
       <div class="form-actions">
-        <button class="button secondary" @click="pending = null">
-          Behalten</button
-        ><button
+        <UiButton class="button secondary" @click="pending = null">
+          Behalten</UiButton
+        ><UiButton
           class="button danger"
           :disabled="busy"
           @click="
@@ -242,8 +317,8 @@ const events = computed(() => {
           "
         >
           Löschen
-        </button>
-      </div></Modal
+        </UiButton>
+      </div></EntryPanel
     >
   </AppShell>
 </template>

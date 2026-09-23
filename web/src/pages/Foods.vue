@@ -47,13 +47,14 @@ function matches(f) {
     <div class="toolbar">
       <div class="search-box grow">
         <Search :size="18" /><input
+          class="d-input"
           aria-label="Lebensmittel suchen"
           v-model="search"
           placeholder="Lebensmittel, deutsche Bezeichnung oder FODMAP suchen …"
         />
       </div>
       <label
-        >Referenz<select v-model="level">
+        >Referenz<select class="d-select" v-model="level">
           <option value="all">Alle Lebensmittel</option>
           <option value="lower">Eher FODMAP-arm</option>
           <option value="higher">Eher FODMAP-reich</option>

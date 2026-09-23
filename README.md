@@ -43,7 +43,7 @@ FODMAP references are based on [Monash University's public overview](https://www
 
 ## Code organization
 
-`diary_models.go` validates domain inputs; `diary_store.go` owns persistence; `diary_routes.go` owns JSON handlers; `analysis_client.go` calls Python with a deadline; `food_catalog.go` embeds the shared catalog; `web.go` bridges Gonertia's Vite integration into Fiber. Vue pages, reusable forms and styles live in `web/src/`; the current shell and fast-entry surfaces use Tailwind CSS through the official Vite plugin, while the shared legacy styles are being migrated incrementally. Python's reusable diary analysis lives in `ml-service/app/diary_analysis.py`; the review-first importer lives separately in `ml-service/app/recipe_scraper.py` and uses `httpx` plus BeautifulSoup.
+`diary_models.go` validates domain inputs; `diary_store.go` owns persistence; `diary_routes.go` owns JSON handlers; `analysis_client.go` calls Python with a deadline; `food_catalog.go` embeds the shared catalog; `web.go` bridges Gonertia's Vite integration into Fiber. Vue pages, reusable forms and styles live in `web/src/`. The UI uses Tailwind CSS 4 and DaisyUI 5 with a shared slate/teal theme, reusable components in `components/ui/`, and a five-destination mobile navigation. Forms and confirmation views open within the main page: no modal overlays or focus traps. See [UX_THEME_STUDY.md](UX_THEME_STUDY.md) for the heuristic audit, implemented decisions, limitations and follow-up research. Python's reusable diary analysis lives in `ml-service/app/diary_analysis.py`; the review-first importer lives separately in `ml-service/app/recipe_scraper.py` and uses `httpx` plus BeautifulSoup.
 
 ## Run the stack with Docker Compose
 
@@ -243,12 +243,21 @@ Wrap internal causes with `WrapAppError`. The cause is retained for server logs 
 
 ## Test
 
-The browser test exercises recipe extraction and creation, persistent reload, meal logging, explicit symptom-free recording, navigation, search, and mobile layout. It deletes only the test records it creates. Start Compose, then run:
+The browser suite exercises recipe creation, persistence, meals, symptom timing, stress, stool, calendar and report workflows. Design checks cover eight pages at 320/390/768/1440px, populated data, Axe WCAG A/AA checks, inline editor failures and focus restoration, reduced motion, and print layout. Screenshots are saved under `web/test-results/`.
+
+Use a separate test database: the suite writes fixtures and temporarily updates the profile. It deletes its created records and restores the profile, but should not run against a real patient's diary. Start the database and ML services, create a dedicated database (for example `ux_tests` in namespace `main`), then build and start a separate app instance:
+
+```sh
+npm --prefix web run build
+PORT=3001 APP_URL=http://localhost:3001 SURREALDB_DATABASE=ux_tests go run .
+```
+
+In another terminal:
 
 ```sh
 cd web
 npx playwright install chromium
-npm test
+APP_TEST_URL=http://localhost:3001 npm test
 ```
 
 Python tests cover alias specificity, unknown ingredients, meal-before-symptom ordering, missing check-ins, duplicate-day handling, symptom filters, co-occurring allergens and ingredients, and the model's data thresholds.

@@ -14,6 +14,7 @@ import {
 } from "@lucide/vue";
 import AppShell from "../components/AppShell.vue";
 import { api } from "../lib";
+import { notify } from "../ui/feedback";
 
 const props = defineProps({ diary: Object });
 const stored = props.diary?.profile || {};
@@ -41,6 +42,7 @@ function chooseBodyGroup() {
 }
 
 async function saveProfile() {
+  if (busy.value) return;
   busy.value = true;
   error.value = "";
   saved.value = false;
@@ -50,9 +52,11 @@ async function saveProfile() {
       body: JSON.stringify(form),
     });
     saved.value = true;
+    notify("Profil gespeichert.");
     router.reload({ onFinish: () => (busy.value = false) });
   } catch (e) {
     error.value = e.message;
+    notify(e.message, "error");
     busy.value = false;
   }
 }
@@ -88,8 +92,13 @@ async function importHealth() {
     });
     healthStatus.value = `${response.imported} neu importiert${response.updated ? `, ${response.updated} aktualisiert` : ""}.`;
     healthFile.value = null;
+    notify(healthStatus.value);
+    router.reload();
   } catch (e) {
-    healthError.value = e instanceof SyntaxError ? "Die Datei ist kein gültiges JSON." : e.message;
+    healthError.value =
+      e instanceof SyntaxError
+        ? "Die Datei ist kein gültiges JSON."
+        : e.message;
   } finally {
     healthBusy.value = false;
   }
@@ -119,6 +128,7 @@ async function importHealth() {
         <label class="profile-field">
           Körperkontext
           <select
+            class="d-select"
             v-model="form.body_group"
             aria-label="Körperkontext"
             @change="chooseBodyGroup"
@@ -135,30 +145,42 @@ async function importHealth() {
         </p>
       </section>
 
-      <section v-if="form.body_group === 'female'" class="panel profile-card cycle-card">
+      <section
+        v-if="form.body_group === 'female'"
+        class="panel profile-card cycle-card"
+      >
         <div class="section-heading">
           <div>
             <h2>Zyklusbeobachtung</h2>
-            <small>Nur aktivieren, wenn du diesen Kontext nutzen möchtest.</small>
+            <small
+              >Nur aktivieren, wenn du diesen Kontext nutzen möchtest.</small
+            >
           </div>
           <CalendarDays :size="19" class="muted" />
         </div>
         <label class="toggle-row">
           <span>
             <strong>Zyklus in Check-ins berücksichtigen</strong>
-            <small>Symptome können zusätzlich nach Phase verglichen werden.</small>
+            <small
+              >Symptome können zusätzlich nach Phase verglichen werden.</small
+            >
           </span>
-          <input v-model="form.cycle_tracking" type="checkbox" />
+          <input
+            class="d-input"
+            v-model="form.cycle_tracking"
+            type="checkbox"
+          />
         </label>
         <div v-if="form.cycle_tracking" class="cycle-fields">
           <label class="profile-field">
             Beginn der letzten Periode
-            <input v-model="form.period_start" type="date" />
+            <input class="d-input" v-model="form.period_start" type="date" />
           </label>
           <label class="profile-field">
             Übliche Zykluslänge
             <span class="inline-input">
               <input
+                class="d-input"
                 v-model.number="form.cycle_length_days"
                 type="number"
                 min="21"
@@ -191,9 +213,15 @@ async function importHealth() {
         </p>
         <label class="profile-field">
           Quelle der Datei
-          <select v-model="healthSource" aria-label="Quelle der Gesundheitsdaten">
+          <select
+            class="d-select"
+            v-model="healthSource"
+            aria-label="Quelle der Gesundheitsdaten"
+          >
             <option value="apple_healthkit">Apple Health / HealthKit</option>
-            <option value="android_health_connect">Android Health Connect</option>
+            <option value="android_health_connect">
+              Android Health Connect
+            </option>
             <option value="oura">Oura / Ring</option>
             <option value="watch">Andere Watch</option>
             <option value="generic">Andere normalisierte Quelle</option>
@@ -205,18 +233,34 @@ async function importHealth() {
             <strong>{{ healthFile?.name || "JSON-Datei auswählen" }}</strong>
             <small>Stress-Score 0–10 oder Rohwerte wie HRV / Puls</small>
           </span>
-          <input type="file" accept="application/json,.json" @change="chooseHealthFile" />
+          <input
+            class="d-input"
+            type="file"
+            accept="application/json,.json"
+            @change="chooseHealthFile"
+          />
         </label>
-        <button class="button secondary health-import" type="button" :disabled="healthBusy" @click="importHealth">
-          <Upload :size="16" /> {{ healthBusy ? "Wird importiert …" : "Health-Daten importieren" }}
-        </button>
-        <p v-if="healthError" class="alert error" role="alert">{{ healthError }}</p>
+        <UiButton
+          class="button secondary health-import"
+          type="button"
+          :disabled="healthBusy"
+          @click="importHealth"
+        >
+          <Upload :size="16" />
+          {{ healthBusy ? "Wird importiert …" : "Health-Daten importieren" }}
+        </UiButton>
+        <p v-if="healthError" class="alert error" role="alert">
+          {{ healthError }}
+        </p>
         <p v-if="healthStatus" class="alert success" role="status">
           <Check :size="16" /> {{ healthStatus }}
         </p>
         <div class="health-safety-note">
           <ShieldCheck :size="16" />
-          <span>Nur ausdrücklich normalisierte Stress-Scores werden analysiert. HRV und Puls werden nicht automatisch in Stress umgerechnet.</span>
+          <span
+            >Nur ausdrücklich normalisierte Stress-Scores werden analysiert. HRV
+            und Puls werden nicht automatisch in Stress umgerechnet.</span
+          >
         </div>
       </section>
 
@@ -224,9 +268,10 @@ async function importHealth() {
       <p v-if="saved" class="alert success" role="status">
         <Check :size="16" /> Profil gespeichert.
       </p>
-      <button class="button primary profile-save" :disabled="busy">
-        <Save :size="16" /> {{ busy ? "Wird gespeichert …" : "Profil speichern" }}
-      </button>
+      <UiButton class="button primary profile-save" :disabled="busy">
+        <Save :size="16" />
+        {{ busy ? "Wird gespeichert …" : "Profil speichern" }}
+      </UiButton>
     </form>
   </AppShell>
 </template>
