@@ -3,10 +3,13 @@ import { computed, reactive, ref } from "vue";
 import { usePage } from "@inertiajs/vue3";
 import EntryPanel from "./EntryPanel.vue";
 import RecipePicker from "./RecipePicker.vue";
+import SymptomRating from "./SymptomRating.vue";
 import { entryTone } from "../ui/entry-tones";
 import {
   cyclePhases,
   dateTime,
+  symptomIntensityFromScore,
+  symptomScoreFromIntensity,
   stoolQualities,
   timingWindows,
   useMutation,
@@ -171,19 +174,23 @@ function submit() {
             </div>
           </fieldset>
           <div v-if="!form.symptom_free" class="edit-symptom-grid">
-            <label v-for="(label, key) in symptoms" :key="key"
-              >{{ label
-              }}<input
-                class="d-input"
-                type="number"
-                min="0"
-                max="10"
-                step="1"
-                v-model.number="form.symptoms[key]"
-                required
-            /></label>
+            <div
+              v-for="(label, key) in symptoms"
+              :key="key"
+              class="edit-symptom-rating"
+            >
+              <span>{{ label }}</span>
+              <SymptomRating
+                :model-value="symptomIntensityFromScore(form.symptoms[key])"
+                :symptom-key="key"
+                :symptom-label="label"
+                @update:model-value="
+                  form.symptoms[key] = symptomScoreFromIntensity($event)
+                "
+              />
+            </div>
             <small
-              >0 = keine Beschwerden, 10 = sehr stark. Mehrere Symptome sind
+              >Wähle pro Symptom eine passende Stufe. Mehrere Symptome sind
               möglich.</small
             >
           </div>

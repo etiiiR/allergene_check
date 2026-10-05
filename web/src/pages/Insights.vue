@@ -549,7 +549,8 @@ const rows = computed(() =>
           Tag bleiben erhalten. Die davor gegessenen Mahlzeiten werden anhand
           des gewählten Zeitfensters und optional der zugeordneten Mahlzeit
           verglichen. Fehlende Einträge gelten niemals als symptomfrei.
-          Beschwerden ab Stärke 3/10 zählen als beobachtetes Ereignis.
+          Dokumentierte Beschwerden zählen als beobachtetes Ereignis. Die
+          Auswahl zeigt qualitative Stufen statt einer Zahlen- oder Sterneskala.
         </p>
         <p>
           Ein Vergleich braucht mindestens drei Momente mit und drei ohne die

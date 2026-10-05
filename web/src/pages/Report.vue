@@ -13,7 +13,12 @@ import {
   Utensils,
 } from "@lucide/vue";
 import AppShell from "../components/AppShell.vue";
-import { api, foodName } from "../lib";
+import {
+  api,
+  foodName,
+  symptomIntensityFromScore,
+  symptomIntensityLabels,
+} from "../lib";
 import { notify } from "../ui/feedback";
 
 const props = defineProps({ diary: Object, foods: Array, symptoms: Object });
@@ -150,7 +155,7 @@ function buildShareText() {
       .slice(0, 5)
       .map(
         (item) =>
-          `- ${item.label}: ${item.moments} Momente, maximal ${item.maximum}/10`,
+          `- ${item.label}: ${item.moments} Momente, maximal ${symptomIntensityLabels[symptomIntensityFromScore(item.maximum)]}`,
       ),
     "",
     "Mögliche Zutatenmuster:",
@@ -340,8 +345,18 @@ watch(reportLabel, (value) => {
               <div v-for="item in symptomRows.slice(0, 6)" :key="item.key">
                 <strong>{{ item.label }}</strong>
                 <span
-                  >{{ item.moments }} Momente · max. {{ item.maximum }}/10 · Ø
-                  {{ item.average.toFixed(1) }}/10</span
+                  >{{ item.moments }} Momente · maximal
+                  {{
+                    symptomIntensityLabels[
+                      symptomIntensityFromScore(item.maximum)
+                    ]
+                  }}
+                  · im Mittel
+                  {{
+                    symptomIntensityLabels[
+                      symptomIntensityFromScore(item.average)
+                    ]
+                  }}</span
                 >
               </div>
             </div>

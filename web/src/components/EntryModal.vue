@@ -5,8 +5,14 @@ import { Check, ChevronDown, Plus } from "@lucide/vue";
 import EntryPanel from "./EntryPanel.vue";
 import RecipeModal from "./RecipeModal.vue";
 import RecipePicker from "./RecipePicker.vue";
+import SymptomRating from "./SymptomRating.vue";
 import UiSteps from "./ui/UiSteps.vue";
-import { localTime, useMutation } from "../lib";
+import {
+  localTime,
+  symptomScoreFromIntensity,
+  symptomIntensityLabels,
+  useMutation,
+} from "../lib";
 
 const props = defineProps({
   type: String,
@@ -53,7 +59,7 @@ async function moveStep(value) {
 }
 const showAllSymptoms = ref(false);
 const selectedSymptom = ref(props.initialSymptom || "");
-const selectedLevel = ref(5);
+const selectedLevel = ref(0);
 const portionChoices = [0.5, 1, 1.5, 2];
 const timingChoices = [
   { value: "immediate", label: "Direkt", hint: "0–30 min" },
@@ -69,12 +75,6 @@ const cycleChoices = [
   { value: "ovulation", label: "Ovulationsfenster" },
   { value: "luteal", label: "Lutealphase" },
 ];
-const levelChoices = [
-  { value: 3, label: "Leicht", hint: "spürbar" },
-  { value: 6, label: "Mittel", hint: "stärker" },
-  { value: 9, label: "Stark", hint: "sehr stark" },
-];
-
 const initialOccurredAt =
   props.day && props.day !== now.slice(0, 10) ? props.day + "T20:00" : now;
 
@@ -125,7 +125,8 @@ const recentMeals = computed(() =>
 const canSubmit = computed(() =>
   meal.value
     ? Boolean(form.recipe_id)
-    : form.symptom_free || Boolean(selectedSymptom.value),
+    : form.symptom_free ||
+      Boolean(selectedSymptom.value && selectedLevel.value),
 );
 
 function clearSymptoms() {
@@ -135,6 +136,7 @@ function clearSymptoms() {
 function chooseFree() {
   form.symptom_free = true;
   selectedSymptom.value = "";
+  selectedLevel.value = 0;
   form.timing_bucket = "unknown";
   form.reference_meal_id = "";
   clearSymptoms();
@@ -143,8 +145,8 @@ function chooseFree() {
 function chooseSymptom(key) {
   form.symptom_free = false;
   selectedSymptom.value = key;
+  selectedLevel.value = 0;
   clearSymptoms();
-  form.symptoms[key] = selectedLevel.value;
 }
 
 function chooseTiming(bucket) {
@@ -156,7 +158,7 @@ function chooseLevel(level) {
   selectedLevel.value = level;
   if (selectedSymptom.value) {
     clearSymptoms();
-    form.symptoms[selectedSymptom.value] = level;
+    form.symptoms[selectedSymptom.value] = symptomScoreFromIntensity(level);
   }
 }
 
@@ -313,26 +315,21 @@ function submit() {
           >
           <div v-if="selectedSymptom" class="level-picker">
             <div class="picker-label">
-              <span>Wie stark?</span><small>{{ selectedLevel }}/10</small>
+              <span>Wie stark sind die Beschwerden?</span>
             </div>
-            <div class="level-choice-grid">
-              <UiButton
-                v-for="level in levelChoices"
-                :key="level.value"
-                type="button"
-                class="level-choice"
-                :class="{ selected: selectedLevel === level.value }"
-                :aria-pressed="selectedLevel === level.value"
-                @click="chooseLevel(level.value)"
-                >{{ level.label }}</UiButton
-              >
-            </div>
+            <SymptomRating
+              :model-value="selectedLevel"
+              :symptom-key="selectedSymptom"
+              :symptom-label="selectedSymptomName"
+              @update:model-value="chooseLevel"
+            />
           </div>
         </template>
       </template>
       <template v-else>
         <p class="entry-recap">
-          {{ selectedSymptomName }} · {{ selectedLevel }}/10
+          {{ selectedSymptomName }} ·
+          {{ symptomIntensityLabels[selectedLevel] }}
           <UiButton type="button" class="text-button" @click="moveStep(0)"
             >Ändern</UiButton
           >

@@ -3,24 +3,19 @@ import { computed, reactive } from "vue";
 import { usePage } from "@inertiajs/vue3";
 import { Flag, Heart, Save } from "@lucide/vue";
 import EntryPanel from "./EntryPanel.vue";
-import { useMutation } from "../lib";
+import { symptomScoreFromIntensity, useMutation } from "../lib";
+import SymptomRating from "./SymptomRating.vue";
 
 const props = defineProps({ recipe: Object, kind: String, meals: Array });
 const emit = defineEmits(["close"]);
 const page = usePage();
 const { busy, error, save } = useMutation();
 const symptoms = computed(() => page.props.symptoms || {});
-const selectedSymptom = reactive({ key: "bloating", severity: 5 });
+const selectedSymptom = reactive({ key: "bloating", rating: 2 });
 const form = reactive({
   meal_id: "",
   notes: "",
 });
-const severityChoices = [
-  { value: 3, label: "Leicht" },
-  { value: 6, label: "Mittel" },
-  { value: 9, label: "Stark" },
-];
-
 const recipeMeals = computed(() =>
   (props.meals || [])
     .filter((meal) => meal.recipe_id === props.recipe.id)
@@ -33,7 +28,9 @@ function submit() {
       ? Object.fromEntries(
           Object.keys(symptoms.value).map((key) => [
             key,
-            key === selectedSymptom.key ? selectedSymptom.severity : 0,
+            key === selectedSymptom.key
+              ? symptomScoreFromIntensity(selectedSymptom.rating)
+              : 0,
           ]),
         )
       : {};
@@ -44,7 +41,10 @@ function submit() {
       meal_id: form.meal_id,
       kind: props.kind,
       symptoms: symptomsPayload,
-      severity: props.kind === "reaction" ? selectedSymptom.severity : 0,
+      severity:
+        props.kind === "reaction"
+          ? symptomScoreFromIntensity(selectedSymptom.rating)
+          : 0,
       notes: form.notes,
     },
     () => emit("close"),
@@ -104,19 +104,11 @@ function submit() {
             {{ label }}
           </UiButton>
         </div>
-        <div class="level-choice-grid">
-          <UiButton
-            v-for="choice in severityChoices"
-            :key="choice.value"
-            type="button"
-            class="level-choice pressable"
-            :class="{ selected: selectedSymptom.severity === choice.value }"
-            :aria-pressed="selectedSymptom.severity === choice.value"
-            @click="selectedSymptom.severity = choice.value"
-          >
-            {{ choice.label }}
-          </UiButton>
-        </div>
+        <SymptomRating
+          v-model="selectedSymptom.rating"
+          :symptom-key="selectedSymptom.key"
+          :symptom-label="symptoms[selectedSymptom.key] || 'Beschwerden'"
+        />
       </template>
 
       <label>

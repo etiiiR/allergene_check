@@ -3,8 +3,9 @@
 bin
 fiber-api
 *.log
-web/node_modules
-web/dist
+**/node_modules/
+**/dist/
+pitch-deck/
 web/test-results
 web/playwright-report
 ml-service/.venv

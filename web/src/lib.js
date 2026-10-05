@@ -1,6 +1,11 @@
 import { ref } from "vue";
 import { router } from "@inertiajs/vue3";
 import { notify } from "./ui/feedback";
+export {
+  symptomIntensityFromScore,
+  symptomScoreFromIntensity,
+  symptomIntensityLabels,
+} from "./symptom-intensity.js";
 export const allergenLabels = {
   gluten: "Glutenhaltiges Getreide",
   milk: "Milch",
@@ -36,6 +41,14 @@ export const dateTime = (v) =>
   }).format(new Date(v));
 export const dayOf = (v) => localDate(new Date(v));
 export const severity = (c) => Math.max(0, ...Object.values(c.symptoms || {}));
+export const symptomIcons = {
+  bloating: "🎈",
+  pain: "😣",
+  nausea: "🤢",
+  diarrhea: "💩",
+  constipation: "🚽",
+  reflux: "🔥",
+};
 export const timingWindows = {
   immediate: { label: "Direkt nach dem Essen", phase: "Frühes Fenster" },
   early: { label: "30 Minuten bis 2 Stunden", phase: "Frühes Fenster" },

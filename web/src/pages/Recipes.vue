@@ -201,6 +201,7 @@ async function inspect(recipe) {
         v-for="r in visibleRecipes"
         :key="r.id"
         :data-recipe-id="r.id"
+        data-testid="recipe-card"
       >
         <div class="recipe-body">
           <span class="eyebrow"

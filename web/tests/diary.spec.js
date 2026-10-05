@@ -157,6 +157,21 @@ test("symptom check-in records its timing window", async ({
     .first()
     .click();
   await page.getByRole("button", { name: "Blähungen", exact: true }).click();
+  await expect(
+    page.getByRole("radiogroup", { name: "Stärke bei Blähungen" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("radiogroup", { name: "Stärke bei Blähungen" })
+      .getByRole("radio"),
+  ).toHaveCount(4);
+  await expect(
+    page.getByRole("radio", { name: "Blähungen: Leicht" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("radio", { name: "Blähungen: Keine" }),
+  ).toBeVisible();
+  await page.getByRole("radio", { name: "Blähungen: Stark" }).click();
   await page.getByRole("button", { name: "Weiter", exact: true }).click();
   await page.getByRole("button", { name: /Später/ }).click();
 
@@ -170,6 +185,7 @@ test("symptom check-in records its timing window", async ({
   expect(response.ok()).toBeTruthy();
   const checkin = await response.json();
   expect(checkin.timing_bucket).toBe("mid");
+  expect(checkin.symptoms.bloating).toBe(10);
 
   const cleanup = await request.delete("/api/checkins/" + checkin.id, {
     headers: { "X-Diary-Request": "1" },
@@ -266,6 +282,11 @@ test("recipe flags and next-day stool observation feed the diary", async ({
 
     await card.getByRole("button", { name: "Reaktion markieren" }).click();
     await page.getByLabel("Zugehörige Mahlzeit").selectOption(meal.id);
+    await page.getByRole("button", { name: "Durchfall", exact: true }).click();
+    await expect(
+      page.getByRole("radiogroup", { name: "Stärke bei Durchfall" }),
+    ).toBeVisible();
+    await page.getByRole("radio", { name: "Durchfall: Stark" }).click();
     const reactionResponse = page.waitForResponse(
       (response) =>
         response.url().endsWith("/api/recipe-flags") &&
@@ -276,6 +297,8 @@ test("recipe flags and next-day stool observation feed the diary", async ({
       .getByRole("button", { name: "Reaktion markieren" })
       .click();
     const reaction = await (await reactionResponse).json();
+    expect(reaction.severity).toBe(10);
+    expect(reaction.symptoms.diarrhea).toBe(10);
     created.push(["recipe_flags", reaction.id]);
 
     await page.goto("/diary");

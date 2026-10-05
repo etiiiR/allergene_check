@@ -48,12 +48,12 @@ test("meal-time baseline keeps provenance on note edit and supports explicit sym
   });
   await openEditor(page, meal.checkin.id);
   await page.getByRole("button", { name: "Beschwerden", exact: true }).click();
-  await page.getByLabel("Bauchschmerzen", { exact: true }).fill("5");
+  await page.getByRole("radio", { name: "Bauchschmerzen: Mittel" }).click();
   const saved = await saveEditor(page, "checkins", meal.checkin.id);
   expect(saved.meal_baseline).toBeFalsy();
   expect(saved).toMatchObject({
     symptom_free: false,
-    symptoms: { pain: 5 },
+    symptoms: { pain: 7 },
     reference_meal_id: meal.id,
   });
 });
@@ -222,15 +222,17 @@ test("editing all symptoms retains context, reports ML outages separately and ca
     path: test.info().outputPath("edit-390.png"),
     fullPage: true,
   });
-  await expect(page.getByLabel("Bauchschmerzen", { exact: true })).toHaveValue(
-    "6",
-  );
-  await expect(page.getByLabel("Blähungen", { exact: true })).toHaveValue("4");
-  await page.getByLabel("Bauchschmerzen", { exact: true }).fill("2");
+  await expect(
+    page.getByRole("radio", { name: "Bauchschmerzen: Mittel" }),
+  ).toHaveAttribute("aria-checked", "true");
+  await expect(
+    page.getByRole("radio", { name: "Blähungen: Leicht" }),
+  ).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("radio", { name: "Bauchschmerzen: Leicht" }).click();
   const saved = await saveEditor(page, "checkins", check.id);
   expect(saved).toMatchObject({
     id: check.id,
-    symptoms: { pain: 2, bloating: 4 },
+    symptoms: { pain: 4, bloating: 4 },
     stress: 7,
     sleep_hours: 6.5,
     timing_bucket: "mid",

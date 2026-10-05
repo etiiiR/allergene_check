@@ -225,6 +225,31 @@ test("library renders 12 of 200 recipes, resets pages for search and differentia
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 
+test("recipe cards are compact on mobile and use a denser two-column layout on desktop", async ({
+  page,
+}) => {
+  await page.goto("/recipes");
+  for (const [width, columns] of [
+    [390, 1],
+    [1440, 2],
+  ]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.getByTestId("recipe-card")).toHaveCount(12);
+    const count = await page
+      .locator(".recipe-library-list")
+      .evaluate(
+        (element) =>
+          getComputedStyle(element).gridTemplateColumns.split(" ").length,
+      );
+    expect(count).toBe(columns);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBeTruthy();
+  }
+});
+
 test("existing meal editor reuses the same search and preserves its original choice on cancel", async ({
   page,
 }) => {

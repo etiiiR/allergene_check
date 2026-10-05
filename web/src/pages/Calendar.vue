@@ -17,7 +17,13 @@ import AppShell from "../components/AppShell.vue";
 import EntryModal from "../components/EntryModal.vue";
 import StoolModal from "../components/StoolModal.vue";
 import StressModal from "../components/StressModal.vue";
-import { dateTime, dayOf, localDate } from "../lib";
+import {
+  dateTime,
+  dayOf,
+  localDate,
+  symptomIntensityFromScore,
+  symptomIntensityLabels,
+} from "../lib";
 
 const props = defineProps({ diary: Object, symptoms: Object });
 const today = localDate();
@@ -340,11 +346,13 @@ function itemTitle(item) {
               ><strong>{{ itemTitle(item) }}</strong
               ><small>{{ dateTime(item.occurred_at) }}</small></span
             >
-            <small v-if="item.kind === 'checkin' && !item.symptom_free"
-              >{{
-                Math.max(...Object.values(item.symptoms || {}), 0)
-              }}/10</small
-            >
+            <small v-if="item.kind === 'checkin' && !item.symptom_free">{{
+              symptomIntensityLabels[
+                symptomIntensityFromScore(
+                  Math.max(...Object.values(item.symptoms || {}), 0),
+                )
+              ]
+            }}</small>
             <small v-else-if="item.kind === 'stress'"
               >{{ item.normalized_stress ?? item.value }}/10</small
             >

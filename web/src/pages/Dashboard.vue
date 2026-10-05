@@ -16,7 +16,13 @@ import AppShell from "../components/AppShell.vue";
 import EntryModal from "../components/EntryModal.vue";
 import StoolModal from "../components/StoolModal.vue";
 import StressModal from "../components/StressModal.vue";
-import { dayOf, localDate, severity } from "../lib";
+import {
+  dayOf,
+  localDate,
+  severity,
+  symptomIntensityFromScore,
+  symptomIntensityLabels,
+} from "../lib";
 const props = defineProps({ diary: Object });
 const entry = ref("");
 const selectedRecipe = ref("");
@@ -182,7 +188,10 @@ function closeEntry() {
                   ? "Stress"
                   : item.symptom_free
                     ? "Gutes Befinden"
-                    : "Beschwerden · " + severity(item) + "/10"
+                    : "Beschwerden · " +
+                      symptomIntensityLabels[
+                        symptomIntensityFromScore(severity(item))
+                      ]
           }}</strong>
           <time :datetime="item.occurred_at">{{
             new Date(item.occurred_at).toLocaleTimeString("de-CH", {

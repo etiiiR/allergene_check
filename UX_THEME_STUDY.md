@@ -330,3 +330,144 @@ Farbe ergänzt Beschriftung, Symbole, Rahmen und `aria-pressed`; sie ersetzt die
 Feinschliff nach Nutzerfeedback: `data-tone` bleibt eine technische Kategorie, erzeugt aber keine zusätzliche sichtbare Box. Keine dicken seitlichen Farblinien, keine durchgehend farbigen Editor-Rahmen und keine doppelten Auswahlrahmen. Stattdessen helle Eingabeflächen, zurückhaltende 1px-Konturen und 10–14px-Rundungen. Beschriftungen bleiben dunkel; deutliche Akzentfarbe erscheint bei Fokus und Auswahl. Editor- und Profilkarten sind neutral gerahmt, damit Rosé nicht wie ein Formularfehler wirkt. Gute-Befinden-Auswahl und Rezeptzusammenfassung bleiben klar beschriftet.
 
 Validierung: 38 Browserprüfungen bestanden, einschließlich neuer Kontrast-/Axe-Checks in allen fünf Erfassungsansichten und unterscheidbarer Zeit-/Stress-/Notizfelder. Mobile Screenshots wurden überprüft; bestehende Prüfungen für direkt erreichbare Hauptaktionen, reduzierte Bewegung, Druckansicht und 200 Rezepte bleiben erhalten. Dies ersetzt keinen Nutzertest mit Personen mit unterschiedlichen Sehfähigkeiten.
+
+## 13. Planmanager-Update: Produktführung vereinfachen und mit Aufgaben prüfen
+
+Stand: 5. Oktober 2026. Dieses Update trennt **Codebefund**, **heuristische Simulation**,
+**Änderung** und **echte Nutzerforschung**. Die folgenden simulierten Ergebnisse sind
+Walkthrough-Hypothesen, keine Interviews, Messungen oder Nutzerzitate. Das entspricht den
+allgemeinen Prinzipien zu Sichtbarkeit, verständlicher Sprache, Kontrolle, Konsistenz und
+Fehlervermeidung der [Nielsen-Norman-Group-Heuristiken](https://www.nngroup.com/articles/ten-usability-heuristics/).
+Touch-Ziele werden zusätzlich an [WCAG 2.2, SC 2.5.8](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum)
+geprüft; 44px bleibt das praktische App-Ziel, nicht die WCAG-AA-Mindestanforderung.
+
+### Produktidee und Hauptschleife
+
+GutFeeling ist zuerst ein persönliches Beobachtungstagebuch, kein Diagnose-Dashboard:
+
+1. **Jetzt festhalten:** Mahlzeit oder aktuelles Befinden eintragen.
+2. **Später ergänzen:** Beschwerden mit Zeitpunkt und grobem Abstand zum Essen erfassen;
+   eine konkrete Mahlzeit ist optional.
+3. **Mit der Zeit verstehen:** wiederkehrende Zutaten- und Kontextmuster mit Datenbasis und
+   Unsicherheit ansehen, bei Bedarf als Gesprächsgrundlage teilen.
+
+Rezeptimport, Zutatenzuordnung, Health-Daten, Zyklus und Stress unterstützen diese Schleife,
+sind aber nicht gleichrangige Startaufgaben. Sie dürfen den kurzen Alltagsweg nicht blockieren.
+Fehlende Einträge bleiben unbekannt; sie werden nie als symptomfrei dargestellt. Eine
+Zusammenfassung bleibt ein Hinweis und keine Diagnose.
+
+### Heuristische Befunde am aktuellen Produkt
+
+| Priorität | Codebefund | Risiko für die Person | Richtung |
+| --- | --- | --- | --- |
+| P0 | Symptomstärken wurden in bestehenden Check-ins als 0–10-Zahlen bearbeitet; die Analyse nutzt weiter den historischen Zahlenvertrag. | Eine sichtbare Zahlen- oder Sterneskala macht „keine“ und Stärke uneinheitlich und kann mehr Genauigkeit vermitteln, als die eigene Erinnerung hergibt. | Für jedes Symptom die verständlichen Stufen „Keine / Leicht / Mittel / Stark“ anbieten; keine Sterne und keine Zahlen im Formular oder in der Tagebuchzusammenfassung. Die ältere API-Skala nur intern weiterverwenden. |
+| P0 | Die Rezeptbibliothek zeigt eine einspaltige, über die ganze Inhaltsbreite laufende Kartenliste. | Auf breiten Bildschirmen entstehen breite Inhaltsbänder und wenig Überblick; Personen müssen vertikal viele Karten absuchen. | Karteninhalt kompakter setzen, auf breiten Desktop-Ansichten zwei Spalten nutzen und auf Mobilgeräten bei einer lesbaren Spalte bleiben. Suche, Zutatenhinweis und primäre Aktion sichtbar halten. |
+| P1 | Der Rezepteditor kann pro Zutat Zuordnung, Vorschläge und Allergene zeigen. | Viele Zutaten vergrössern den Editor stark; native Mehrfachauswahl kann auf schmalen Geräten unleserlich werden. | Vollständige Zutatenliste mit kompakten Zeilen; seltene Detailfelder inline bei Bedarf öffnen. Allergene als umfließende, beschriftete Auswahl statt horizontal gequetschter Mehrfachauswahl. |
+| P1 | Die App bündelt Tagebuch, Rezeptcrawler, ML-Auswertung und optionale Gesundheitskontexte. | Neue Personen können nicht sofort erkennen, was sie täglich tun müssen und was nur Zusatz ist. | Pro Seite eine nächste Hauptaktion, übrige Funktionen klar nachgeordnet; optionale Kontexte nicht als Pflicht oder Voraussetzung formulieren. |
+| P1 | Zeit, Mahlzeitenbezug und Kontext beeinflussen die spätere Analyse. | Personen können einen späteren Beschwerdebeginn fälschlich dem zuletzt gegessenen Essen zuschreiben. | Symptombeginn/Timing und konkrete Mahlzeit getrennt erfassen; „nicht zuordnen“ gleichwertig anbieten. |
+
+### Simulierte Aufgaben – drei Überarbeitungsrunden
+
+**Runde 1 – Alltagsmahlzeit.** Modellperson: kennt ein gespeichertes Rezept und möchte
+rasch festhalten, was sie gegessen hat. Walkthrough: Heute → Mahlzeit → Rezept suchen/aus
+„Noch einmal“ wählen → Zeitpunkt und Befinden prüfen → speichern. Vermutete Hürde im
+Bibliotheksbildschirm: breite Einzelkarten liefern zu wenig gleichzeitigen Überblick. Änderung:
+kompaktere Karte, zwei Spalten am Desktop, eine Spalte am Telefon. Erfolg ist noch nicht
+gemessen; Rezeptwahl und Formularerhalt bleiben als reale Testaufgaben offen.
+
+**Runde 2 – zeitversetzte Beschwerden.** Modellperson: bemerkt Blähungen mehrere Stunden
+nach dem Essen und ist sich bei der Ursache nicht sicher. Walkthrough: Befinden → Symptom
+und qualitative Stärke → Zeitpunkt/Abstand → Mahlzeit auswählen oder ausdrücklich offenlassen
+→ speichern. Vermutete Hürde: eine Zahlen- oder Sterneskala muss erst gelernt werden und wirkt
+präziser, als die eigene Erinnerung ist. Änderung: „Keine / Leicht / Mittel / Stark“ als
+vierstufige Rating-Auswahl, in deren jeder Stufe das passende Symptom-Emoji direkt sichtbar
+und auswählbar ist; Zeit- und Mahlzeitangabe bleiben getrennte, verständliche
+Fragen. Die separate Stress-Skala ist Kontext und keine Symptomstärke. Echte Verständlichkeit
+ist noch zu prüfen.
+
+**Runde 3 – kein klarer Essensbezug.** Modellperson: hat Beschwerden, kann sie aber keinem
+Rezept zuordnen; Stress oder andere Umstände könnten ebenfalls eine Rolle spielen. Walkthrough:
+Beschwerde ohne ausgewählte Mahlzeit speichern → optionalen Stress-/Stuhlkontext ergänzen →
+später Muster mit Datenbasis ansehen. Prüffrage: Kann die Person ohne Hinweis auf ein bestimmtes
+Lebensmittel speichern und versteht sie, dass fehlende Daten keine Entwarnung sind? Richtung:
+keinen Mahlzeitenbezug erzwingen; „Zusammenhang“ und „keine ausreichenden Daten“ klar von
+Ursache/Diagnose unterscheiden.
+
+**Iteration nach allen Runden:** Die erste Vereinfachung entfernt sichtbare Zahlen-/Sterneskalen
+für Symptome und reduziert die Rezeptkartenfläche. Der nächste Walkthrough prüft diese
+Änderungen bei 320px, 390px und Desktop, mit Tastatur und Screenreader. Wenn Begriffe,
+Rückwege oder Datenstatus unklar bleiben, wird der Ablauf vor dem echten Test erneut angepasst.
+Diese Simulation belegt keine Zeitersparnis und keine erfolgreiche Nutzung durch reale Personen.
+
+### UX-Regeln: tun und vermeiden
+
+**Tun**
+
+- Häufige Tagebuchaufgaben vor seltenen Analyse- und Einstellungsaufgaben platzieren.
+- Pro Ansicht eine klare Hauptaktion und einen sichtbaren Rückweg anbieten.
+- Alltagswörter und benannte Zustände verwenden; Symptomstärke als qualitative Wahl,
+  Stress als getrennten Kontext kennzeichnen.
+- Symptomart beschriften und das passende Emoji in jede Stufe der Rating-Auswahl integrieren;
+  Stärke zusätzlich durch benannte Stufen und klaren Auswahl-/Fokusrahmen vermitteln.
+- Optionale Felder als optional markieren und erst bei Bedarf zeigen.
+- Eingegebene Daten bei Fehlern erhalten und Erfolg, Laden sowie Analysefehler voneinander
+  unterscheiden.
+- Auf 320px ohne horizontales Seiten-Scrolling funktionieren; Bedienelemente gross,
+  beschriftet und mit Tastatur bedienbar halten.
+- Fehlende Beobachtung ausdrücklich als unbekannt behandeln und Muster vorsichtig formulieren.
+
+**Vermeiden**
+
+- Keine sichtbaren 0–10- oder 1–5-Zahlenskalen und keine Sterne für die Symptomstärke.
+  Keine Änderung der separaten Stressmessung mit dieser Regel implizieren.
+- Keine falsche Genauigkeit durch einen Zahlenwert, wenn sich Beschwerden besser als
+  „leicht/mittel/stark“ erinnern lassen.
+- Keine Pflicht, jede Mahlzeit, jedes Symptom oder jeden Kontext vollständig zu dokumentieren.
+- Keine Ursache, Allergie oder Unverträglichkeit aus einer Korrelation ableiten.
+- Keine Farbcodierung oder Emojis als alleinige Beschriftung verwenden.
+- Das Emoji nicht nur dekorativ neben die Skala setzen; es gehört sichtbar in die auswählbaren
+  Rating-Stufen und ersetzt deren Textbeschriftung nicht.
+- Keine überbreiten Inhaltskarten, endlosen Listen, verschachtelten Scrollbereiche oder
+  unbeschrifteten Aktionen.
+- Keine erfolgreichen Nutzertests, Zeitgewinne oder qualitative Ergebnisse behaupten,
+  solange sie nicht mit echten Personen erhoben wurden.
+
+### Priorisierter Umsetzungs- und Forschungs-Backlog
+
+| Prio | Arbeit | Abnahmekriterium | Status |
+| --- | --- | --- | --- |
+| P0 | Symptomstärke in Erfassen, Bearbeiten, Markierung, Tagebuch, Kalender und Bericht vereinheitlichen. | Keine sichtbare Zahl-/Sterneskala; vier klar benannte Stufen; API/Analyse erhalten gültige Werte; bestehende Einträge bleiben lesbar und Speichern/Bearbeiten getestet. | Im Quellcode umgesetzt; Build, Unit-Tests und lesender Laufzeit-Smoke-Test bestanden; vollständige CRUD-/Axe-Suite noch offen. |
+| P0 | Rezeptbibliothek kompakter darstellen. | 12 Einträge pro Seite bleiben; bei 320/390px eine Spalte ohne Überlauf, bei 1440px zwei Spalten; Suche, Aktionen, lange Namen und Screenreader-Beschriftungen bleiben nutzbar. | Im Quellcode umgesetzt; Layout-Smoke-Test bei 390/1440px bestanden; vollständige Browser-/Axe-Prüfung noch offen. |
+| P1 | Zutateneditor verdichten und Allergenauswahl für Mobilgeräte neu ordnen. | Alle Zutatennamen bleiben in der Liste sichtbar; Zuordnung/Allergene überlappen nicht; Import- und manuelle Zutaten bleiben änderbar. | Backlog; als nächste UI-Änderung. |
+| P1 | Tagebuch-Hauptschleife mit fünf moderierten Personen prüfen. | Aufgaben: wiederholtes Rezept erfassen, neues Essen protokollieren, Beschwerden mit Verzögerung eintragen, Kontext ohne Mahlzeitenbezug ergänzen, Muster vorsichtig erklären. | Studienplan vorhanden; Personen noch nicht rekrutiert/getestet. |
+| P2 | Erkenntnisse aus echten Sitzungen priorisieren und zweite Iteration prüfen. | Ergebnisse enthalten Erfolgsquote, Zeit, Fehlbedienungen, Rücksprünge, Missverständnisse, Zitat nur mit Einwilligung sowie konkrete Änderung und Retest. | Nach der ersten echten Testrunde. |
+
+**Sprint-Vorschlag (je zwei Wochen):** Sprint 1 schliesst die P0-Eingabe- und Rezeptkartenänderungen
+mit Browser-/Geräteprüfung ab. Sprint 2 verdichtet Zutatenbearbeitung und Allergenauswahl, danach
+folgt ein moderierter Testlauf mit fünf Personen. Sprint 3 wertet Sitzungen aus, behebt die drei
+grössten beobachteten Hindernisse und wiederholt dieselben Kernaufgaben. Sprint-Review und Retro
+halten fest, welche Annahmen bestätigt, verworfen oder weiter offen sind.
+
+**Reale Nutzertests (noch nicht durchgeführt):** mindestens fünf Personen, moderierte
+Aufgaben ohne Schritt-für-Schritt-Hilfe. Beobachten: Erfolg je Aufgabe, Zeit bis zum Abschluss,
+Fehleingaben, Hilfebedarf, Rücksprünge und ob „fehlend“ von „symptomfrei“ unterschieden wird.
+Startziel: mindestens vier von fünf Personen schliessen jede Kernaufgabe ohne Hilfe ab;
+wiederholtes Rezept in höchstens zehn Sekunden ist ein zu prüfendes Ziel, kein Versprechen.
+Nach jeder Runde höchstens die drei grössten Hindernisse beheben und dieselben Aufgaben erneut
+prüfen. Erkenntnisse aus dieser Studie planen keine Diagnosevalidierung; das bleibt ausserhalb
+des Usability-Tests.
+
+### Technische Abgrenzung und Prüfstatus
+
+Die sichtbaren qualitativen Symptomstufen werden in `web/src/symptom-intensity.js` auf den
+bestehenden internen Datenbereich abgebildet, damit keine Backend-Migration erforderlich ist.
+Das ist ein Kompatibilitätsdetail, keine Zahlenskala in der Bedienoberfläche. Stresswerte aus
+manueller Eingabe oder Health-Anbietern bleiben eine getrennte Funktion.
+
+Frontend-Build, acht Unit-Tests und `go test ./...` bestanden. Der App-Container wurde mit
+`docker-compose up -d --build app` neu gebaut; `/health` meldete App und Datenbank als bereit.
+Ein lesender Browser-Smoke-Test am laufenden Container bestätigte die vier qualitativen
+Symptomstufen, keinen horizontalen Überlauf bei 390px und Rezeptkarten in einer Spalte bei 390px
+bzw. zwei Spalten bei 1440px. Die vollständige Playwright-/Axe-Regression wurde bewusst nicht
+gegen das persönliche Tagebuch ausgeführt; sie benötigt die separat dokumentierte `ux_tests`-
+Datenbank. Kein Ergebnis dieses Updates ersetzt den geplanten Test mit Personen.

@@ -22,6 +22,8 @@ import {
   dayOf,
   localDate,
   severity,
+  symptomIntensityFromScore,
+  symptomIntensityLabels,
   dateTime,
   timingLabel,
   timingPhase,
@@ -326,7 +328,10 @@ const groups = computed(() => {
                     v-show="value > 0"
                     :key="key"
                     class="symptom-tag"
-                    >{{ symptoms[key] }} <b>{{ value }}/10</b></span
+                    >{{ symptoms[key] }}
+                    <b>{{
+                      symptomIntensityLabels[symptomIntensityFromScore(value)]
+                    }}</b></span
                   >
                 </div>
                 <div v-if="!item.symptom_free" class="timing-tag">
