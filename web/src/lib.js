@@ -107,7 +107,7 @@ export function useMutation() {
     busy.value = true;
     error.value = "";
     try {
-      await api(path, {
+      const result = await api(path, {
         method,
         body: data === undefined ? undefined : JSON.stringify(data),
       });
@@ -132,7 +132,7 @@ export function useMutation() {
           ),
         onFinish: () => {
           busy.value = false;
-          done();
+          done(result);
         },
       });
     } catch (e) {

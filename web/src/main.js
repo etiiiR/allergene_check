@@ -2,6 +2,7 @@ import { createApp, h } from "vue";
 import { createInertiaApp } from "@inertiajs/vue3";
 import "./tailwind.css";
 import "./style.css";
+import "./colors.css";
 import UiButton from "./components/ui/UiButton.vue";
 import UiCard from "./components/ui/UiCard.vue";
 import UiBadge from "./components/ui/UiBadge.vue";
@@ -22,5 +23,5 @@ createInertiaApp({
       .component("UiSkeleton", UiSkeleton)
       .mount(el);
   },
-  progress: { color: "#0f766e" },
+  progress: { color: "#4338ca" },
 });

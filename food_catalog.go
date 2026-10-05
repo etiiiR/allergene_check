@@ -3,8 +3,7 @@ package main
 import (
 	_ "embed"
 	"encoding/json"
-	"regexp"
-	"strings"
+	"sort"
 )
 
 //go:embed ml-service/app/data/foods.json
@@ -34,15 +33,19 @@ func init() {
 	}
 }
 
-var spaces = regexp.MustCompile(`\s+`)
-
-// Unknown foods and spices remain trackable through an exact normalized label;
-// they receive no invented FODMAP rating. Allergens are explicitly user-confirmed.
+// Derive canonical keys at analysis time, including old meal snapshots. Original
+// recipe text and stored history are never rewritten. Confirmed IDs take priority.
+// Allergen tags remain explicitly user-confirmed, not guessed from text.
 func ingredientKeys(items []Ingredient) []string {
 	set := map[string]bool{}
 	for _, item := range items {
 		if len(item.FoodIDs) == 0 {
-			set["custom:"+spaces.ReplaceAllString(strings.ToLower(strings.TrimSpace(item.Text)), " ")] = true
+			normalized := normalizeIngredient(item.Text)
+			if normalized.FoodID != "" {
+				set[normalized.FoodID] = true
+			} else if normalized.Name != "" {
+				set["custom:"+ingredientText(normalized.Name)] = true
+			}
 		}
 		for _, id := range item.FoodIDs {
 			set[id] = true
@@ -55,5 +58,6 @@ func ingredientKeys(items []Ingredient) []string {
 	for key := range set {
 		keys = append(keys, key)
 	}
+	sort.Strings(keys)
 	return keys
 }

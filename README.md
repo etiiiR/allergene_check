@@ -10,7 +10,7 @@ A German-language personal food diary built with Go Fiber, the [Gonertia Go adap
 - Filter the diary by date, symptom, or symptom-free entries and sort by severity.
 - Compare ingredient, spice, and confirmed-allergen associations across observed moments. Open a recipe's personal comparison before choosing what to cook.
 - Browse 27 general food references and 10 unclassified spices/herbs. English and German aliases are supported; this is a small curated vocabulary, not unrestricted recipe understanding.
-- Preview-import a recipe from a public URL when the page exposes Schema.org JSON-LD; nothing is saved until you review the ingredients.
+- Preview-import a recipe from a public URL using Schema.org JSON-LD, HTML Microdata (including Swissmilk-style ingredient tables), or clearly marked HTML recipe blocks; nothing is saved until you review the ingredients.
 - Use the fast-entry flow: recent recipes, one-tap symptom-free moments, three common symptom shortcuts, severity presets, timing windows, optional meal references, default time/portion values, and optional details hidden until needed.
 - Add an optional body-context profile. Male, female, and other/unspecified contexts are kept separate; cycle tracking is opt-in and only runs in the female cycle context.
 - Review a non-food signal when symptoms repeatedly appear without a matching, documented food window. This is an exploratory prompt to consider stress, sleep, medication, unlogged meals, or other health factors — not a diagnosis.
@@ -43,7 +43,39 @@ FODMAP references are based on [Monash University's public overview](https://www
 
 ## Code organization
 
-`diary_models.go` validates domain inputs; `diary_store.go` owns persistence; `diary_routes.go` owns JSON handlers; `analysis_client.go` calls Python with a deadline; `food_catalog.go` embeds the shared catalog; `web.go` bridges Gonertia's Vite integration into Fiber. Vue pages, reusable forms and styles live in `web/src/`. The UI uses Tailwind CSS 4 and DaisyUI 5 with a shared slate/teal theme, reusable components in `components/ui/`, and a five-destination mobile navigation. Forms and confirmation views open within the main page: no modal overlays or focus traps. See [UX_THEME_STUDY.md](UX_THEME_STUDY.md) for the heuristic audit, implemented decisions, limitations and follow-up research. Python's reusable diary analysis lives in `ml-service/app/diary_analysis.py`; the review-first importer lives separately in `ml-service/app/recipe_scraper.py` and uses `httpx` plus BeautifulSoup.
+`diary_models.go` validates domain inputs; `diary_store.go` owns persistence; `diary_routes.go` owns JSON handlers; `analysis_client.go` calls Python with a deadline; `food_catalog.go` embeds the shared catalog; `web.go` bridges Gonertia's Vite integration into Fiber. Vue pages, reusable forms and styles live in `web/src/`. The UI uses Tailwind CSS 4 and DaisyUI 5 with a shared slate/indigo theme, reusable components in `components/ui/`, and a five-destination mobile navigation. Forms and confirmation views open within the main page: no modal overlays or focus traps. See [UX_THEME_STUDY.md](UX_THEME_STUDY.md) for the heuristic audit, implemented decisions, limitations and follow-up research. Python's reusable diary analysis lives in `ml-service/app/diary_analysis.py`; the review-first importer lives separately in `ml-service/app/recipe_scraper.py` and uses `httpx` plus BeautifulSoup.
+
+## Personal setup and quick entries
+
+Ingredient identities are normalized locally: `1 Prise Salz`, `½ TL Salz` and `Salz` share
+the same analysis key, including in existing meal snapshots. Raw recipe text is retained.
+Unknown or ambiguous names stay reviewable; no LLM, external API or model download is required.
+See [INGREDIENT_NORMALIZATION.md](INGREDIENT_NORMALIZATION.md) for the researched alternatives,
+mapping rules, safety boundaries and shared Go/Python regression corpus.
+
+Use **Person anlegen** on Today, or open `/onboarding`, to save one named personal profile in
+three short steps. Name and setup completion persist in SurrealDB alongside cycle settings;
+existing diary records are not changed. `/profile` separates Person, Body/Cycle, and Health.
+This is one shared local diary, not authentication or separate user accounts.
+
+Today shows quick actions, two recipe shortcuts and the three newest entries. The complete
+history stays in the diary. Symptom logging uses two steps; good moments and meals stay short.
+Optional details expand inline. Unsaved wizard inputs do not survive a page refresh.
+
+Meal entry can create a recipe inline and selects it afterwards. **Good** is an explicit editable
+default at meal time; **Symptoms** continues to the symptom wizard and **Don't record** leaves
+wellbeing unknown. The meal and good-moment record are saved in one transaction. These marked
+`meal_baseline` moments are visible in the diary but excluded from later-tolerance and stress
+modelling; ordinary missing follow-ups are never treated as symptom-free.
+
+### Direct Apple Health (iOS first)
+
+The native SwiftUI/HealthKit wrapper is prepared in [mobile/ios](mobile/ios/README.md).
+It requests actual iOS read permission for heart rate, resting heart rate and HRV and uses the
+existing same-origin import API without a user-supplied file. Profile → Health enables this
+only inside that native wrapper. Safari/PWA cannot grant HealthKit access. Android and Samsung
+are not implemented. The wrapper still needs full Xcode, signing, a protected HTTPS server and
+a real-device test; it has not been built or installed here.
 
 ## Run the stack with Docker Compose
 
@@ -97,7 +129,7 @@ PORT=8080 go run .
 - `GET /api/status` — original boilerplate status response
 - `GET /api/diary`, `/api/export` — persisted diary / JSON download
 - `POST /api/recipes`, `PUT /api/recipes/:id` — create / edit recipes
-- `POST /api/recipes/import` — preview-import public Schema.org recipe JSON-LD through the Python service
+- `POST /api/recipes/import` — preview-import public recipe HTML through the Python service (JSON-LD → Microdata → explicit recipe blocks)
 - `POST /api/meals`, `/api/checkins` — diary entries, timing windows, and optional cycle context
 - `POST /api/recipe-flags` — manually mark a recipe as suspicious or a reaction to it
 - `POST /api/stools` — save a next-day stool observation
@@ -124,6 +156,44 @@ Endpoints:
 - `POST /diary/ingredients` — curated ingredient recognition
 - `POST /diary/patterns` — temporal diary analysis
 - `POST /diary/scrape` — bounded recipe preview importer; respects robots.txt by default and rejects private/local destinations
+
+### Recipe URL import
+
+The importer downloads HTML, without executing page scripts or requiring an LLM.
+`ml-service/app/recipe_scraper.py` handles fetching and the preview response;
+`ml-service/app/recipe_html.py` contains reusable, offline-testable HTML extraction.
+`recipe_fields.py` normalizes publisher fields and yields; `recipe_sites.py` keeps
+verified, host-scoped HTML adapters separate from the generic parser.
+It prefers Recipe JSON-LD, then Recipe Microdata (`itemscope`/`itemprop`), then
+explicit recipe containers with named ingredient and instruction lists (including
+common WP Recipe Maker/Tasty Recipes patterns). Navigation and executable content
+are removed; separate recipe candidates are never combined.
+
+Amounts, units and ingredient wording are kept in the editable preview. The UI
+then uses the existing ingredient normalizer for comparison identities, so
+“1 Prise Salz” can be compared as salt without losing the original quantity.
+Unambiguous serving counts (1–50) are filled in; ambiguous yields such as “1 Kuchen”
+produce a review warning. The response also includes `extraction_method` and
+`warnings`, plus the `original_yield`. Ambiguous piece/loaf counts clear the UI's
+default portion count and require a deliberate choice. Saving is always a
+separate, explicit step.
+
+This is not a universal scraper: JavaScript-only, access-restricted or unmarked
+pages may still require manually pasted ingredients. No paywall or bot-protection
+bypass is attempted. Check ingredients, quantities, allergens and source usage
+rights before saving or sharing. The synthetic Microdata fixture and scraper
+regressions run offline; a live Swissmilk Kaiserschmarrn check on 2026-09-25 found
+9 ingredient rows, 4 servings and 3 preparation steps.
+
+The extended [35-platform sample audit](docs/RECIPE_IMPORT_AUDIT.md) documents
+34 additional platforms plus Swissmilk, example URLs, before/after metadata and
+reproduction commands. After fixes, 31 additional examples plus Swissmilk were
+importable; REWE/EDEKA returned HTTP 403 and Taste.com.au disallowed the download
+via robots.txt. This is sample-level evidence, not a guarantee for every page on
+these platforms. The normal regression suite is offline; the opt-in audit uses
+`ml-service/scripts/audit_recipe_imports.py` and a Git-/Docker-ignored HTML cache.
+
+### API request examples
 
 Go JSON mutations require `Content-Type: application/json` and `X-Diary-Request: 1`. Cross-origin browser requests are rejected; responses are not cached. These controls are not a replacement for authentication on public deployments.
 
@@ -242,6 +312,30 @@ Connect a WebSocket client to `ws://localhost:3000/ws/live/notes`. Each connecti
 Wrap internal causes with `WrapAppError`. The cause is retained for server logs and `errors.Is`/`errors.As`, but is not sent to clients.
 
 ## Test
+
+### Tagebucheinträge bearbeiten
+
+Im Tagebuch öffnet der Stift neben jedem Eintrag eine Bearbeitungsansicht ohne Modal. Mahlzeiten, Befinden (auch mehrere Symptome), Stuhlbeobachtungen und manueller Stress lassen sich korrigieren. Abbrechen verwirft nur den lokalen Entwurf; Speicherfehler behalten ihn bei.
+
+- `PUT /api/{meals|checkins|stools|stress}/:id` aktualisiert einen vorhandenen Eintrag mit derselben ID. Nicht übermittelte Felder bleiben erhalten; ungültige Werte liefern 422, fehlende Einträge 404. Die üblichen Same-Origin-/Request-Header gelten auch hier.
+- Mahlzeiten behalten beim gleichen Rezept ihren historischen Zutatenstand. Nur ein ausdrücklich anderes Rezept übernimmt dessen Zutaten. Bestehende mahlzeitbezogene Reaktionsmarkierungen müssen vor einem Rezeptwechsel entfernt werden. Befinden-Einträge bleiben eigenständige Beobachtungen mit eigenem Zeitpunkt.
+- Notizkorrekturen an „Gut beim Essen“ bleiben von der Verträglichkeitsanalyse ausgeschlossen. Erst Beschwerden oder „Als eigenständige Beobachtung bestätigen“ machen daraus einen regulären Check-in. Historischer Zykluskontext wird nicht anhand des heutigen Profils überschrieben.
+- Bei importierten Health-Messungen ist nur die Notiz bearbeitbar. Originalwerte, Einheit, Quelle und Zeitpunkt sind serverseitig geschützt. Eine erneute Synchronisation kann die Notiz ersetzen.
+- Nach erfolgreichem Speichern fragt die UI die Analyse erneut an (alle Symptome, 8-Stunden-Fenster). Ein separater Status zeigt Erfolg oder bietet einen erneuten Versuch bei ML-Ausfall; die gespeicherte Korrektur bleibt in beiden Fällen erhalten. Muster und Arztbericht berechnen beim Öffnen mit ihren jeweiligen Zeitfenstern aus dem aktuellen Tagebuch. Bereits exportierte PDFs bleiben unverändert und müssen neu erstellt werden.
+
+Die Regeln liegen in `diary_edit.go`, die gemeinsame Ansicht in `web/src/components/DiaryEntryEditor.vue`. Regressionen: `diary_edit_test.go` und `web/tests/diary-edit.spec.js`.
+
+### Rezeptsuche für große Sammlungen
+
+Mahlzeit-Erfassung und Tagebuch-Bearbeitung verwenden denselben `RecipePicker`: drei schnelle Vorschläge, Suche nach Rezeptname **und** Zutaten, maximal sechs Ergebnisse pro Seite und eine kompakte, jederzeit änderbare Auswahl. „Zuletzt verwendet“, „Häufig gegessen“ und „Name A–Z“ nutzen vorhandene Mahlzeiten, ohne zusätzliche Pflege von Favoriten zu verlangen. Zutaten-Vorschauen unterscheiden gleichnamige Rezepte. Keine Auswahl behauptet Verträglichkeit.
+
+Die Rezeptsammlung zeigt zwölf kompakte Einträge pro Seite. Suche/Sortierung setzen auf Seite 1 zurück; fehlende Treffer werden von einer leeren Sammlung unterschieden. Sekundäre Aktionen sind unter „Bearbeiten & weitere Optionen“ erreichbar. Neue Rezepte werden nach dem Anlegen sichtbar gefiltert.
+
+`web/src/recipe-search.js` baut einen lokalen Suchindex pro Datenänderung auf; Suchwörter werden über Name/Zutaten kombiniert, Großschreibung, Akzente und deutsche Umlautumschreibungen ignoriert. Dies ist ausschließlich Suchnormalisierung, keine medizinische Zutatenklassifikation. Die bestehende API liefert weiterhin die vollständige Sammlung; für deutlich größere Bestände sollte serverseitige Suche/Paginierung ergänzt werden.
+
+Tests: `npm --prefix web run test:unit` prüft die Suchregeln; `web/tests/recipe-search.spec.js` erstellt 200 echte Testrezepte ausschließlich in der getrennten Test-App und prüft Auswahl, Suche, Paging, Tastatur, mobile Darstellung und Bearbeitung.
+
+### Tests ausführen
 
 The browser suite exercises recipe creation, persistence, meals, symptom timing, stress, stool, calendar and report workflows. Design checks cover eight pages at 320/390/768/1440px, populated data, Axe WCAG A/AA checks, inline editor failures and focus restoration, reduced motion, and print layout. Screenshots are saved under `web/test-results/`.
 

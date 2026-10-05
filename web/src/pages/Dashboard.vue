@@ -1,4 +1,5 @@
 <script setup>
+import { entryTone } from "../ui/entry-tones";
 import { computed, ref } from "vue";
 import { Head, Link } from "@inertiajs/vue3";
 import {
@@ -15,7 +16,7 @@ import AppShell from "../components/AppShell.vue";
 import EntryModal from "../components/EntryModal.vue";
 import StoolModal from "../components/StoolModal.vue";
 import StressModal from "../components/StressModal.vue";
-import { dateTime, dayOf, localDate, severity } from "../lib";
+import { dayOf, localDate, severity } from "../lib";
 const props = defineProps({ diary: Object });
 const entry = ref("");
 const selectedRecipe = ref("");
@@ -41,9 +42,6 @@ const todayItems = computed(() =>
 const todayMeals = computed(
   () => todayItems.value.filter((x) => x.kind === "meal").length,
 );
-const todayCheckins = computed(
-  () => todayItems.value.filter((x) => x.kind === "check").length,
-);
 const latestCheckin = computed(() =>
   todayItems.value.find((x) => x.kind === "check"),
 );
@@ -59,7 +57,7 @@ const recentRecipes = computed(() => {
     .sort((a, b) =>
       (lastUsed.get(b.id) || "").localeCompare(lastUsed.get(a.id) || ""),
     )
-    .slice(0, 4);
+    .slice(0, 2);
 });
 const dateLabel = new Intl.DateTimeFormat("de-CH", {
   weekday: "long",
@@ -78,189 +76,130 @@ function closeEntry() {
 <template>
   <Head title="Heute" />
   <AppShell>
-    <div class="page-heading">
-      <div>
-        <p class="eyebrow">{{ dateLabel }}</p>
-        <h1>Dein Tag, im Überblick.</h1>
-        <p>Essen und Befinden festhalten. Schritt für Schritt.</p>
-      </div>
-      <Link href="/calendar" class="button secondary"
-        ><CalendarDays :size="16" /> Kalender</Link
-      >
-    </div>
-    <div class="dashboard-layout">
-      <div class="dashboard-primary">
-        <UiCard class="capture-card">
-          <div class="section-heading">
-            <h2>Was möchtest du festhalten?</h2>
-            <span class="subtle-label">Neuer Eintrag</span>
-          </div>
-          <UiButton
-            variant="primary"
-            class="capture-primary"
-            @click="openMeal()"
-            ><Plus :size="20" /><span
-              >Mahlzeit eintragen<small
-                >Ein Rezept wählen und speichern</small
-              ></span
-            ><ArrowRight :size="18"
-          /></UiButton>
-          <div class="capture-secondary">
-            <UiButton variant="secondary" @click="entry = 'check'"
-              ><Heart :size="18" /> Befinden</UiButton
+    <section class="home-compact">
+      <header class="home-heading">
+        <div>
+          <p class="eyebrow">
+            {{ dateLabel
+            }}<span v-if="diary.profile?.display_name">
+              · {{ diary.profile.display_name }}</span
             >
-            <UiButton variant="secondary" @click="entry = 'free'"
-              ><Check :size="18" /> Gutes Befinden</UiButton
-            >
-          </div>
-          <details class="additional-actions">
-            <summary>Weitere Beobachtungen <Plus :size="15" /></summary>
-            <div class="actions">
-              <UiButton variant="ghost" @click="entry = 'stress'"
-                ><HeartPulse :size="17" /> Stress manuell</UiButton
-              ><UiButton variant="ghost" @click="entry = 'stool'"
-                ><ClipboardCheck :size="17" /> Stuhl</UiButton
-              >
-            </div>
-          </details>
-        </UiCard>
-        <section class="recipe-shortcuts" v-if="recentRecipes.length">
-          <div class="section-heading">
-            <h2>Zuletzt verwendet</h2>
-            <Link href="/recipes">Alle Rezepte <ArrowRight :size="14" /></Link>
-          </div>
-          <div class="recipe-shortcut-list">
-            <UiButton
-              v-for="recipe in recentRecipes"
-              :key="recipe.id"
-              class="recipe-shortcut"
-              @click="openMeal(recipe.id)"
-              ><Utensils :size="17" /><strong>{{ recipe.title }}</strong
-              ><Plus :size="16"
-            /></UiButton>
-          </div>
-        </section>
-        <UiCard v-else class="onboarding-card"
-          ><h2>Starte mit deinem ersten Rezept</h2>
-          <p>
-            Einmal speichern, danach mit einem Tipp ins Tagebuch übernehmen.
           </p>
-          <Link href="/recipes" class="button secondary"
-            >Rezept hinzufügen <ArrowRight :size="16" /></Link
-        ></UiCard>
-        <UiCard class="today-list">
-          <div class="section-heading">
-            <div>
-              <h2>Heute dokumentiert</h2>
-              <small>{{ todayItems.length }} Einträge</small>
-            </div>
-            <Link href="/diary">Tagebuch <ArrowRight :size="14" /></Link>
-          </div>
-          <div v-if="!todayItems.length" class="empty-state compact-empty">
-            <p>Heute noch keine Einträge.</p>
-            <small>Ein kurzer Check-in genügt für den Anfang.</small>
-          </div>
-          <TransitionGroup name="list" tag="div">
-            <div
-              v-for="item in todayItems"
-              :key="item.kind + item.id"
-              class="timeline-row"
-            >
-              <span class="event-icon"
-                ><Utensils
-                  v-if="item.kind === 'meal'"
-                  :size="17" /><ClipboardCheck
-                  v-else-if="item.kind === 'stool'"
-                  :size="17" /><HeartPulse
-                  v-else-if="item.kind === 'stress'"
-                  :size="17" /><Heart v-else :size="17"
-              /></span>
-              <div>
-                <strong>{{
-                  item.kind === "meal"
-                    ? item.title
-                    : item.kind === "stool"
-                      ? "Stuhlbeobachtung"
-                      : item.kind === "stress"
-                        ? "Stress"
-                        : item.symptom_free
-                          ? "Gutes Befinden"
-                          : "Beschwerden"
-                }}</strong
-                ><small
-                  >{{ dateTime(item.occurred_at)
-                  }}<span v-if="item.kind === 'check' && !item.symptom_free">
-                    · {{ severity(item) }}/10</span
-                  ></small
-                >
-              </div>
-              <UiBadge
-                :tone="
-                  item.kind === 'check'
-                    ? item.symptom_free
-                      ? 'low'
-                      : 'high'
-                    : 'neutral'
-                "
-                >{{
-                  item.kind === "meal"
-                    ? "Mahlzeit"
-                    : item.kind === "check"
-                      ? item.symptom_free
-                        ? "Gut"
-                        : "Befinden"
-                      : item.kind === "stool"
-                        ? "Stuhl"
-                        : "Stress"
-                }}</UiBadge
-              >
-            </div>
-          </TransitionGroup>
-        </UiCard>
-      </div>
-      <aside class="day-summary">
-        <p class="eyebrow">HEUTE</p>
-        <h2>Deine Momentaufnahme</h2>
-        <dl class="day-counts">
-          <div>
-            <dt>Mahlzeiten</dt>
-            <dd>{{ todayMeals }}</dd>
-          </div>
-          <div>
-            <dt>Befinden</dt>
-            <dd>{{ todayCheckins }}</dd>
-          </div>
-        </dl>
-        <div class="follow-up-note">
-          <Heart :size="18" />
-          <div>
-            <strong>{{
-              latestCheckin
-                ? latestCheckin.symptom_free
-                  ? "Zuletzt gutes Befinden"
-                  : "Beschwerden festgehalten"
-                : "Befinden noch offen"
-            }}</strong>
-            <p>
-              {{
-                latestCheckin
-                  ? "Ein Check-in beschreibt diesen Zeitpunkt. Wie es später ist, kannst du separat festhalten."
-                  : "Wie geht es dir gerade? Auch gute Momente helfen, Muster zu verstehen."
-              }}
-            </p>
-            <UiButton class="text-button" @click="entry = 'check'"
-              >Befinden ergänzen <ArrowRight :size="14"
-            /></UiButton>
-          </div>
+          <h1>Dein Tag, im Überblick.</h1>
         </div>
-        <Link href="/insights" class="summary-link"
-          >Deine Muster ansehen <ArrowRight :size="16"
+        <Link href="/calendar" class="icon-button" aria-label="Kalender öffnen"
+          ><CalendarDays :size="19"
         /></Link>
-        <p class="small-disclaimer">
-          Persönliche Beobachtungen. Keine Diagnose.
+      </header>
+      <Link
+        v-if="!diary.profile?.onboarding_completed"
+        href="/onboarding"
+        class="setup-nudge"
+      >
+        <span
+          ><strong>{{
+            diary.profile?.display_name
+              ? "Einrichtung abschliessen"
+              : "Dein persönliches Tagebuch"
+          }}</strong
+          ><small>Person anlegen · drei kurze Schritte</small></span
+        ><ArrowRight :size="18" />
+      </Link>
+      <section class="compact-capture" aria-label="Schnell erfassen">
+        <UiButton variant="primary" data-tone="meal" @click="openMeal()"
+          ><Utensils :size="20" /><span>Mahlzeit eintragen</span></UiButton
+        >
+        <UiButton
+          variant="secondary"
+          data-tone="symptom"
+          @click="entry = 'check'"
+          ><Heart :size="20" /><span>Befinden</span></UiButton
+        >
+        <UiButton variant="secondary" data-tone="well" @click="entry = 'free'"
+          ><Check :size="18" />Gutes Befinden</UiButton
+        >
+        <details class="compact-more">
+          <summary>Weitere Beobachtungen</summary>
+          <div class="actions">
+            <UiButton
+              class="text-button"
+              data-tone="stress"
+              @click="entry = 'stress'"
+              >Stress manuell</UiButton
+            ><UiButton
+              class="text-button"
+              data-tone="stool"
+              @click="entry = 'stool'"
+              >Stuhl</UiButton
+            >
+          </div>
+        </details>
+      </section>
+      <div v-if="recentRecipes.length" class="compact-repeats">
+        <span class="subtle-label">Noch einmal</span>
+        <UiButton
+          v-for="recipe in recentRecipes"
+          :key="recipe.id"
+          class="repeat-chip"
+          data-tone="meal"
+          @click="openMeal(recipe.id)"
+          ><Plus :size="15" /><span>{{ recipe.title }}</span></UiButton
+        >
+      </div>
+      <Link v-else href="/recipes" class="compact-recipe-start"
+        ><Plus :size="17" />Erstes Rezept hinzufügen<ArrowRight :size="16"
+      /></Link>
+      <section class="compact-today">
+        <div class="section-heading">
+          <h2>
+            Heute <small>{{ todayItems.length }} Einträge</small>
+          </h2>
+          <Link href="/diary">Alle ansehen <ArrowRight :size="14" /></Link>
+        </div>
+        <div v-if="!todayItems.length" class="compact-empty">
+          <p>Noch nichts eingetragen.</p>
+          <small>Starte mit Essen oder deinem Befinden.</small>
+        </div>
+        <div
+          v-for="item in todayItems.slice(0, 3)"
+          :key="item.kind + item.id"
+          class="compact-event"
+          :data-tone="entryTone(item)"
+        >
+          <Utensils v-if="item.kind === 'meal'" :size="17" /><ClipboardCheck
+            v-else-if="item.kind === 'stool'"
+            :size="17"
+          /><HeartPulse v-else-if="item.kind === 'stress'" :size="17" /><Heart
+            v-else
+            :size="17"
+          />
+          <strong>{{
+            item.kind === "meal"
+              ? item.title
+              : item.kind === "stool"
+                ? "Stuhlbeobachtung"
+                : item.kind === "stress"
+                  ? "Stress"
+                  : item.symptom_free
+                    ? "Gutes Befinden"
+                    : "Beschwerden · " + severity(item) + "/10"
+          }}</strong>
+          <time :datetime="item.occurred_at">{{
+            new Date(item.occurred_at).toLocaleTimeString("de-CH", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          }}</time>
+        </div>
+        <p v-if="!latestCheckin && todayMeals" class="compact-reminder">
+          Befinden noch offen. Ein guter Moment zählt auch.
         </p>
-      </aside>
-    </div>
+      </section>
+      <footer class="home-footer">
+        <span>Beobachtungen, keine Diagnose.</span
+        ><Link href="/insights">Muster ansehen <ArrowRight :size="14" /></Link>
+      </footer>
+    </section>
     <EntryModal
       v-if="['meal', 'check', 'free'].includes(entry)"
       :type="entry"

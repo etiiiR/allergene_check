@@ -73,6 +73,7 @@ const routes = [
   "/insights",
   "/foods",
   "/profile",
+  "/onboarding",
   "/report",
 ];
 for (const route of routes) {
@@ -127,6 +128,7 @@ test("inline editor retains failed inputs, re-enables saving, and restores focus
   await expect(heading).toBeFocused();
   await expect(page.locator("dialog, [aria-modal=true]")).toHaveCount(0);
   await page.getByRole("button", { name: "Blähungen", exact: true }).click();
+  await page.getByRole("button", { name: "Weiter", exact: true }).click();
   await page.getByRole("button", { name: "Später 2–6 h", exact: true }).click();
   await page
     .getByRole("button", { name: "Stress, Schlaf oder Notiz ergänzen" })
@@ -149,9 +151,7 @@ test("inline editor retains failed inputs, re-enables saving, and restores focus
   await expect(
     page.getByRole("button", { name: "Eintrag speichern" }),
   ).toBeEnabled();
-  await expect(
-    page.getByRole("button", { name: "Blähungen", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".entry-recap")).toContainText("Blähungen");
   await expect(page.locator(".toast-enter-active")).toHaveCount(0);
   const a11y = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
@@ -198,6 +198,35 @@ test("good moment can switch to symptoms and navigation leaves the editor", asyn
   await expect(
     page.getByRole("heading", { name: "Dein Tag, im Überblick." }),
   ).toBeVisible();
+});
+
+test("daily overview and both symptom steps keep primary actions above mobile navigation", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const aboveNavigation = async (locator) => {
+    const action = await locator.boundingBox();
+    const nav = await page.locator(".bottom-nav").boundingBox();
+    expect(action.y + action.height).toBeLessThanOrEqual(nav.y);
+  };
+  await aboveNavigation(page.locator(".home-footer"));
+  await page.getByRole("button", { name: "Befinden", exact: true }).click();
+  await page.getByRole("button", { name: "Blähungen", exact: true }).click();
+  await aboveNavigation(
+    page.getByRole("button", { name: "Weiter", exact: true }),
+  );
+  await page.getByRole("button", { name: "Weiter", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Wann ging es los?" }),
+  ).toBeFocused();
+  await aboveNavigation(
+    page.getByRole("button", { name: "Eintrag speichern", exact: true }),
+  );
+  await page.getByRole("button", { name: "Zurück", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Blähungen", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
 });
 
 test("reduced motion disables transitions and report print hides app chrome", async ({

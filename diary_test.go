@@ -156,7 +156,7 @@ func TestIngredientKeysPreserveSpicesAndAllergens(t *testing.T) {
 }
 func TestInertiaPageProtocolAndSafeRoot(t *testing.T) {
 	app := newTestApp()
-	for _, path := range []string{"/", "/diary", "/recipes", "/insights", "/report", "/calendar", "/foods", "/profile"} {
+	for _, path := range []string{"/", "/onboarding", "/diary", "/recipes", "/insights", "/report", "/calendar", "/foods", "/profile"} {
 		req := httptest.NewRequest("GET", path, nil)
 		req.Header.Set("X-Inertia", "true")
 		req.Header.Set("X-Inertia-Version", fmt.Sprintf("%x", md5.Sum([]byte("development"))))

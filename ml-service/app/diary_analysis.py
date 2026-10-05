@@ -1,50 +1,18 @@
 """Explainable diary analysis. Associations are exploratory, never causal diagnoses."""
 from datetime import date, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from pathlib import Path
-import json
-import re
 
 import numpy as np
 from fastapi import APIRouter
-from nltk.tokenize import wordpunct_tokenize
 from pydantic import BaseModel, Field, AwareDatetime, field_validator
 from sklearn.linear_model import LogisticRegression
+from .ingredient_normalization import extract_line, FOODS, FOOD_IDS
 
 router = APIRouter(prefix="/diary", tags=["Food diary"])
-FOODS = json.loads((Path(__file__).parent / "data" / "foods.json").read_text())
-FOOD_IDS = {food["id"] for food in FOODS}
 
 
 class RecipeText(BaseModel):
     lines: list[str] = Field(min_length=1, max_length=100)
-
-
-def tokenize(text: str) -> str:
-    return " ".join(wordpunct_tokenize(text.casefold()))
-
-
-def extract_line(line: str) -> dict:
-    """Prefer longest alias spans: almond milk must not also become cow's milk.
-    Unknown ingredients stay unknown. Embedding similarity must never certify food.
-    """
-    text = tokenize(line)
-    candidates = []
-    for food in FOODS:
-        for alias in food["aliases"]:
-            for match in re.finditer(r"(?<!\w)" + re.escape(tokenize(alias)) + r"(?!\w)", text):
-                candidates.append((match.start(), match.end(), food))
-    used, matches = [], {}
-    for start, end, food in sorted(candidates, key=lambda x: x[1] - x[0], reverse=True):
-        if any(start < b and end > a for a, b in used):
-            continue
-        used.append((start, end))
-        matches[food["id"]] = {"id": food["id"], "name": food["name"], "level": food["level"], "groups": food["groups"]}
-    # Negation and substitutions require human review, even if names matched.
-    ambiguous = bool(re.search(r"\b(without|no|optional|instead|or|ohne|oder|infused|marinated|mariniert|mischung|blend)\b", text))
-    if re.search(r"\b(lactose|laktosefrei|laktosefreie|gluten)\b", text) and "lactose-free-milk" not in matches:
-        ambiguous = True
-    return {"line": line, "matches": list(matches.values()), "needs_review": ambiguous or not matches}
 
 
 @router.post("/ingredients")

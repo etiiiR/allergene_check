@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -12,13 +13,15 @@ import (
 // Recipe retains the original ingredient text and user-confirmed canonical IDs.
 // Meals snapshot it so later recipe edits never rewrite diary history.
 type Recipe struct {
-	ID           string       `json:"id"`
-	Title        string       `json:"title"`
-	Ingredients  []Ingredient `json:"ingredients"`
-	Instructions string       `json:"instructions"`
-	Servings     int          `json:"servings"`
-	SourceURL    string       `json:"source_url,omitempty"`
-	CreatedAt    string       `json:"created_at"`
+	// Derived on read; consumers must not recreate raw-text analysis keys.
+	AnalysisIngredientIDs []string     `json:"analysis_ingredient_ids,omitempty"`
+	ID                    string       `json:"id"`
+	Title                 string       `json:"title"`
+	Ingredients           []Ingredient `json:"ingredients"`
+	Instructions          string       `json:"instructions"`
+	Servings              int          `json:"servings"`
+	SourceURL             string       `json:"source_url,omitempty"`
+	CreatedAt             string       `json:"created_at"`
 }
 type Ingredient struct {
 	Text      string   `json:"text"`
@@ -35,6 +38,9 @@ type Meal struct {
 	Notes       string       `json:"notes"`
 }
 type Checkin struct {
+	// A meal-time baseline is not evidence of later food tolerance. It is shown
+	// in the diary but excluded from food/stress modelling (no context measured).
+	MealBaseline    bool           `json:"meal_baseline,omitempty"`
 	ID              string         `json:"id"`
 	OccurredAt      string         `json:"occurred_at"`
 	SymptomFree     bool           `json:"symptom_free"`
@@ -86,10 +92,13 @@ type HealthImportRequest struct {
 	Records []StressObservation `json:"records"`
 }
 type UserProfile struct {
-	BodyGroup       string `json:"body_group"`
-	CycleTracking   bool   `json:"cycle_tracking"`
-	CycleLengthDays int    `json:"cycle_length_days"`
-	PeriodStart     string `json:"period_start,omitempty"`
+	// DisplayName identifies the owner of this local diary, not an authenticated account.
+	DisplayName         string `json:"display_name"`
+	OnboardingCompleted bool   `json:"onboarding_completed"`
+	BodyGroup           string `json:"body_group"`
+	CycleTracking       bool   `json:"cycle_tracking"`
+	CycleLengthDays     int    `json:"cycle_length_days"`
+	PeriodStart         string `json:"period_start,omitempty"`
 }
 type DiaryData struct {
 	Recipes     []Recipe            `json:"recipes"`
@@ -162,6 +171,7 @@ func (r *Recipe) validate() error {
 			}
 		}
 	}
+	r.AnalysisIngredientIDs = ingredientKeys(r.Ingredients)
 	return nil
 }
 func (c *Checkin) validate() error {
@@ -291,6 +301,13 @@ func defaultProfile() UserProfile {
 }
 
 func (p *UserProfile) validate() error {
+	p.DisplayName = strings.TrimSpace(p.DisplayName)
+	if utf8.RuneCountInString(p.DisplayName) > 80 || strings.ContainsAny(p.DisplayName, "\r\n\t") {
+		return invalid("Bitte einen Namen mit maximal 80 Zeichen ohne Zeilenumbrüche eingeben.")
+	}
+	if p.OnboardingCompleted && p.DisplayName == "" {
+		return invalid("Bitte einen Namen für die Person eingeben.")
+	}
 	if p.BodyGroup == "" {
 		p.BodyGroup = "unspecified"
 	}

@@ -91,8 +91,12 @@ const reload = () => window.location.reload();
           href="/profile"
           class="icon-button header-settings"
           aria-label="Profil und Zyklus"
-          ><Settings :size="18"
-        /></Link>
+          ><Settings :size="18" /><span
+            class="header-person"
+            v-if="page.props.diary?.profile?.display_name"
+            >{{ page.props.diary.profile.display_name }}</span
+          ></Link
+        >
       </header>
       <main id="main-content" class="main" tabindex="-1">
         <div v-if="page.props.loadError" role="alert" class="alert error">

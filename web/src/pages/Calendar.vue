@@ -1,4 +1,5 @@
 <script setup>
+import { entryTone } from "../ui/entry-tones";
 import { computed, ref } from "vue";
 import { Head } from "@inertiajs/vue3";
 import {
@@ -327,6 +328,7 @@ function itemTitle(item) {
             v-for="item in selectedItems"
             :key="item.kind + item.id"
             class="calendar-event-row"
+            :data-tone="entryTone(item)"
           >
             <span class="event-icon">
               <Utensils v-if="item.kind === 'meal'" :size="16" />
@@ -353,19 +355,34 @@ function itemTitle(item) {
         </p>
 
         <div v-if="selectedDay <= today" class="calendar-add-actions">
-          <UiButton class="button primary" @click="openEntry('meal')"
+          <UiButton
+            class="button primary"
+            data-tone="meal"
+            @click="openEntry('meal')"
             ><Plus :size="15" /> Mahlzeit</UiButton
           >
-          <UiButton class="button secondary" @click="openEntry('check')"
+          <UiButton
+            class="button secondary"
+            data-tone="symptom"
+            @click="openEntry('check')"
             ><Heart :size="15" /> Beschwerden</UiButton
           >
-          <UiButton class="button secondary" @click="openEntry('free')"
+          <UiButton
+            class="button secondary"
+            data-tone="well"
+            @click="openEntry('free')"
             ><Check :size="15" /> Gutes Befinden</UiButton
           >
-          <UiButton class="button secondary" @click="openEntry('stress')"
+          <UiButton
+            class="button secondary"
+            data-tone="stress"
+            @click="openEntry('stress')"
             ><HeartPulse :size="15" /> Stress</UiButton
           >
-          <UiButton class="button secondary" @click="openEntry('stool')"
+          <UiButton
+            class="button secondary"
+            data-tone="stool"
+            @click="openEntry('stool')"
             ><ClipboardCheck :size="15" /> Stuhl</UiButton
           >
         </div>

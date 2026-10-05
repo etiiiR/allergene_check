@@ -1,0 +1,363 @@
+/* Semantic color layer. Keep geometry in style.css: these cues must not turn
+   compact capture into a longer form. No green; color never replaces text. */
+:root {
+  --canvas: #f7f7fc;
+  --meal-ink: #9a3412;
+  --meal-soft: #fff4eb;
+  --meal-line: #f2d7c4;
+  --symptom-ink: #9f1239;
+  --symptom-soft: #fff1f5;
+  --symptom-line: #efd0da;
+  --well-ink: #1d4ed8;
+  --well-soft: #eff6ff;
+  --well-line: #cbdcf4;
+  --stress-ink: #6d28d9;
+  --stress-soft: #f5f0ff;
+  --stress-line: #dcd2f2;
+  --stool-ink: #854d0e;
+  --stool-soft: #fff8e5;
+  --stool-line: #eadcae;
+  --cycle-ink: #9d174d;
+  --cycle-soft: #fdf2f8;
+  --cycle-line: #eed1df;
+  --tone-ink: #4338ca;
+  --tone-soft: #eef2ff;
+  --tone-line: #a5b4fc;
+}
+[data-tone="meal"] {
+  --tone-ink: var(--meal-ink);
+  --tone-soft: var(--meal-soft);
+  --tone-line: var(--meal-line);
+}
+[data-tone="symptom"] {
+  --tone-ink: var(--symptom-ink);
+  --tone-soft: var(--symptom-soft);
+  --tone-line: var(--symptom-line);
+}
+[data-tone="well"],
+[data-tone="time"] {
+  --tone-ink: var(--well-ink);
+  --tone-soft: var(--well-soft);
+  --tone-line: var(--well-line);
+}
+[data-tone="stress"] {
+  --tone-ink: var(--stress-ink);
+  --tone-soft: var(--stress-soft);
+  --tone-line: var(--stress-line);
+}
+[data-tone="stool"] {
+  --tone-ink: var(--stool-ink);
+  --tone-soft: var(--stool-soft);
+  --tone-line: var(--stool-line);
+}
+[data-tone="cycle"] {
+  --tone-ink: var(--cycle-ink);
+  --tone-soft: var(--cycle-soft);
+  --tone-line: var(--cycle-line);
+}
+[data-tone="neutral"] {
+  --tone-ink: #475569;
+  --tone-soft: #f1f5f9;
+  --tone-line: #cbd5e1;
+}
+[data-tone] {
+  --accent: var(--tone-ink);
+  --accent-soft: var(--tone-soft);
+}
+
+/* Category actions are recognizable before opening the editor. */
+button[data-tone]:is(.button, .text-button, .feeling-good, .choice-button),
+.repeat-chip[data-tone] {
+  background: var(--tone-soft);
+  color: var(--tone-ink);
+  border-color: var(--tone-line);
+}
+.compact-capture > button[data-tone],
+button.primary[data-tone] {
+  box-shadow: none;
+  border-radius: 12px;
+}
+.compact-capture > .d-btn-primary[data-tone],
+button.primary[data-tone] {
+  background: var(--tone-ink);
+  color: #fff;
+}
+.compact-more summary {
+  background: #f0edff;
+  color: #5b21b6;
+  border-color: #ddd6fe;
+  border-radius: 12px;
+}
+.repeat-chip[data-tone]:hover,
+button[data-tone]:not(:disabled):hover {
+  border-color: var(--tone-ink);
+}
+
+/* Soft category surfaces, not nested colored frames or warning-like stripes. */
+:is(
+  .compact-event,
+  .diary-entry,
+  .calendar-event-row,
+  .recipe-card
+)[data-tone] {
+  border-color: var(--line);
+  box-shadow: none;
+}
+.compact-event[data-tone],
+.calendar-event-row[data-tone] {
+  background: var(--tone-soft);
+  padding-inline: 12px;
+  border-radius: 10px;
+}
+.calendar-event-list {
+  gap: 6px;
+}
+.compact-event[data-tone] > svg,
+[data-tone] .event-icon {
+  color: var(--tone-ink);
+  background: var(--tone-soft);
+}
+.diary-entry[data-tone] .entry-title h2,
+.recipe-card[data-tone] .eyebrow {
+  color: var(--tone-ink);
+}
+.diary-entry[data-tone] .entry-title .pill {
+  color: var(--tone-ink);
+  background: var(--tone-soft);
+  border-color: var(--tone-line);
+}
+.recipe-card[data-tone] .eyebrow {
+  background: var(--tone-soft);
+  border-radius: 4px;
+}
+.recipe-card[data-tone] .button.secondary {
+  background: var(--tone-soft);
+  color: var(--tone-ink);
+  border-color: var(--tone-line);
+}
+
+/* Distinct input groups, without extra vertical padding or new steps. */
+.entry-workspace[data-tone] .editor-heading {
+  border: 0;
+  padding-inline-start: 0;
+}
+.entry-workspace[data-tone] .editor-content {
+  border-color: var(--line);
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgb(23 35 46 / 3%);
+}
+.entry-workspace[data-tone] .editor-heading .eyebrow {
+  color: var(--tone-ink);
+}
+:is(.entry-workspace, .profile-settings)
+  label:has(input:not([type="checkbox"]), select, textarea) {
+  --accent: var(--tone-ink);
+  --accent-soft: var(--tone-soft);
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  padding-inline: 0;
+  color: var(--ink);
+}
+:is(.entry-workspace, .profile-settings)
+  label:has(input[type="date"], input[type="datetime-local"]) {
+  --tone-ink: var(--well-ink);
+  --tone-soft: var(--well-soft);
+  --tone-line: var(--well-line);
+}
+:is(.entry-workspace, .profile-settings) label:has(textarea) {
+  --tone-ink: #475569;
+  --tone-soft: #f1f5f9;
+  --tone-line: #cbd5e1;
+}
+:is(.entry-workspace, .profile-settings) label :is(input, select, textarea) {
+  border-color: var(--tone-line);
+  border-radius: 10px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--tone-soft) 55%, #fff);
+}
+:is(.entry-workspace, .profile-settings)
+  label
+  :is(input, select, textarea):focus-visible {
+  background: var(--surface);
+  border-color: var(--tone-ink);
+  outline: 2px solid var(--tone-ink);
+  outline-offset: 2px;
+}
+.recipe-picker .picker-label {
+  color: var(--meal-ink);
+}
+.recipe-picker .search-box {
+  border-color: var(--meal-line);
+  background: var(--meal-soft);
+  border-radius: 12px;
+}
+.recipe-picker-tools label {
+  box-shadow: none;
+  padding-inline: 0;
+  background: none;
+}
+.recipe-result {
+  border-color: var(--line);
+  border-radius: 10px;
+}
+.recipe-selected {
+  color: var(--meal-ink);
+  border-color: var(--meal-line);
+  border-radius: 12px;
+}
+.meal-wellbeing {
+  background: transparent;
+  box-shadow: none;
+  padding-inline: 0;
+}
+.meal-wellbeing legend {
+  color: var(--well-ink);
+}
+.meal-wellbeing small {
+  display: block;
+}
+.entry-details {
+  border-radius: 8px;
+}
+.ingredient-editor,
+.recipe-source-import,
+.recipe-import {
+  background: var(--meal-soft);
+  border-color: var(--meal-line);
+}
+.entry-intro .entry-step {
+  color: var(--tone-ink);
+  background: var(--tone-soft);
+}
+.entry-workspace[data-tone] .details-toggle {
+  color: var(--tone-ink);
+  background: var(--tone-soft);
+  padding-inline: 10px;
+  border-radius: 10px;
+}
+
+/* Selected controls keep their border and pressed state in addition to color. */
+[data-tone]
+  :is(
+    .choice-button,
+    .symptom-choice,
+    .level-choice,
+    .timing-choice,
+    .cycle-choice,
+    .stool-choice,
+    .feeling-good
+  ).selected,
+[data-tone].selected {
+  color: var(--tone-ink);
+  background: var(--tone-soft);
+  border-color: var(--tone-ink);
+  box-shadow: none;
+  font-weight: 600;
+}
+[data-tone] :is(.level-choice, .timing-choice, .stool-choice).selected small {
+  color: var(--tone-ink);
+}
+.entry-workspace[data-tone] .symptom-choice,
+.entry-workspace[data-tone] .stool-choice {
+  border-color: var(--line);
+  border-radius: 10px;
+}
+.entry-workspace[data-tone]
+  :is(.level-choice, .timing-choice, .choice-button, .feeling-good) {
+  border-radius: 10px;
+}
+.entry-workspace[data-tone] :is(.symptom-choice, .stool-choice).selected {
+  border-color: var(--tone-ink);
+}
+.entry-workspace[data-tone] .guided-steps :is(li[aria-current], li.complete) {
+  color: var(--tone-ink);
+}
+.entry-workspace[data-tone] .guided-steps li[aria-current] > span {
+  background: var(--tone-ink);
+  color: #fff;
+}
+
+/* Observation labels and calendar legend follow the same map. Red stays for
+   destructive/error actions; rose denotes recorded symptoms, not diagnosis. */
+.pill.low,
+.calendar-good {
+  color: var(--well-ink);
+  background: var(--well-soft);
+  border-color: var(--well-line);
+}
+.symptom-tag {
+  color: var(--symptom-ink);
+  background: var(--symptom-soft);
+  border-color: var(--symptom-line);
+}
+.stress-tag {
+  color: var(--stress-ink);
+  background: var(--stress-soft);
+  border-color: var(--stress-line);
+}
+.stool-tag {
+  color: var(--stool-ink);
+  background: var(--stool-soft);
+  border-color: var(--stool-line);
+}
+.cycle-tag {
+  color: var(--cycle-ink);
+  background: var(--cycle-soft);
+  border-color: var(--cycle-line);
+}
+.meal-dot {
+  color: var(--meal-ink);
+  background: var(--meal-soft);
+}
+.checkin-dot {
+  color: var(--symptom-ink);
+  background: var(--symptom-soft);
+}
+.symptom-mark {
+  background: var(--symptom-ink);
+}
+.stress-dot {
+  color: var(--stress-ink);
+  background: var(--stress-soft);
+}
+.stool-dot {
+  color: var(--stool-ink);
+  background: var(--stool-soft);
+}
+.good-mark {
+  background: var(--well-ink);
+}
+.calendar-day-good {
+  background: var(--well-soft);
+  border-color: var(--well-line);
+}
+.calendar-day-symptoms {
+  background: var(--symptom-soft);
+  border-color: var(--symptom-line);
+}
+.calendar-day-mixed {
+  background: #fff;
+  border-color: var(--line);
+  box-shadow:
+    inset 3px 0 var(--well-line),
+    inset -3px 0 var(--symptom-line);
+}
+.profile-card[data-tone] {
+  border-color: var(--line);
+  box-shadow: none;
+}
+.profile-card[data-tone] h2 {
+  color: var(--tone-ink);
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+  :is(.diary-entry, .recipe-card, .calendar-event-row)[data-tone],
+  :is(.entry-workspace, .profile-settings) label {
+    background: #fff;
+    box-shadow: none;
+  }
+}

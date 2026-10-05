@@ -4,8 +4,8 @@ import { usePage } from "@inertiajs/vue3";
 import { Globe, Sparkles, Plus, Trash2 } from "@lucide/vue";
 import EntryPanel from "./EntryPanel.vue";
 import { api, useMutation, allergenLabels } from "../lib";
-const props = defineProps({ recipe: Object }),
-  emit = defineEmits(["close"]);
+const props = defineProps({ recipe: Object, inline: Boolean }),
+  emit = defineEmits(["close", "saved"]);
 const page = usePage(),
   { busy, error, save } = useMutation();
 const form = reactive(
@@ -27,6 +27,17 @@ const raw = ref(""),
 function manual() {
   form.ingredients.push({ text: "", food_ids: [], allergens: [] });
 }
+// Keep original amounts for the recipe; canonical IDs are only for comparisons.
+function recognizedIngredient(item) {
+  return {
+    text: item.line,
+    food_ids: item.needs_review ? [] : item.matches.map((match) => match.id),
+    allergens: [],
+    needs_review: item.needs_review,
+    normalized_name: item.normalized_name,
+    suggestions: item.needs_review ? item.matches : [],
+  };
+}
 async function analyze() {
   analyzing.value = true;
   parseError.value = "";
@@ -39,14 +50,7 @@ async function analyze() {
       method: "POST",
       body: JSON.stringify({ lines }),
     });
-    form.ingredients.push(
-      ...data.ingredients.map((x) => ({
-        text: x.line,
-        food_ids: x.needs_review ? [] : x.matches.map((m) => m.id),
-        allergens: [],
-        needs_review: x.needs_review,
-      })),
-    );
+    form.ingredients.push(...data.ingredients.map(recognizedIngredient));
     raw.value = "";
   } catch (e) {
     parseError.value = e.message;
@@ -64,14 +68,38 @@ async function importRecipe() {
     });
     form.title = data.title || form.title;
     form.instructions = data.instructions || form.instructions;
+    if (
+      Number.isInteger(data.servings) &&
+      data.servings >= 1 &&
+      data.servings <= 50
+    )
+      form.servings = data.servings;
+    else form.servings = ""; // Never silently keep the default for piece/loaf yields.
     form.source_url = data.source_url || sourceURL.value.trim();
     form.ingredients = (data.ingredients || []).map((text) => ({
       text,
       food_ids: [],
       allergens: [],
     }));
+    // A failed resolver must not discard the imported recipe preview.
+    if (form.ingredients.length) {
+      try {
+        const recognized = await api("/ingredients/analyze", {
+          method: "POST",
+          body: JSON.stringify({
+            lines: form.ingredients.map((item) => item.text),
+          }),
+        });
+        form.ingredients = recognized.ingredients.map(recognizedIngredient);
+      } catch {
+        parseError.value =
+          "Rezept geladen. Die Zutaten-Zuordnung ist gerade nicht verfügbar; bitte manuell prüfen.";
+      }
+    }
     sourceURL.value = "";
-    if (data.warnings?.length) parseError.value = data.warnings.join(" ");
+    parseError.value = [parseError.value, ...(data.warnings || [])]
+      .filter(Boolean)
+      .join(" ");
   } catch (e) {
     parseError.value = e.message;
   } finally {
@@ -82,17 +110,23 @@ function submit() {
   save(
     props.recipe ? "/recipes/" + props.recipe.id : "/recipes",
     form,
-    () => emit("close"),
+    (recipe) => {
+      emit("saved", recipe);
+      emit("close");
+    },
     props.recipe ? "PUT" : "POST",
   );
 }
 </script>
 <template>
-  <EntryPanel
+  <component
+    :is="inline ? 'section' : EntryPanel"
+    tone="meal"
     :busy="busy"
     :title="recipe ? 'Rezept bearbeiten' : 'Ein neues Lieblingsrezept'"
     @close="emit('close')"
-    ><form class="form recipe-form" @submit.prevent="submit">
+    ><h2 v-if="inline">Neues Rezept für diese Mahlzeit</h2>
+    <form class="form recipe-form" data-tone="meal" @submit.prevent="submit">
       <div class="form-row">
         <label
           >Rezeptname<input
@@ -132,8 +166,9 @@ function submit() {
           }}
         </UiButton>
         <p class="helper">
-          Es werden nur öffentliche Seiten mit Schema.org-Rezeptdaten gelesen.
-          Bitte Zutaten und Allergene vor dem Speichern prüfen.
+          Wir lesen das HTML öffentlicher Rezeptseiten: strukturierte
+          Rezeptdaten oder erkennbare Zutaten- und Zubereitungsblöcke. Bitte
+          Zutaten und Allergene vor dem Speichern prüfen.
         </p>
       </div>
       <div class="recipe-import">
@@ -156,8 +191,8 @@ function submit() {
           }}
         </UiButton>
         <p class="helper">
-          Textanalyse schlägt Zuordnungen vor. Prüfe Lebensmittel und Allergene
-          vor dem Speichern.
+          Mengen werden getrennt: „1 Prise Salz“ wird als Salz verglichen.
+          Unsichere Vorschläge bitte bestätigen. Allergene separat prüfen.
         </p>
         <p class="alert error" v-if="parseError" role="alert">
           {{ parseError }} Du kannst Zutaten auch manuell hinzufügen.
@@ -174,6 +209,12 @@ function submit() {
             }}<input
               class="d-input"
               v-model="item.text"
+              @input="
+                item.food_ids = [];
+                item.normalized_name = '';
+                item.suggestions = [];
+                item.needs_review = true;
+              "
               required
               maxlength="500" /></label
           ><UiButton
@@ -184,6 +225,29 @@ function submit() {
           >
             <Trash2 :size="17" />
           </UiButton>
+        </div>
+        <p v-if="item.normalized_name" class="helper">
+          {{ item.needs_review ? "Bereinigter Name" : "Erkannt als" }}:
+          <strong>{{ item.normalized_name }}</strong
+          >. Originalangabe bleibt erhalten.
+        </p>
+        <div
+          v-if="item.suggestions?.length && !item.food_ids.length"
+          class="actions"
+        >
+          <span class="helper">Meintest du:</span>
+          <UiButton
+            v-for="suggestion in item.suggestions"
+            :key="suggestion.id"
+            type="button"
+            class="button secondary"
+            @click="
+              item.food_ids = [suggestion.id];
+              item.normalized_name = suggestion.name;
+              item.needs_review = false;
+            "
+            >{{ suggestion.name }} übernehmen</UiButton
+          >
         </div>
         <div class="form-row">
           <label
@@ -242,6 +306,6 @@ function submit() {
           {{ busy ? "Wird gespeichert …" : "Rezept speichern" }}
         </UiButton>
       </div>
-    </form></EntryPanel
+    </form></component
   >
 </template>

@@ -1,5 +1,10 @@
 # Mobile health bridge
 
+A first native iOS implementation is now prepared in [`mobile/ios`](../mobile/ios/README.md).
+It requests HealthKit access directly and reads raw pulse/HRV measurements into the same contract,
+without selecting a JSON file. It still needs an iOS SDK build, signing and device testing.
+Android/Samsung are not implemented yet.
+
 The web app cannot read a watch or ring directly. A small native iOS or Android companion, a vendor export, or a trusted automation reads health data after the user grants permission and sends the provider-neutral JSON contract to:
 
 ```text

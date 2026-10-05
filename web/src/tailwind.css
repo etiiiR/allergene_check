@@ -10,20 +10,20 @@
   default: true;
   color-scheme: light;
   --color-base-100: #ffffff;
-  --color-base-200: #f8fafc;
+  --color-base-200: #f7f7fc;
   --color-base-300: #e2e8f0;
   --color-base-content: #17232e;
-  --color-primary: #0f766e;
+  --color-primary: #4338ca;
   --color-primary-content: #ffffff;
-  --color-secondary: #334155;
+  --color-secondary: #6d28d9;
   --color-secondary-content: #ffffff;
-  --color-accent: #e6f4f1;
-  --color-accent-content: #115e59;
+  --color-accent: #eef2ff;
+  --color-accent-content: #3730a3;
   --color-neutral: #17232e;
   --color-neutral-content: #ffffff;
   --color-info: #0369a1;
   --color-info-content: #ffffff;
-  --color-success: #166534;
+  --color-success: #1d4ed8;
   --color-success-content: #ffffff;
   --color-warning: #854d0e;
   --color-warning-content: #ffffff;
@@ -41,10 +41,10 @@
 @theme {
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --color-bauch-paper: #f8fafc;
+  --color-bauch-paper: #f7f7fc;
   --color-bauch-ink: #17232e;
-  --color-bauch-moss: #0f766e;
-  --color-bauch-sage: #e6f4f1;
+  --color-bauch-moss: #4338ca;
+  --color-bauch-sage: #eef2ff;
   --color-bauch-line: #e2e8f0;
 }
 @utility tap-target {

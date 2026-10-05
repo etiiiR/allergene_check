@@ -9,7 +9,7 @@ import {
 } from "vue";
 import { ArrowLeft } from "@lucide/vue";
 import { workspace } from "../../ui/workspace";
-const props = defineProps({ title: String, busy: Boolean });
+const props = defineProps({ title: String, busy: Boolean, tone: String });
 const emit = defineEmits(["close"]);
 const id = useId();
 const heading = ref(null);
@@ -38,6 +38,7 @@ onBeforeUnmount(() => {
     <section
       v-show="active"
       class="entry-workspace"
+      :data-tone="tone"
       :aria-labelledby="id"
       :aria-busy="busy || undefined"
     >

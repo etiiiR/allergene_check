@@ -35,7 +35,12 @@ function submit() {
 </script>
 
 <template>
-  <EntryPanel :busy="busy" title="Stuhl beobachten" @close="emit('close')">
+  <EntryPanel
+    :busy="busy"
+    title="Stuhl beobachten"
+    tone="stool"
+    @close="emit('close')"
+  >
     <form class="form stool-form" @submit.prevent="submit">
       <div class="entry-intro">
         <span class="entry-step"><ClipboardCheck :size="17" /></span>

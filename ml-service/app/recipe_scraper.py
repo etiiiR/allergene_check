@@ -1,7 +1,7 @@
 """Small, review-first recipe importer.
 
-The importer deliberately accepts only Schema.org Recipe JSON-LD. That keeps the
-skeleton predictable and avoids pretending that arbitrary page HTML is a recipe.
+The importer supports Recipe JSON-LD, HTML Microdata and recognizable recipe
+blocks. It returns a reviewable preview, never guesses missing ingredients.
 It also validates every redirect before fetching it, which is important for a
 server-side URL fetcher running next to a private database.
 """
@@ -17,6 +17,9 @@ import httpx
 from bs4 import BeautifulSoup
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from app.recipe_html import microdata_recipes, html_recipes
+from app.recipe_fields import strings as _strings, serving_count
+from app.recipe_sites import site_recipes, refine_same_recipe
 
 
 USER_AGENT = "BauchgefuehlRecipeImporter/0.1 (+local diary; contact site owner before use)"
@@ -42,7 +45,10 @@ class ScrapeResponse(BaseModel):
     source_url: str
     image: str | None = None
     author: str | None = None
-    warnings: list[str] = []
+    servings: int | None = None
+    original_yield: str = ""
+    extraction_method: str = "json_ld"
+    warnings: list[str] = Field(default_factory=list)
 
 
 def _validate_public_url(value: str) -> str:
@@ -68,78 +74,95 @@ def _validate_public_url(value: str) -> str:
     return value
 
 
-def _strings(value: Any) -> list[str]:
-    """Flatten common Schema.org text shapes without inventing page content."""
-
-    if isinstance(value, str):
-        text = " ".join(value.split())
-        return [text] if text else []
-    if isinstance(value, list):
-        result: list[str] = []
-        for item in value:
-            result.extend(_strings(item))
-        return result
-    if isinstance(value, dict):
-        for key in ("text", "name", "description"):
-            if isinstance(value.get(key), str):
-                return _strings(value[key])
-        if "itemListElement" in value:
-            return _strings(value["itemListElement"])
-    return []
-
-
 def _first_string(value: Any) -> str | None:
     values = _strings(value)
     return values[0] if values else None
 
 
-def _find_recipe(value: Any) -> dict[str, Any] | None:
-    """Find a Recipe object in JSON-LD, including an @graph wrapper."""
+def _find_recipes(value: Any) -> list[dict[str, Any]]:
+    """Find explicit Recipe objects in JSON-LD, including @graph wrappers."""
 
     if isinstance(value, dict):
         types = value.get("@type", [])
         if isinstance(types, str):
             types = [types]
-        if any(str(item).lower() == "recipe" for item in types):
-            return value
+        if not isinstance(types, list):
+            types = []
+        if any(str(item).rstrip("/").rsplit("/", 1)[-1].lower() == "recipe" for item in types):
+            return [value]
+        result = []
         for key in ("@graph", "mainEntity", "mainEntityOfPage"):
-            found = _find_recipe(value.get(key))
-            if found:
-                return found
+            result.extend(_find_recipes(value.get(key)))
+        return result
     elif isinstance(value, list):
+        result = []
         for item in value:
-            found = _find_recipe(item)
-            if found:
-                return found
-    return None
+            result.extend(_find_recipes(item))
+        return result
+    return []
 
 
 def parse_recipe_document(document: str, source_url: str, warnings: list[str] | None = None) -> ScrapeResponse:
-    """Parse one HTML document and return only explicit Schema.org recipe data."""
+    """Prefer structured recipe data, then explicitly marked HTML recipe blocks.
+
+    Do not combine different recipe candidates: multi-recipe pages can contain
+    recommendations. Each preview is taken from one candidate, with a warning.
+    """
 
     notes = list(warnings or [])
     soup = BeautifulSoup(document, "html.parser")
-    recipe: dict[str, Any] | None = None
+    candidates: list[tuple[str, dict[str, Any]]] = []
     for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
         raw = script.string or script.get_text()
         if not raw.strip():
             continue
         try:
-            found = _find_recipe(json.loads(raw))
-        except (json.JSONDecodeError, TypeError):
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError:
+                # 750g embeds literal newlines inside JSON strings. Python's
+                # strict=False accepts ONLY control characters, never JS/eval.
+                payload = json.loads(raw, strict=False)
+                notes.append("Zeilenumbrüche in den strukturierten Rezeptdaten wurden bereinigt; bitte Vorschau prüfen.")
+            found = _find_recipes(payload)
+        except (json.JSONDecodeError, TypeError, RecursionError):
             notes.append("Ein JSON-LD-Block der Seite war nicht lesbar.")
             continue
-        if found:
-            recipe = found
-            break
+        candidates.extend(("json_ld", recipe) for recipe in found)
+
+    # JSON has been read. Remove executable/UI noise before extracting text.
+    for node in soup.select("script, style, noscript, nav, aside, button, svg, iframe, select, input"):
+        node.decompose()
+    # Verified site cards can be more accurate than malformed publisher schema:
+    # Zucker & Jagdwurst collapses whole ingredient groups in its JSON-LD.
+    candidates = [("html_site", recipe) for recipe in site_recipes(soup, source_url)] + candidates
+    candidates.extend(("microdata", recipe) for recipe in microdata_recipes(soup))
+    candidates.extend(("html", recipe) for recipe in html_recipes(soup))
+    # A Recipe stub without ingredients should not hide a usable HTML recipe.
+    usable = [(method, recipe) for method, recipe in candidates if _strings(recipe.get("recipeIngredient"))]
+    method, recipe = (usable or candidates or [("", None)])[0]
 
     if not recipe:
-        raise HTTPException(status_code=422, detail="Diese Seite enthält keine erkennbaren Schema.org-Rezeptdaten.")
+        raise HTTPException(status_code=422, detail="Im heruntergeladenen HTML wurde kein eindeutig erkennbares Rezept gefunden. Möglicherweise wird es erst per JavaScript geladen. Bitte Zutaten manuell einfügen.")
+
+    recipe, refined = refine_same_recipe(soup, source_url, recipe)
+    if refined:
+        method += "+html"
+        notes.append("Zutaten einschließlich Mengen und Verwendungshinweisen aus der sichtbaren Liste desselben Rezepts übernommen; bitte prüfen.")
+
+    if method in {"html", "html_site"}:
+        notes.append("Aus dem sichtbaren HTML-Rezeptblock gelesen. Bitte Zutaten, Mengen und Zubereitung besonders sorgfältig prüfen.")
+    if len({_first_string(item.get("name")) for _, item in usable}) > 1:
+        notes.append("Die Seite enthält mehrere Rezepte. Bitte prüfen, ob die Vorschau das gewünschte Rezept zeigt.")
 
     ingredients = _strings(recipe.get("recipeIngredient"))
     instructions = "\n".join(_strings(recipe.get("recipeInstructions")))
     image = _first_string(recipe.get("image"))
     author = _first_string(recipe.get("author"))
+    servings, yield_text = serving_count(recipe.get("recipeYield"))
+    if servings is None:
+        source_hint = f" (Quellangabe: {yield_text[:120]})" if yield_text else ""
+        notes.append(f"Portionszahl nicht eindeutig erkannt{source_hint}; bitte vor dem Speichern prüfen.")
     if not ingredients:
         notes.append("Die Seite liefert keine Zutatenliste; bitte vor dem Speichern ergänzen.")
     if not instructions:
@@ -152,6 +175,9 @@ def parse_recipe_document(document: str, source_url: str, warnings: list[str] | 
         source_url=source_url,
         image=image,
         author=author,
+        servings=servings,
+        original_yield=yield_text,
+        extraction_method=method,
         warnings=list(dict.fromkeys(notes)),
     )
 
@@ -204,6 +230,8 @@ def _download_document(target: str, respect_robots: bool) -> tuple[str, str, lis
                                 warnings.append(warning)
                         continue
                     if response.status_code >= 400:
+                        if response.status_code in {401, 403, 429}:
+                            raise HTTPException(status_code=response.status_code, detail=f"Die Rezeptplattform blockiert den automatischen Abruf (HTTP {response.status_code}). Bitte Zutaten manuell einfügen.")
                         raise HTTPException(status_code=502, detail="Die Rezeptseite konnte nicht geladen werden.")
                     content_length = response.headers.get("content-length")
                     if content_length and int(content_length) > MAX_HTML_BYTES:

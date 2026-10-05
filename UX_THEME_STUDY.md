@@ -42,7 +42,8 @@ Nutzertests. Automatisierte Browsertests messen sie nicht sinnvoll.
 ### Farbe
 
 Die Grundflächen sind Weiss und helles Slate. Dunkler Slate-Text liefert den Kontrast,
-Teal kennzeichnet aktive Navigation und primäre Aktionen. Farbe unterstützt immer ein Textlabel.
+Indigo kennzeichnet aktive Navigation und primäre Aktionen. Grün wurde auf ausdrücklichen
+Nutzerwunsch entfernt, auch aus Erfolgs- und Kalenderzuständen. Farbe unterstützt immer ein Textlabel.
 
 | Verwendung | Token / Farbe |
 | --- | --- |
@@ -52,9 +53,9 @@ Teal kennzeichnet aktive Navigation und primäre Aktionen. Farbe unterstützt im
 | Hilfstext | `--muted: #526171` |
 | Trennlinien | `--line: #e2e8f0` |
 | Eingaberahmen | `--border-strong: #cbd5e1` |
-| Primäraktion | `--green: #0f766e` |
-| Aktive Auswahl | `--green-soft: #e6f4f1` |
-| Guter Moment / Speicherung | Grün |
+| Primäraktion | `--accent: #4338ca` |
+| Aktive Auswahl | `--accent-soft: #eef2ff` |
+| Guter Moment / Speicherung | Indigo mit Check-Symbol / Text |
 | Offenes Befinden / Beschwerdehinweis | Amber mit Text |
 | Fehler / Löschen | Rot |
 | Zyklus / Stress-Kontext | Gedämpftes Violett |
@@ -117,12 +118,57 @@ ungespeicherten Editor. Deep Links und dauerhafte Entwürfe sind eine spätere E
 2. Mahlzeit eintragen als eindeutige Primäraktion.
 3. Befinden und gutes Befinden als zwei sekundäre Aktionen.
 4. Stress und Stuhl unter Weitere Beobachtungen.
-5. Zuletzt verwendete Rezepte.
-6. Timeline mit Mahlzeiten, Befinden, Stress und Stuhl.
-7. Momentaufnahme mit Zählern und optionalem Follow-up.
+5. Maximal zwei zuletzt verwendete Rezepte als Wiederholen-Buttons.
+6. Maximal drei neueste Einträge; Alle ansehen führt ins vollständige Tagebuch.
+7. Kleiner Einrichtungshinweis bis zum abgeschlossenen Onboarding, danach mehr Platz für den Alltag.
 
-Die Momentaufnahme verwendet ausschliesslich heutige Check-ins.
+Die doppelte Momentaufnahme und die zweite Zählerübersicht entfallen.
+Ein Hinweis auf offenes Befinden verwendet ausschliesslich heutige Check-ins.
 Ein guter Eintrag von gestern darf die heutige Zusammenfassung nicht positiv einfärben.
+
+### Geführte Einträge und persönlicher Start
+
+Beschwerden verwenden zwei Schritte: zuerst Befinden und Stärke, dann zeitliche Einordnung
+und Speichern. Zurück erhält die Auswahl; es wird erst beim endgültigen Speichern geschrieben.
+Ein guter Moment und eine Mahlzeit bleiben kurze Ein-Schritt-Abläufe. Zusätzliche Angaben
+wie Portionen, Stress, Schlaf, Mahlzeitenbezug, Zyklus und Notizen sind bewusst aufklappbar.
+Die Uhrzeit ist vor dem Speichern sichtbar. Es gibt keine Dialoge oder versteckten Overlays.
+
+`/onboarding` bietet Person → optionaler Körperkontext → Startklar. Die Einrichtung ist
+freiwillig und nicht bei jedem Besuch im Weg. Vorname oder Spitzname genügen. Nach erfolgreichem
+Abschluss werden `display_name` und `onboarding_completed` gemeinsam mit den Körper-/Zyklusdaten
+im bestehenden SurrealDB-Datensatz `diary_profile:default` gespeichert. Vorhandene Einträge bleiben
+unverändert. Der Name ist im Header und standardmässig im Bericht sichtbar; ein ausdrücklich
+gewähltes lokales Berichts-Pseudonym hat Vorrang.
+
+Explizite Nutzerentscheidung: **ein benanntes persönliches Profil**, nicht mehrere Personen.
+Das ist keine Authentifizierung. Jeder mit Zugriff auf diese lokale Instanz sieht dasselbe
+Tagebuch. Unabgeschlossene Wizard-Schritte bleiben nur während der aktuellen Seite erhalten;
+es werden keine Entwürfe in Local Storage oder auf dem Server gespeichert.
+
+Das Profil teilt Person, Körper & Zyklus und Health-Import in drei kompakte Ansichten.
+So muss niemand für eine Namensänderung durch Health-Import oder Zykluserklärungen scrollen.
+Der Health-Bereich bietet jetzt die direkte iOS-Bridge als Haupteinstieg; Datei-Import ist nur
+noch ein aufklappbarer Fallback. Die native Implementierung liegt unter `mobile/ios` und
+benötigt vor Benutzung noch Xcode-Build, Signierung und Gerätetest.
+
+### Mahlzeiten ohne Kontextwechsel
+
+Die vier Dashboard-Aktionen sind gleich breit und 60px hoch. Ein Rezept kann direkt innerhalb
+von Mahlzeit eintragen erstellt werden; Datum und übrige Eingaben bleiben erhalten. Nach dem
+Speichern wird das neue Rezept ausgewählt. Es gibt weder Seitenwechsel noch verschachtelte Formulare.
+
+Bei einer Mahlzeit ist **Gut** sichtbar vorausgewählt. Alternativen: Beschwerden (führt nach
+der Mahlzeit direkt in den Symptom-Wizard) und Nicht erfassen. Mahlzeit und guter Moment werden
+atomar gespeichert. Der gute Moment ist als `meal_baseline` gekennzeichnet: Er beschreibt nur
+das Befinden beim Essen und wird nicht als Nachweis späterer Verträglichkeit oder als erfundene
+Stress-/Schlafmessung in das Modell aufgenommen. Fehlende spätere Check-ins bleiben unbekannt.
+Der Kalender verwendet auf kleinen Displays kompaktere, weiterhin mindestens 44px hohe Tagesbuttons.
+
+**Viewport-Ziel:** Die Tagesübersicht sowie die Hauptaktionen der beiden Beschwerde-Schritte
+passen bei 390 × 844px ohne Scrollen über die untere Navigation. Das wird mit Testdaten geprüft.
+Bei grösserer Schrift, langen Namen oder geöffneten optionalen Feldern bleibt normales Scrollen
+erlaubt. Keine festen Bildschirmhöhen, abgeschnittenen Formulare oder winzigen Touch-Ziele.
 
 ### Tagebuch
 
@@ -212,7 +258,7 @@ Keine individuellen Farbwerte in neue Seiten kopieren. Varianten und gemeinsame 
 - [x] Testdatenbereinigung in isolierter Datenbank prüfen.
 
 Prüfergebnis am 23. September 2026: `npm run build`, `go test ./...` und alle 19
-Playwright-Tests bestanden. Die Browserprüfung lief gegen eine separate lokale Datenbank,
+Playwright-Tests der ersten Überarbeitung bestanden. Die Browserprüfung lief gegen eine separate lokale Datenbank,
 nicht gegen das persönliche Tagebuch. Die Design-Suite vergleicht nach der Bereinigung die
 Datensatz-IDs mit dem Zustand vor dem Test. Test-Screenshots liegen in `web/test-results/`.
 
@@ -226,6 +272,14 @@ Automatisierte Checks ersetzen keine vollständige Accessibility-Prüfung mit As
 
 ## 10. Spätere Validierung
 
+Nachtrag zur Vereinfachung: Frontend-Build, Go-Tests und alle 23 Browser-Tests für kompakte
+Ansichten, Onboarding und Profilpersistenz bestanden. Der Profiltest prüft auch einen neuen
+Browserkontext, Namensänderung, Fehler/Retry und unveränderte Tagebuch-Einträge. Die spätere
+Zutaten-Normalisierung hat eigene Go-/Python-Tests. Für den anschliessenden Mahlzeit-Ablauf und
+die native Health-Anbindung wurden weitere Regressionstests ergänzt; diese neuesten Browsertests
+konnten wegen des Freigabelimits noch nicht ausgeführt werden. Der Container-Rebuild
+ist aus demselben Grund noch ausstehend.
+
 Diese Punkte sind keine Behauptung über bereits erreichte Nutzerergebnisse:
 
 - Mit mindestens fünf Testpersonen eine Mahlzeit, einen guten Moment, eine Beschwerde nach sechs
@@ -236,3 +290,43 @@ Diese Punkte sind keine Behauptung über bereits erreichte Nutzerergebnisse:
 - Deep Links und lokale Entwürfe bei längeren Rezeptformularen evaluieren.
 - Ein echtes Undo benötigt eine verlässliche Wiederherstellung; bis dahin bleibt die Löschbestätigung.
 - Dark Mode erst nach Prüfung der Light-Variante planen.
+
+## 11. Große Rezeptsammlungen: finden statt lange Listen durchsehen
+
+Nachtrag 24.09.2026. Ausgangspunkt: Ein Dropdown mit 200 Einträgen und die vollständige Darstellung aller Rezeptkarten machen die alltägliche Mahlzeit-Erfassung unnötig mühsam. Dies ist eine Designentscheidung mit automatisierter Prüfung, noch keine Studie mit Testpersonen.
+
+- **Primärer Ablauf:** Mahlzeit öffnen → bekannte Rezepte direkt auswählen oder Name/Zutat suchen → Auswahl wird kompakt zusammengefasst → Zeitpunkt/Befinden prüfen → speichern. Das Suchen verändert keine anderen Formulareingaben.
+- **Wiederholungen vereinfachen:** Drei Vorschläge aus vorhandenen Mahlzeiten, nach letzter Verwendung. Alternativ häufig gegessene Rezepte oder alphabetische Reihenfolge. Nutzungshäufigkeit ist kein Verträglichkeitsurteil.
+- **Suche:** Alle Wörter müssen im Namen oder den Zutaten vorkommen, unabhängig von Reihenfolge, Großschreibung und Umlautschreibweise. Namensübereinstimmungen vor reinen Zutatentreffern; bei gleichem Namen helfen sichtbare Zutaten.
+- **Begrenzte Darstellung:** Sechs Treffer pro Auswahlseite, zwölf kompakte Einträge pro Sammlungsseite. Kein endloses Scrollen und kein verschachteltes Scrollfenster. Suchen und Sortieren starten auf Seite 1.
+- **Progressive Anzeige:** Nach Auswahl bleibt nur eine Zusammenfassung mit „Rezept ändern“. Seltenere Bibliotheksaktionen liegen unter „Bearbeiten & weitere Optionen“. Keine Modals; neue Rezepte weiterhin direkt beim Erfassen hinzufügen.
+- **Verlässlicher Zustand:** Wechseln öffnet die Suche, löscht aber die bisherige Auswahl nicht. „Auswahl beibehalten“/Escape kehrt zurück. Kein Treffer bedeutet nicht, dass die Sammlung leer ist. Ein eindeutiger Treffer lässt sich mit Enter wählen; mehrere Treffer erfordern eine ausdrückliche Auswahl.
+- **Barrierefreiheit:** Beschriftete Suchfelder, native Ergebnisbuttons mit Zutatenbeschreibung, erreichbare 44px-Touch-Ziele, Fokus auf „Rezept ändern“ nach Auswahl und Ergebnis-/Seitenmeldungen für Screenreader.
+- **Regressionen:** 200 gespeicherte Testrezepte, Duplikatnamen, Umlautsuche, Zutatenkombinationen, Seitenwechsel, leere Treffer, erhaltene Mahlzeitdaten und gemeinsame Auswahl beim Bearbeiten. Zusätzlich Tastatur-, Axe- und 320/390px-Checks.
+
+Offene qualitative Validierung: Personen ein selten genutztes Rezept aus 200 Einträgen sowie zwei gleichnamige Gerichte finden lassen. Suchabbrüche, Fehlwahlen und Zeit bis zur Auswahl beobachten; keine erreichte Zeitersparnis behaupten, bevor diese Tests stattfinden. Bei wesentlich größeren Beständen die aktuell lokale Suche auf serverseitige Suche umstellen.
+
+Technische Validierung: 36 Browser-Regressionsprüfungen einschließlich der 200-Rezepte-Fälle, sechs Such-Unit-Tests, Go-Tests und Frontend-Build erfolgreich. Die mobile Auswahl und Sammlung wurden zusätzlich als Screenshots geprüft. Die früher in Abschnitt 10 genannten Browser-/Container-Freigabeblocker sind inzwischen behoben; die native HealthKit-App benötigt weiterhin einen separaten Xcode-/Gerätetest.
+
+## 12. Mehr Farbe als Orientierung, ohne zusätzliche UI-Komplexität
+
+Auf Wunsch vom 24.09.2026 erhalten Eingaben und Beobachtungen wieder mehr Farbe. Die indigo-blaue Navigation bleibt bestehen; Grün wird weiterhin nicht verwendet. Die Kategoriezuordnung ist keine medizinische Ampel.
+
+| Bereich | Akzent | Anwendung |
+| --- | --- | --- |
+| Mahlzeiten & Rezepte | Orange / dunkles Terrakotta | Schnellaktion, Rezeptsuche, Auswahl, Tagebuchmarkierung |
+| Beschwerden | Rosé / dunkles Himbeerrot | Befinden-Formular, Symptomwahl, Beobachtung |
+| Gutes Befinden | Blau | Eigene Schnellaktion, positive Beobachtung, Kalenderlegende |
+| Zeit & Schlaf | Blau | Abgesetzte Eingabefelder, unabhängig vom Formulartyp |
+| Stress & Health | Violett | Erfassung, Messungen und zugehörige Profilfelder |
+| Stuhl | Ocker | Beobachtungsformular und Verlauf |
+| Zyklus | Beerenrosa | Optionaler Profil- und Zykluskontext |
+| Notizen | Schiefergrau | Ruhige, klar getrennte Freitextflächen |
+
+Gemeinsame Tokens und Darstellungsregeln liegen in `web/src/colors.css`; `entry-tones.js` liefert die gleiche Kategorie für Startseite, Tagebuch und Kalender. `EntryPanel` reicht die Farbe ausdrücklich an den teleportalisierten Editor weiter. Neue Formulare nutzen diese Zuordnung statt eigener Farbwerte.
+
+Farbe ergänzt Beschriftung, Symbole, Rahmen und `aria-pressed`; sie ersetzt diese nicht. Fehler und Löschen behalten ihre eigenen roten Warnstile. Gemischte Kalendertage kennzeichnen gute und symptomatische Momente mit beiden Akzenten. Farbflächen direkt in den Eingaben trennen Bereiche, ohne zusätzliche Formularschritte oder vertikale Abstände einzuführen.
+
+Feinschliff nach Nutzerfeedback: `data-tone` bleibt eine technische Kategorie, erzeugt aber keine zusätzliche sichtbare Box. Keine dicken seitlichen Farblinien, keine durchgehend farbigen Editor-Rahmen und keine doppelten Auswahlrahmen. Stattdessen helle Eingabeflächen, zurückhaltende 1px-Konturen und 10–14px-Rundungen. Beschriftungen bleiben dunkel; deutliche Akzentfarbe erscheint bei Fokus und Auswahl. Editor- und Profilkarten sind neutral gerahmt, damit Rosé nicht wie ein Formularfehler wirkt. Gute-Befinden-Auswahl und Rezeptzusammenfassung bleiben klar beschriftet.
+
+Validierung: 38 Browserprüfungen bestanden, einschließlich neuer Kontrast-/Axe-Checks in allen fünf Erfassungsansichten und unterscheidbarer Zeit-/Stress-/Notizfelder. Mobile Screenshots wurden überprüft; bestehende Prüfungen für direkt erreichbare Hauptaktionen, reduzierte Bewegung, Druckansicht und 200 Rezepte bleiben erhalten. Dies ersetzt keinen Nutzertest mit Personen mit unterschiedlichen Sehfähigkeiten.

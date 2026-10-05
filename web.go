@@ -34,7 +34,7 @@ func registerWeb(app *fiber.App, repo *DiaryRepository) {
 		log.Panicf("initialize Gonertia Vite integration: %v", err)
 	}
 	app.Static("/assets", "./web/dist/assets")
-	pages := map[string]string{"/": "Dashboard", "/diary": "Diary", "/recipes": "Recipes", "/insights": "Insights", "/report": "Report", "/calendar": "Calendar", "/foods": "Foods", "/profile": "Profile"}
+	pages := map[string]string{"/": "Dashboard", "/onboarding": "Onboarding", "/diary": "Diary", "/recipes": "Recipes", "/insights": "Insights", "/report": "Report", "/calendar": "Calendar", "/foods": "Foods", "/profile": "Profile"}
 	for path, component := range pages {
 		app.Get(path, adaptor.HTTPHandler(manager.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Cache-Control", "no-store")

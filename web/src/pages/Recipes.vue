@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, watch, nextTick } from "vue";
 import { Head } from "@inertiajs/vue3";
 import {
   Plus,
@@ -10,6 +10,7 @@ import {
   ArrowRight,
   Sparkles,
   Flag,
+  X,
 } from "@lucide/vue";
 import AppShell from "../components/AppShell.vue";
 import RecipeModal from "../components/RecipeModal.vue";
@@ -17,6 +18,7 @@ import EntryModal from "../components/EntryModal.vue";
 import RecipeFlagModal from "../components/RecipeFlagModal.vue";
 import EntryPanel from "../components/EntryPanel.vue";
 import { api, foodName, useMutation, allergenLabels } from "../lib";
+import { recipeIndex, findRecipes } from "../recipe-search";
 const props = defineProps({ diary: Object, foods: Array });
 const search = ref(""),
   editing = ref(null),
@@ -30,13 +32,40 @@ const search = ref(""),
   flagging = ref(null),
   flagKind = ref("suspected");
 const { save, busy, error } = useMutation();
-const list = computed(() =>
-  props.diary.recipes.filter((r) =>
-    (r.title + " " + r.ingredients.map((i) => i.text).join(" "))
-      .toLowerCase()
-      .includes(search.value.toLowerCase()),
-  ),
+const sort = ref("recent"),
+  currentPage = ref(1),
+  resultsHeading = ref(null),
+  searchInput = ref(null);
+const index = computed(() =>
+  recipeIndex(props.diary.recipes, props.diary.meals),
 );
+const list = computed(() => findRecipes(index.value, search.value, sort.value));
+const pageSize = 12;
+const pages = computed(() =>
+  Math.max(1, Math.ceil(list.value.length / pageSize)),
+);
+const visibleRecipes = computed(() =>
+  list.value
+    .slice((currentPage.value - 1) * pageSize, currentPage.value * pageSize)
+    .map((item) => item.recipe),
+);
+watch([search, sort], () => {
+  currentPage.value = 1;
+});
+watch(pages, (value) => {
+  currentPage.value = Math.min(value, currentPage.value);
+});
+async function changePage(value) {
+  currentPage.value = value;
+  await nextTick();
+  resultsHeading.value?.focus({ preventScroll: true });
+  resultsHeading.value?.scrollIntoView({ block: "start", behavior: "instant" });
+}
+async function clearSearch() {
+  search.value = "";
+  await nextTick();
+  searchInput.value?.focus();
+}
 function level(r) {
   const known = r.ingredients
     .flatMap((i) => i.food_ids)
@@ -64,15 +93,8 @@ async function inspect(recipe) {
   analysisBusy.value = true;
   try {
     const data = await api("/patterns");
-    const ids = new Set(
-      recipe.ingredients.flatMap((i) => [
-        ...i.food_ids,
-        ...i.allergens.map((a) => "allergen:" + a),
-        ...(!i.food_ids.length
-          ? ["custom:" + i.text.trim().toLowerCase().replace(/\s+/g, " ")]
-          : []),
-      ]),
-    );
+    // Use the same server-derived identities as the analysis of old meal snapshots.
+    const ids = new Set(recipe.analysis_ingredient_ids || []);
     analysis.value = {
       ...data,
       associations: data.associations.filter((a) => ids.has(a.ingredient_id)),
@@ -94,19 +116,63 @@ async function inspect(recipe) {
           Einmal speichern. Schnell wieder als Mahlzeit eintragen.
         </p>
       </div>
-      <UiButton class="button primary tap-target" @click="creating = true">
+      <UiButton
+        class="button primary tap-target"
+        data-tone="meal"
+        @click="creating = true"
+      >
         <Plus :size="18" />Rezept hinzufügen
       </UiButton>
     </div>
-    <div class="search-box">
-      <Search :size="18" /><input
-        class="d-input"
-        aria-label="Rezepte suchen"
-        v-model="search"
-        placeholder="Nach Rezept oder Zutat suchen …"
-      /><span>{{ list.length }} Rezepte</span>
+    <div class="recipe-library-tools">
+      <div class="search-box">
+        <Search :size="18" /><input
+          class="d-input"
+          aria-label="Rezepte suchen"
+          ref="searchInput"
+          type="search"
+          v-model="search"
+          placeholder="Nach Rezept oder Zutat suchen …"
+        /><button
+          v-if="search"
+          type="button"
+          class="icon-button"
+          aria-label="Rezeptsuche leeren"
+          @click="clearSearch"
+        >
+          <X :size="17" />
+        </button>
+      </div>
+      <label
+        >Sortierung<select
+          class="d-select"
+          v-model="sort"
+          aria-label="Rezeptsammlung sortieren"
+        >
+          <option value="recent">Zuletzt verwendet</option>
+          <option value="frequent">Häufig gegessen</option>
+          <option value="name">Name A–Z</option>
+        </select></label
+      >
     </div>
-    <div v-if="!list.length" class="panel empty-state">
+    <p
+      ref="resultsHeading"
+      tabindex="-1"
+      class="recipe-result-count"
+      role="status"
+    >
+      {{
+        search.trim()
+          ? `${list.length} Treffer für „${search.trim()}“`
+          : `${list.length} Rezepte`
+      }}<span v-if="list.length">
+        · {{ (currentPage - 1) * pageSize + 1 }}–{{
+          Math.min(currentPage * pageSize, list.length)
+        }}
+        angezeigt</span
+      >
+    </p>
+    <div v-if="!diary.recipes.length" class="panel empty-state">
       <CookingPot :size="34" />
       <h2>Hier ist Platz für deine Lieblingsgerichte.</h2>
       <p>
@@ -117,62 +183,114 @@ async function inspect(recipe) {
         Mein erstes Rezept
       </UiButton>
     </div>
-    <div class="recipe-grid">
-      <article class="panel recipe-card" v-for="(r, index) in list" :key="r.id">
-        <div class="recipe-art" :class="'art-' + (index % 3)">
-          <CookingPot :size="52" :stroke-width="1" /><span class="pill light"
-            >{{ r.servings }} Portionen</span
-          >
-        </div>
+    <div v-else-if="!list.length" class="panel empty-state">
+      <Search :size="28" />
+      <h2>Kein passendes Rezept gefunden.</h2>
+      <p>
+        Suche nach einem kürzeren Namen oder einer Zutat. Deine gespeicherten
+        Rezepte sind weiterhin da.
+      </p>
+      <UiButton class="button secondary" @click="clearSearch"
+        >Suche zurücksetzen</UiButton
+      >
+    </div>
+    <div class="recipe-library-list">
+      <article
+        class="panel recipe-card"
+        data-tone="meal"
+        v-for="r in visibleRecipes"
+        :key="r.id"
+        :data-recipe-id="r.id"
+      >
         <div class="recipe-body">
-          <span class="eyebrow">{{ r.ingredients.length }} ZUTATEN</span>
+          <span class="eyebrow"
+            >{{ r.ingredients.length }} ZUTATEN ·
+            {{ r.servings }} PORTIONEN</span
+          >
           <h2>{{ r.title }}</h2>
           <p class="recipe-excerpt">
             {{ r.ingredients.map((i) => i.text).join(" · ") }}
           </p>
-          <span class="pill neutral">{{ level(r) }}</span>
           <span v-if="flagsFor(r).length" class="pill high recipe-flag-pill">
             <Flag :size="12" />{{ flagsFor(r).length }} persönliche Markierung{{
               flagsFor(r).length === 1 ? "" : "en"
             }}
           </span>
-          <div class="recipe-actions">
-            <UiButton class="text-button" @click="inspect(r)">
-              Verträglichkeit ansehen <ArrowRight :size="14" />
+          <div class="recipe-library-actions">
+            <UiButton
+              class="button secondary"
+              aria-label="Ins Tagebuch eintragen"
+              @click="meal = r"
+            >
+              <Plus :size="16" />Eintragen
             </UiButton>
-            <div>
-              <UiButton
-                class="icon-button"
-                @click="editing = r"
-                aria-label="Rezept bearbeiten"
-              >
-                <Pencil :size="16" /></UiButton
-              ><UiButton
-                class="icon-button"
-                @click="pending = r"
-                aria-label="Rezept löschen"
-              >
-                <Trash2 :size="16" />
+            <UiButton
+              class="text-button"
+              aria-label="Details und Verträglichkeit ansehen"
+              @click="inspect(r)"
+            >
+              Details <ArrowRight :size="14" />
+            </UiButton>
+          </div>
+          <details class="recipe-options">
+            <summary>Bearbeiten & weitere Optionen</summary>
+            <div class="recipe-actions">
+              <span class="pill neutral">{{ level(r) }}</span>
+              <div>
+                <UiButton
+                  class="icon-button"
+                  @click="editing = r"
+                  aria-label="Rezept bearbeiten"
+                >
+                  <Pencil :size="16" /></UiButton
+                ><UiButton
+                  class="icon-button"
+                  @click="pending = r"
+                  aria-label="Rezept löschen"
+                >
+                  <Trash2 :size="16" />
+                </UiButton>
+              </div>
+            </div>
+            <div class="recipe-flag-actions">
+              <UiButton class="text-button" @click="openFlag(r, 'suspected')">
+                <Flag :size="14" />Verdächtig markieren
+              </UiButton>
+              <UiButton class="text-button" @click="openFlag(r, 'reaction')">
+                <Sparkles :size="14" />Reaktion markieren
               </UiButton>
             </div>
-          </div>
-          <div class="recipe-flag-actions">
-            <UiButton class="text-button" @click="openFlag(r, 'suspected')">
-              <Flag :size="14" />Verdächtig markieren
-            </UiButton>
-            <UiButton class="text-button" @click="openFlag(r, 'reaction')">
-              <Sparkles :size="14" />Reaktion markieren
-            </UiButton>
-          </div>
-          <UiButton class="button secondary full" @click="meal = r">
-            <Plus :size="16" />Ins Tagebuch eintragen
-          </UiButton>
+          </details>
         </div>
       </article>
     </div>
+    <nav
+      v-if="pages > 1"
+      class="recipe-pagination library-pagination"
+      aria-label="Rezeptsammlung blättern"
+    >
+      <UiButton
+        class="button secondary"
+        :disabled="currentPage === 1"
+        @click="changePage(currentPage - 1)"
+        >Zurück</UiButton
+      >
+      <span>Seite {{ currentPage }} / {{ pages }}</span>
+      <UiButton
+        class="button secondary"
+        :disabled="currentPage === pages"
+        @click="changePage(currentPage + 1)"
+        >Weiter</UiButton
+      >
+    </nav>
     <RecipeModal
       v-if="creating || editing"
       :recipe="editing"
+      @saved="
+        (recipe) => {
+          if (creating) search = recipe.title;
+        }
+      "
       @close="
         creating = false;
         editing = null;

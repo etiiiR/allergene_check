@@ -1,18 +1,21 @@
 <script setup>
+import { entryTone } from "../ui/entry-tones";
 import { computed, ref } from "vue";
-import { Head } from "@inertiajs/vue3";
+import { Head, Link } from "@inertiajs/vue3";
 import {
   Plus,
   Heart,
   HeartPulse,
   Utensils,
   Trash2,
+  Pencil,
   BookOpen,
   ClipboardCheck,
 } from "@lucide/vue";
 import AppShell from "../components/AppShell.vue";
 import EntryModal from "../components/EntryModal.vue";
 import EntryPanel from "../components/EntryPanel.vue";
+import DiaryEntryEditor from "../components/DiaryEntryEditor.vue";
 import StoolModal from "../components/StoolModal.vue";
 import StressModal from "../components/StressModal.vue";
 import {
@@ -25,6 +28,7 @@ import {
   cyclePhaseLabel,
   stoolQualityLabel,
   useMutation,
+  api,
 } from "../lib";
 const props = defineProps({ diary: Object, symptoms: Object });
 const entry = ref(""),
@@ -32,7 +36,27 @@ const entry = ref(""),
   filter = ref("all"),
   sort = ref("time"),
   pending = ref(null),
+  editing = ref(null),
   { save, busy, error } = useMutation();
+const analysisState = ref("");
+let analysisRequest = 0;
+async function refreshAnalysis() {
+  const request = ++analysisRequest;
+  analysisState.value = "loading";
+  try {
+    await api("/patterns?symptom=any&hours=8");
+    if (request === analysisRequest) analysisState.value = "ready";
+  } catch {
+    // The diary write has already succeeded. An ML outage must not invite
+    // saving twice or discard the successfully persisted edit.
+    if (request === analysisRequest) analysisState.value = "error";
+  }
+}
+function edited(saved) {
+  if (date.value) date.value = dayOf(saved.observed_at || saved.occurred_at);
+  editing.value = null;
+  refreshAnalysis();
+}
 const events = computed(() => {
   const all = [
     ...props.diary.meals.map((x) => ({ ...x, kind: "meals" })),
@@ -99,16 +123,60 @@ const groups = computed(() => {
         <p>Mahlzeiten und Beobachtungen, nach Zeitpunkt geordnet.</p>
       </div>
       <div class="actions">
-        <UiButton class="button secondary" @click="entry = 'check'">
+        <UiButton
+          class="button secondary"
+          data-tone="symptom"
+          @click="entry = 'check'"
+        >
           <Heart :size="17" />Check-in</UiButton
-        ><UiButton class="button primary" @click="entry = 'meal'">
+        ><UiButton
+          class="button primary"
+          data-tone="meal"
+          @click="entry = 'meal'"
+        >
           <Plus :size="17" />Mahlzeit </UiButton
-        ><UiButton class="button secondary" @click="entry = 'stool'">
+        ><UiButton
+          class="button secondary"
+          data-tone="stool"
+          @click="entry = 'stool'"
+        >
           <ClipboardCheck :size="17" />Stuhl </UiButton
-        ><UiButton class="button secondary" @click="entry = 'stress'">
+        ><UiButton
+          class="button secondary"
+          data-tone="stress"
+          @click="entry = 'stress'"
+        >
           <HeartPulse :size="17" />Stress manuell
         </UiButton>
       </div>
+    </div>
+    <div
+      v-if="analysisState"
+      class="panel edit-analysis-status"
+      role="status"
+      aria-live="polite"
+    >
+      <p>
+        {{
+          analysisState === "loading"
+            ? "Änderungen gespeichert. Auswertung wird neu berechnet …"
+            : analysisState === "ready"
+              ? "Änderungen gespeichert. Auswertung mit den aktuellen Daten neu berechnet."
+              : "Änderungen gespeichert. Die Auswertung ist gerade nicht erreichbar. Deine Änderungen bleiben erhalten."
+        }}
+      </p>
+      <UiButton
+        v-if="analysisState === 'error'"
+        class="text-button"
+        @click="refreshAnalysis"
+        >Auswertung erneut versuchen</UiButton
+      >
+      <Link
+        v-else-if="analysisState === 'ready'"
+        href="/insights"
+        class="text-button"
+        >Aktuelle Muster ansehen</Link
+      >
     </div>
     <div class="toolbar">
       <label>Datum<input class="d-input" type="date" v-model="date" /></label
@@ -150,7 +218,9 @@ const groups = computed(() => {
           <article
             v-for="item in group.items"
             :key="item.kind + item.id"
+            :data-entry-id="item.id"
             class="panel diary-entry"
+            :data-tone="entryTone(item)"
           >
             <div class="entry-time">
               {{ dateTime(item.occurred_at)
@@ -173,9 +243,15 @@ const groups = computed(() => {
                       : item.kind === "stools"
                         ? "Stuhlbeobachtung"
                         : item.kind === "stress"
-                          ? "Stress manuell"
+                          ? item.source === "generic" &&
+                            !item.external_id &&
+                            item.metric === "stress_score"
+                            ? "Stress manuell"
+                            : "Health-Messung"
                           : item.symptom_free
-                            ? "Ein gutes Bauchgefühl"
+                            ? item.meal_baseline
+                              ? "Gut beim Essen"
+                              : "Ein gutes Bauchgefühl"
                             : "So ging es meinem Bauch"
                   }}
                 </h2>
@@ -225,12 +301,23 @@ const groups = computed(() => {
               ><template v-else-if="item.kind === 'stress'"
                 ><div class="tags">
                   <span class="stress-tag"
-                    >{{ item.normalized_stress ?? item.value }}/10 ·
-                    manuell</span
+                    >{{ item.value }}
+                    {{
+                      item.metric === "stress_score" &&
+                      item.unit === "score_0_10"
+                        ? "/10"
+                        : item.unit
+                    }}</span
                   >
                 </div>
                 <p class="helper">
-                  Persönlicher Stress-Score ohne Watch- oder Ringmessung.
+                  {{
+                    item.source === "generic" &&
+                    !item.external_id &&
+                    item.metric === "stress_score"
+                      ? "Persönlicher Stress-Score."
+                      : item.metric + " · " + item.source
+                  }}
                 </p> </template
               ><template v-else
                 ><div class="tags">
@@ -255,7 +342,7 @@ const groups = computed(() => {
                     · Tag {{ item.cycle_day }}</span
                   >
                 </div>
-                <p class="helper">
+                <p v-if="!item.meal_baseline" class="helper">
                   Stress {{ item.stress }}/10 · Schlaf
                   {{ item.sleep_hours }} Stunden
                 </p></template
@@ -265,13 +352,22 @@ const groups = computed(() => {
                 <p>{{ item.notes }}</p>
               </details>
             </div>
-            <UiButton
-              class="icon-button delete"
-              aria-label="Eintrag löschen"
-              @click="pending = item"
-            >
-              <Trash2 :size="17" />
-            </UiButton>
+            <div class="diary-entry-actions">
+              <UiButton
+                class="icon-button"
+                aria-label="Eintrag bearbeiten"
+                @click="editing = item"
+              >
+                <Pencil :size="17" />
+              </UiButton>
+              <UiButton
+                class="icon-button delete"
+                aria-label="Eintrag löschen"
+                @click="pending = item"
+              >
+                <Trash2 :size="17" />
+              </UiButton>
+            </div>
           </article>
         </div>
       </section>
@@ -279,6 +375,13 @@ const groups = computed(() => {
     <UiButton v-if="date" class="text-button" @click="entry = 'free'">
       <Heart :size="16" />Gutes Befinden für diesen Zeitpunkt eintragen
     </UiButton>
+    <DiaryEntryEditor
+      v-if="editing"
+      :key="editing.id"
+      :entry="editing"
+      @close="editing = null"
+      @saved="edited"
+    />
     <EntryModal
       v-if="entry === 'meal' || entry === 'check' || entry === 'free'"
       :type="entry"

@@ -21,7 +21,7 @@ const result = ref(null);
 const loading = ref(false);
 const error = ref("");
 const shareStatus = ref("");
-const reportLabel = ref("");
+const reportLabel = ref(props.diary?.profile?.display_name || "");
 
 const checkins = computed(() => props.diary?.checkins || []);
 const meals = computed(() => props.diary?.meals || []);
@@ -208,7 +208,12 @@ async function shareReport() {
 
 onMounted(() => {
   try {
-    reportLabel.value = localStorage.getItem("bauchgefuehl-report-label") || "";
+    // Honour an explicit local report alias (including a blank one for privacy).
+    // A fresh browser starts with the persisted personal profile name.
+    reportLabel.value =
+      localStorage.getItem("bauchgefuehl-report-label") ??
+      props.diary?.profile?.display_name ??
+      "";
   } catch {
     // Private browsing may disable localStorage; the report still works.
   }
@@ -257,7 +262,9 @@ watch(reportLabel, (value) => {
       <div class="report-label-field no-print">
         <label>
           Name oder Initialen
-          <span class="optional">optional, nur lokal gespeichert</span>
+          <span class="optional"
+            >aus deinem Profil; abweichende Angabe nur in diesem Browser</span
+          >
           <input
             class="d-input"
             v-model="reportLabel"
@@ -450,7 +457,8 @@ watch(reportLabel, (value) => {
               keine Diagnose, kein Allergietest und kein Beweis für eine
               Unverträglichkeit. Unprotokollierte Mahlzeiten, Schlaf, Stress,
               Medikamente und andere gesundheitliche Faktoren können die Muster
-              beeinflussen.
+              beeinflussen. Gute Momentaufnahmen direkt beim Essen zählen in der
+              Analyse nicht als spätere Verträglichkeitsbelege.
             </p>
           </div>
         </section>

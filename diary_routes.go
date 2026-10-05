@@ -282,10 +282,14 @@ func registerDiaryAPI(app *fiber.App, repo *DiaryRepository, analysis *AnalysisC
 		})
 	}
 	api.Post("/meals", func(c *fiber.Ctx) error {
-		var meal Meal
-		if err := c.BodyParser(&meal); err != nil {
+		var request struct {
+			Meal
+			RecordGoodMoment bool `json:"record_good_moment"`
+		}
+		if err := c.BodyParser(&request); err != nil {
 			return invalid("Ungültiger Eintrag.")
 		}
+		meal := request.Meal
 		if !validTime(meal.OccurredAt) || meal.Portions <= 0 || meal.Portions > 20 || len(meal.Notes) > 3000 {
 			return invalid("Zeitpunkt, Portionen oder Notiz sind ungültig.")
 		}
@@ -306,16 +310,21 @@ func registerDiaryAPI(app *fiber.App, repo *DiaryRepository, analysis *AnalysisC
 			return invalid("Bitte ein gespeichertes Rezept wählen.")
 		}
 		meal.ID = uuid.NewString()
-		if err := repo.save(c.UserContext(), "meals", meal.ID, meal); err != nil {
+		check := mealGoodMoment(meal, request.RecordGoodMoment)
+		if err := repo.saveMeal(c.UserContext(), meal, check); err != nil {
 			return err
 		}
-		return c.Status(201).JSON(meal)
+		return c.Status(201).JSON(struct {
+			Meal
+			Checkin *Checkin `json:"checkin,omitempty"`
+		}{meal, check})
 	})
 	api.Post("/checkins", func(c *fiber.Ctx) error {
 		var check Checkin
 		if err := json.Unmarshal(c.Body(), &check); err != nil {
 			return invalid("Ungültiger Symptom-Eintrag.")
 		}
+		check.MealBaseline = false // Only the meal workflow can create this provenance.
 		if err := check.validate(); err != nil {
 			return err
 		}
@@ -352,6 +361,7 @@ func registerDiaryAPI(app *fiber.App, repo *DiaryRepository, analysis *AnalysisC
 		}
 		return c.Status(201).JSON(check)
 	})
+	registerDiaryEdits(api, repo)
 	api.Delete("/:kind/:id", func(c *fiber.Ctx) error {
 		kind, id := c.Params("kind"), c.Params("id")
 		if !diaryTables[kind] {

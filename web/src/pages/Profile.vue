@@ -1,6 +1,6 @@
 <script setup>
 import { reactive, ref } from "vue";
-import { Head, router } from "@inertiajs/vue3";
+import { Head, Link, router } from "@inertiajs/vue3";
 import {
   CalendarDays,
   Check,
@@ -15,10 +15,13 @@ import {
 import AppShell from "../components/AppShell.vue";
 import { api } from "../lib";
 import { notify } from "../ui/feedback";
+import { nativeHealthAvailable, syncAppleHealth } from "../ui/health";
 
 const props = defineProps({ diary: Object });
 const stored = props.diary?.profile || {};
 const form = reactive({
+  ...stored,
+  display_name: stored.display_name || "",
   body_group: stored.body_group || "unspecified",
   cycle_tracking: Boolean(stored.cycle_tracking),
   cycle_length_days: stored.cycle_length_days || 28,
@@ -27,11 +30,36 @@ const form = reactive({
 const busy = ref(false);
 const error = ref("");
 const saved = ref(false);
+const tab = ref("person");
 const healthSource = ref("apple_healthkit");
 const healthFile = ref(null);
 const healthBusy = ref(false);
 const healthError = ref("");
 const healthStatus = ref("");
+const hasNativeHealth = nativeHealthAvailable();
+const nativeBusy = ref(false);
+const nativeStatus = ref("");
+const nativeError = ref("");
+async function syncNativeHealth() {
+  if (nativeBusy.value) return;
+  nativeBusy.value = true;
+  nativeStatus.value = "";
+  nativeError.value = "";
+  try {
+    const result = await syncAppleHealth();
+    nativeStatus.value = result.empty
+      ? "Keine freigegebenen Messungen im gewählten Zeitraum. Prüfe die Berechtigungen in Apple Health. Daraus lässt sich nicht erkennen, ob du den Zugriff abgelehnt hast."
+      : `${result.imported} Messungen hinzugefügt, ${result.updated || 0} aktualisiert.`;
+    if (!result.empty) {
+      notify(nativeStatus.value);
+      router.reload();
+    }
+  } catch (e) {
+    nativeError.value = e.message;
+  } finally {
+    nativeBusy.value = false;
+  }
+}
 
 function chooseBodyGroup() {
   saved.value = false;
@@ -112,16 +140,67 @@ async function importHealth() {
       <div>
         <p class="eyebrow"><Settings :size="14" /> DEIN KONTEXT</p>
         <h1>Profil & Zyklus</h1>
-        <p>Damit die Muster zu deinem Körperkontext passen.</p>
+        <p>
+          {{
+            stored.display_name
+              ? "Dein persönliches Tagebuch. Änderungen werden auf dem Server gespeichert."
+              : "Füge eine Person für dieses Tagebuch hinzu."
+          }}
+        </p>
       </div>
     </div>
 
-    <form class="profile-settings" @submit.prevent="saveProfile">
-      <section class="panel profile-card">
+    <div class="segmented-nav" aria-label="Profileinstellungen">
+      <UiButton :aria-pressed="tab === 'person'" @click="tab = 'person'"
+        >Person</UiButton
+      >
+      <UiButton :aria-pressed="tab === 'body'" @click="tab = 'body'"
+        >Körper & Zyklus</UiButton
+      >
+      <UiButton :aria-pressed="tab === 'health'" @click="tab = 'health'"
+        >Health</UiButton
+      >
+    </div>
+    <form
+      class="profile-settings compact-profile"
+      @submit.prevent="saveProfile"
+    >
+      <section
+        v-if="tab === 'person'"
+        class="panel profile-card"
+        data-tone="well"
+      >
+        <div class="section-heading">
+          <h2>Deine Person</h2>
+          <Link
+            v-if="!stored.onboarding_completed"
+            href="/onboarding"
+            class="text-button"
+            >Geführt einrichten</Link
+          >
+        </div>
+        <label
+          >Name der Person<input
+            class="d-input"
+            v-model="form.display_name"
+            maxlength="80"
+            autocomplete="given-name"
+            :required="Boolean(form.onboarding_completed)"
+            @input="saved = false"
+        /></label>
+        <p class="helper">
+          Vorname oder Spitzname. Ein Profil für alle Einträge in diesem
+          Tagebuch; keine Anmeldung oder getrennten Benutzerkonten.
+        </p>
+      </section>
+      <section
+        v-show="tab === 'body'"
+        class="panel profile-card"
+        data-tone="cycle"
+      >
         <div class="section-heading">
           <div>
-            <h2>Getrennte Analysegruppen</h2>
-            <small>Deine Daten bleiben in diesem persönlichen Kontext.</small>
+            <h2>Optionaler Körperkontext</h2>
           </div>
           <Info :size="18" class="muted" />
         </div>
@@ -146,8 +225,9 @@ async function importHealth() {
       </section>
 
       <section
-        v-if="form.body_group === 'female'"
+        v-if="tab === 'body' && form.body_group === 'female'"
         class="panel profile-card cycle-card"
+        data-tone="cycle"
       >
         <div class="section-heading">
           <div>
@@ -197,78 +277,123 @@ async function importHealth() {
         </p>
       </section>
 
-      <section class="panel profile-card health-card">
-        <div class="section-heading">
-          <div>
-            <h2>Stress aus Health-Daten</h2>
-            <small>Watch, Ring oder Smartphone als zusätzliche Zeitspur.</small>
-          </div>
-          <HeartPulse :size="19" class="muted" />
-        </div>
+      <section
+        v-show="tab === 'health'"
+        class="panel profile-card health-card"
+        data-tone="stress"
+      >
+        <h2>Apple Health verbinden</h2>
         <p class="helper">
-          Die Web-App kann nicht direkt auf Apple Health oder Android Health
-          Connect zugreifen. Eine kleine iOS-/Android-Bridge oder ein Export
-          liest die Daten mit deiner Zustimmung und übergibt hier eine
-          normalisierte JSON-Datei.
+          Mit deiner Freigabe liest die iOS-App Puls, Ruhepuls und HRV aus den
+          letzten 7 Tagen und überträgt sie an diesen Tagebuch-Server. Keine
+          Datei nötig. HRV ist kein Stress-Score. Gelesen werden höchstens 500
+          der neuesten Messungen pro Typ.
         </p>
-        <label class="profile-field">
-          Quelle der Datei
-          <select
-            class="d-select"
-            v-model="healthSource"
-            aria-label="Quelle der Gesundheitsdaten"
-          >
-            <option value="apple_healthkit">Apple Health / HealthKit</option>
-            <option value="android_health_connect">
-              Android Health Connect
-            </option>
-            <option value="oura">Oura / Ring</option>
-            <option value="watch">Andere Watch</option>
-            <option value="generic">Andere normalisierte Quelle</option>
-          </select>
-        </label>
-        <label class="health-file-picker">
-          <FileJson :size="18" />
-          <span>
-            <strong>{{ healthFile?.name || "JSON-Datei auswählen" }}</strong>
-            <small>Stress-Score 0–10 oder Rohwerte wie HRV / Puls</small>
-          </span>
-          <input
-            class="d-input"
-            type="file"
-            accept="application/json,.json"
-            @change="chooseHealthFile"
-          />
-        </label>
         <UiButton
-          class="button secondary health-import"
           type="button"
-          :disabled="healthBusy"
-          @click="importHealth"
+          class="button primary"
+          :loading="nativeBusy"
+          :disabled="!hasNativeHealth || nativeBusy"
+          @click="syncNativeHealth"
+          >Apple Health freigeben & synchronisieren</UiButton
         >
-          <Upload :size="16" />
-          {{ healthBusy ? "Wird importiert …" : "Health-Daten importieren" }}
-        </UiButton>
-        <p v-if="healthError" class="alert error" role="alert">
-          {{ healthError }}
+        <p v-if="!hasNativeHealth" class="helper">
+          Hier läuft die Web-App. Die Freigabe funktioniert in der nativen
+          iOS-App, nicht im Browser. Die iOS-Hülle muss zuerst gebaut und auf
+          deinem iPhone installiert werden.
         </p>
-        <p v-if="healthStatus" class="alert success" role="status">
-          <Check :size="16" /> {{ healthStatus }}
+        <p v-if="nativeStatus" role="status" class="alert success">
+          {{ nativeStatus }}
         </p>
-        <div class="health-safety-note">
-          <ShieldCheck :size="16" />
-          <span
-            >Nur ausdrücklich normalisierte Stress-Scores werden analysiert. HRV
-            und Puls werden nicht automatisch in Stress umgerechnet.</span
+        <p v-if="nativeError" role="alert" class="alert error">
+          {{ nativeError }}
+        </p>
+        <p class="helper">
+          Berechtigungen kannst du jederzeit in Apple Health widerrufen. Bereits
+          synchronisierte Einträge bleiben im Tagebuch, bis du sie dort löschst.
+          Android/Samsung sind noch nicht angebunden.
+        </p>
+        <details class="legacy-health-import">
+          <summary>Datei-Import für andere Quellen (optional)</summary>
+          <div class="section-heading">
+            <div>
+              <h2>Stress aus Health-Daten</h2>
+              <small
+                >Watch, Ring oder Smartphone als zusätzliche Zeitspur.</small
+              >
+            </div>
+            <HeartPulse :size="19" class="muted" />
+          </div>
+          <p class="helper">
+            Die Web-App kann nicht direkt auf Apple Health oder Android Health
+            Connect zugreifen. Eine kleine iOS-/Android-Bridge oder ein Export
+            liest die Daten mit deiner Zustimmung und übergibt hier eine
+            normalisierte JSON-Datei.
+          </p>
+          <label class="profile-field">
+            Quelle der Datei
+            <select
+              class="d-select"
+              v-model="healthSource"
+              aria-label="Quelle der Gesundheitsdaten"
+            >
+              <option value="apple_healthkit">Apple Health / HealthKit</option>
+              <option value="android_health_connect">
+                Android Health Connect
+              </option>
+              <option value="oura">Oura / Ring</option>
+              <option value="watch">Andere Watch</option>
+              <option value="generic">Andere normalisierte Quelle</option>
+            </select>
+          </label>
+          <label class="health-file-picker">
+            <FileJson :size="18" />
+            <span>
+              <strong>{{ healthFile?.name || "JSON-Datei auswählen" }}</strong>
+              <small>Stress-Score 0–10 oder Rohwerte wie HRV / Puls</small>
+            </span>
+            <input
+              class="d-input"
+              type="file"
+              accept="application/json,.json"
+              @change="chooseHealthFile"
+            />
+          </label>
+          <UiButton
+            class="button secondary health-import"
+            type="button"
+            :disabled="healthBusy"
+            @click="importHealth"
           >
-        </div>
+            <Upload :size="16" />
+            {{ healthBusy ? "Wird importiert …" : "Health-Daten importieren" }}
+          </UiButton>
+          <p v-if="healthError" class="alert error" role="alert">
+            {{ healthError }}
+          </p>
+          <p v-if="healthStatus" class="alert success" role="status">
+            <Check :size="16" /> {{ healthStatus }}
+          </p>
+          <div class="health-safety-note">
+            <ShieldCheck :size="16" />
+            <span
+              >Nur ausdrücklich normalisierte Stress-Scores werden analysiert.
+              HRV und Puls werden nicht automatisch in Stress umgerechnet.</span
+            >
+          </div>
+        </details>
       </section>
 
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <p v-if="saved" class="alert success" role="status">
         <Check :size="16" /> Profil gespeichert.
       </p>
-      <UiButton class="button primary profile-save" :disabled="busy">
+      <UiButton
+        v-if="tab !== 'health'"
+        class="button primary profile-save"
+        :disabled="busy"
+        :loading="busy"
+      >
         <Save :size="16" />
         {{ busy ? "Wird gespeichert …" : "Profil speichern" }}
       </UiButton>

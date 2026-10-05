@@ -1,8 +1,11 @@
 <script setup>
-import { computed, reactive, ref } from "vue";
-import { Link, usePage } from "@inertiajs/vue3";
-import { Check, ChevronDown, Clock3, Heart, Plus, Utensils } from "@lucide/vue";
+import { computed, reactive, ref, nextTick } from "vue";
+import { usePage } from "@inertiajs/vue3";
+import { Check, ChevronDown, Plus } from "@lucide/vue";
 import EntryPanel from "./EntryPanel.vue";
+import RecipeModal from "./RecipeModal.vue";
+import RecipePicker from "./RecipePicker.vue";
+import UiSteps from "./ui/UiSteps.vue";
 import { localTime, useMutation } from "../lib";
 
 const props = defineProps({
@@ -24,8 +27,30 @@ const cycleEnabled = computed(
 const commonSymptoms = computed(() =>
   ["bloating", "pain", "nausea"].filter((key) => symptoms.value[key]),
 );
-const meal = computed(() => props.type === "meal");
+const followup = ref(false);
+const meal = computed(() => props.type === "meal" && !followup.value);
+const creatingRecipe = ref(false);
+const recipeEditor = ref(null);
+async function startRecipe() {
+  creatingRecipe.value = true;
+  await nextTick();
+  recipeEditor.value?.$el.querySelector("input")?.focus();
+}
+async function closeRecipe() {
+  creatingRecipe.value = false;
+  await nextTick();
+  stepHeading.value?.focus();
+}
+const wellbeing = ref("good");
 const showDetails = ref(false);
+const step = ref(0);
+const stepHeading = ref(null);
+async function moveStep(value) {
+  step.value = value;
+  await nextTick();
+  stepHeading.value?.focus({ preventScroll: true });
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
 const showAllSymptoms = ref(false);
 const selectedSymptom = ref(props.initialSymptom || "");
 const selectedLevel = ref(5);
@@ -89,24 +114,6 @@ const form = reactive({
   sleep_hours: 8,
 });
 
-const recentRecipes = computed(() => {
-  const recipes = page.props.diary?.recipes || [];
-  const lastUsed = new Map();
-  for (const item of page.props.diary?.meals || []) {
-    if (
-      !lastUsed.has(item.recipe_id) ||
-      item.occurred_at > lastUsed.get(item.recipe_id)
-    ) {
-      lastUsed.set(item.recipe_id, item.occurred_at);
-    }
-  }
-  return [...recipes]
-    .sort((a, b) =>
-      (lastUsed.get(b.id) || "").localeCompare(lastUsed.get(a.id) || ""),
-    )
-    .slice(0, 6);
-});
-
 const selectedSymptomName = computed(
   () => symptoms.value[selectedSymptom.value] || "Beschwerden",
 );
@@ -120,10 +127,6 @@ const canSubmit = computed(() =>
     ? Boolean(form.recipe_id)
     : form.symptom_free || Boolean(selectedSymptom.value),
 );
-
-function chooseRecipe(id) {
-  form.recipe_id = id;
-}
 
 function clearSymptoms() {
   for (const key of symptomKeys.value) form.symptoms[key] = 0;
@@ -148,14 +151,6 @@ function chooseTiming(bucket) {
   form.timing_bucket = bucket;
 }
 
-function chooseReferenceMeal(id) {
-  form.reference_meal_id = form.reference_meal_id === id ? "" : id;
-}
-
-function chooseCyclePhase(phase) {
-  form.cycle_phase = phase;
-}
-
 function chooseLevel(level) {
   form.symptom_free = false;
   selectedLevel.value = level;
@@ -166,333 +161,312 @@ function chooseLevel(level) {
 }
 
 function submit() {
+  if (!canSubmit.value || busy.value) return;
+  if (!meal.value && !form.symptom_free && step.value === 0) {
+    moveStep(1);
+    return;
+  }
   const data = {
     ...form,
+    record_good_moment: meal.value && wellbeing.value === "good",
     occurred_at: new Date(form.occurred_at).toISOString(),
     symptoms: form.symptom_free
       ? Object.fromEntries(symptomKeys.value.map((key) => [key, 0]))
       : form.symptoms,
   };
-  save(meal.value ? "/meals" : "/checkins", data, () => emit("close"));
+  const needsFollowup = meal.value && wellbeing.value === "symptoms";
+  save(meal.value ? "/meals" : "/checkins", data, (saved) => {
+    if (needsFollowup) {
+      followup.value = true;
+      form.reference_meal_id = saved.id;
+      form.symptom_free = false;
+      moveStep(0);
+    } else emit("close");
+  });
 }
 </script>
 
 <template>
   <EntryPanel
     :busy="busy"
+    :tone="meal ? 'meal' : form.symptom_free ? 'well' : 'symptom'"
     :title="meal ? 'Mahlzeit eintragen' : 'Wie geht es deinem Bauch?'"
     @close="emit('close')"
   >
-    <form class="form quick-entry-form" @submit.prevent="submit">
-      <label class="entry-date"
-        >Zeitpunkt<input
-          class="d-input"
-          v-model="form.occurred_at"
-          type="datetime-local"
-          required
-      /></label>
+    <RecipeModal
+      v-if="creatingRecipe"
+      ref="recipeEditor"
+      inline
+      class="inline-recipe-create"
+      @saved="
+        (recipe) => {
+          form.recipe_id = recipe.id;
+        }
+      "
+      @close="closeRecipe"
+    />
+    <form class="form guided-entry" @submit.prevent="submit">
+      <p v-if="followup" role="status" class="helper">
+        Mahlzeit gespeichert. Jetzt kannst du die Beschwerden ergänzen.
+      </p>
+      <UiSteps
+        v-if="!meal && !form.symptom_free"
+        :labels="['Befinden', 'Zeit & Speichern']"
+        :current="step"
+      />
+      <h2 ref="stepHeading" tabindex="-1" class="guided-question">
+        {{
+          meal
+            ? "Was hast du gegessen?"
+            : step === 0
+              ? "Was spürst du gerade?"
+              : "Wann ging es los?"
+        }}
+      </h2>
       <template v-if="meal">
-        <div class="entry-intro">
-          <span class="entry-step"><Utensils :size="17" /></span>
-          <div>
-            <strong>Was hast du gegessen?</strong>
-            <small>Ein Tipp genügt — Details kannst du später ergänzen.</small>
-          </div>
-        </div>
-
-        <div v-if="recentRecipes.length" class="quick-recipe-grid">
-          <UiButton
-            v-for="recipe in recentRecipes"
-            :key="recipe.id"
-            type="button"
-            class="quick-recipe pressable"
-            :class="{ selected: form.recipe_id === recipe.id }"
-            :aria-pressed="form.recipe_id === recipe.id"
-            @click="chooseRecipe(recipe.id)"
-          >
-            <span class="quick-recipe-icon"><Utensils :size="16" /></span>
-            <span>
-              <strong>{{ recipe.title }}</strong>
-              <small>{{ recipe.ingredients.length }} Zutaten</small>
-            </span>
-            <Check v-if="form.recipe_id === recipe.id" :size="17" />
-          </UiButton>
-        </div>
-        <Link v-else href="/recipes" class="entry-empty-link pressable">
-          <span class="quick-recipe-icon"><Plus :size="17" /></span>
-          <span
-            ><strong>Noch kein Rezept gespeichert</strong
-            ><small>Jetzt ein Lieblingsrezept anlegen</small></span
-          >
-          <ChevronDown :size="17" class="rotate-link" />
-        </Link>
-        <label v-if="(page.props.diary?.recipes?.length || 0) > 6">
-          Alle gespeicherten Rezepte
-          <select class="d-select" v-model="form.recipe_id">
-            <option value="">Rezept wählen</option>
-            <option
-              v-for="recipe in page.props.diary.recipes"
-              :key="recipe.id"
-              :value="recipe.id"
-            >
-              {{ recipe.title }}
-            </option>
-          </select>
-        </label>
-
-        <div v-if="recentRecipes.length" class="portion-picker">
-          <div class="picker-label">
-            <span>Portionen</span><small>Standard: 1</small>
-          </div>
-          <div class="choice-row">
-            <UiButton
-              v-for="portion in portionChoices"
-              :key="portion"
-              type="button"
-              class="choice-button pressable"
-              :class="{ selected: form.portions === portion }"
-              :aria-pressed="form.portions === portion"
-              @click="form.portions = portion"
-            >
-              {{ portion }}
-            </UiButton>
-          </div>
-        </div>
-      </template>
-
-      <template v-else>
-        <div class="entry-intro">
-          <span class="entry-step"><Heart :size="17" /></span>
-          <div>
-            <strong>Wie fühlt es sich gerade an?</strong>
-            <small>Wähle nur das, was heute am besten passt.</small>
-          </div>
-        </div>
-
+        <RecipePicker
+          v-model="form.recipe_id"
+          :recipes="page.props.diary?.recipes || []"
+          :meals="page.props.diary?.meals || []"
+        />
         <UiButton
           type="button"
-          class="feeling-good pressable"
+          class="button secondary"
+          :disabled="creatingRecipe"
+          @click="startRecipe"
+          ><Plus :size="18" />Neues Rezept direkt hinzufügen</UiButton
+        >
+        <fieldset class="meal-wellbeing" data-tone="well">
+          <legend>Befinden beim Essen</legend>
+          <div class="choice-row">
+            <UiButton
+              v-for="[value, label] in [
+                ['good', 'Gut'],
+                ['symptoms', 'Beschwerden'],
+                ['unrecorded', 'Nicht erfassen'],
+              ]"
+              :key="value"
+              :data-tone="
+                value === 'good'
+                  ? 'well'
+                  : value === 'symptoms'
+                    ? 'symptom'
+                    : 'neutral'
+              "
+              type="button"
+              class="choice-button"
+              :aria-pressed="wellbeing === value"
+              :class="{ selected: wellbeing === value }"
+              @click="wellbeing = value"
+              >{{ label }}</UiButton
+            >
+          </div>
+          <small>{{
+            wellbeing === "good"
+              ? "Speichert einen guten Moment zum Essen, nicht für den ganzen Tag. Für Verträglichkeit zählt ein späterer Check-in."
+              : wellbeing === "symptoms"
+                ? "Nach dem Speichern geht es direkt zur Symptomerfassung."
+                : "Nur die Mahlzeit wird gespeichert; Befinden bleibt offen."
+          }}</small>
+        </fieldset>
+      </template>
+      <template v-else-if="step === 0">
+        <UiButton
+          type="button"
+          class="feeling-good"
+          data-tone="well"
           :class="{ selected: form.symptom_free }"
           :aria-pressed="form.symptom_free"
           @click="chooseFree"
+          ><Check :size="18" /><strong
+            >Zu diesem Zeitpunkt geht es gut</strong
+          ></UiButton
         >
-          <span class="feeling-icon"><Check :size="18" /></span>
-          <span
-            ><strong>Zu diesem Zeitpunkt geht es gut</strong
-            ><small>Symptomfrei markieren</small></span
-          >
-          <Check v-if="form.symptom_free" :size="18" />
-        </UiButton>
-
         <UiButton
           v-if="form.symptom_free"
           type="button"
           class="text-button"
           @click="form.symptom_free = false"
+          >Stattdessen Beschwerden festhalten</UiButton
         >
-          Stattdessen Beschwerden festhalten
-        </UiButton>
-        <div v-if="!form.symptom_free" class="symptom-picker">
-          <div class="picker-label">
-            <span>Was spürst du?</span><small>Eine Auswahl reicht</small>
-          </div>
+        <template v-else>
           <div class="symptom-choice-grid">
             <UiButton
               v-for="key in showAllSymptoms ? symptomKeys : commonSymptoms"
               :key="key"
               type="button"
-              class="symptom-choice pressable"
+              class="symptom-choice"
               :class="{ selected: selectedSymptom === key }"
               :aria-pressed="selectedSymptom === key"
               @click="chooseSymptom(key)"
+              >{{ symptoms[key] }}</UiButton
             >
-              {{ symptoms[key] }}
-            </UiButton>
           </div>
           <UiButton
-            v-if="symptomKeys.length > commonSymptoms.length"
             type="button"
-            class="more-button"
+            class="text-button"
+            :aria-expanded="showAllSymptoms"
             @click="showAllSymptoms = !showAllSymptoms"
+            >{{
+              showAllSymptoms ? "Weniger anzeigen" : "Weitere Beschwerden"
+            }}</UiButton
           >
-            {{ showAllSymptoms ? "Weniger anzeigen" : "Weitere Beschwerden" }}
-            <ChevronDown :size="15" :class="{ rotated: showAllSymptoms }" />
-          </UiButton>
-        </div>
-
-        <div v-if="selectedSymptom" class="level-picker">
-          <div class="picker-label">
-            <span>{{ selectedSymptomName }} — wie stark?</span
-            ><small>{{ selectedLevel }}/10</small>
-          </div>
-          <div class="level-choice-grid">
-            <UiButton
-              v-for="level in levelChoices"
-              :key="level.value"
-              type="button"
-              class="level-choice pressable"
-              :class="{ selected: selectedLevel === level.value }"
-              :aria-pressed="selectedLevel === level.value"
-              @click="chooseLevel(level.value)"
-            >
-              <strong>{{ level.label }}</strong
-              ><small>{{ level.hint }}</small>
-            </UiButton>
-          </div>
-        </div>
-
-        <div v-if="selectedSymptom" class="timing-picker">
-          <div class="picker-label">
-            <span>Wann haben die Beschwerden begonnen?</span
-            ><small>Ungefähres Fenster reicht</small>
-          </div>
-          <div class="timing-choice-grid">
-            <UiButton
-              v-for="choice in timingChoices"
-              :key="choice.value"
-              type="button"
-              class="timing-choice pressable"
-              :class="{ selected: form.timing_bucket === choice.value }"
-              :aria-pressed="form.timing_bucket === choice.value"
-              @click="chooseTiming(choice.value)"
-            >
-              <strong>{{ choice.label }}</strong
-              ><small>{{ choice.hint }}</small>
-            </UiButton>
-          </div>
-          <div v-if="recentMeals.length" class="reference-meal-picker">
+          <div v-if="selectedSymptom" class="level-picker">
             <div class="picker-label">
-              <span>Welche Mahlzeit könnte dazugehören?</span
-              ><small>Optional</small>
+              <span>Wie stark?</span><small>{{ selectedLevel }}/10</small>
             </div>
-            <div class="reference-meal-list">
+            <div class="level-choice-grid">
               <UiButton
-                v-for="meal in recentMeals"
-                :key="meal.id"
+                v-for="level in levelChoices"
+                :key="level.value"
                 type="button"
-                class="reference-meal pressable"
-                :class="{ selected: form.reference_meal_id === meal.id }"
-                :aria-pressed="form.reference_meal_id === meal.id"
-                @click="chooseReferenceMeal(meal.id)"
+                class="level-choice"
+                :class="{ selected: selectedLevel === level.value }"
+                :aria-pressed="selectedLevel === level.value"
+                @click="chooseLevel(level.value)"
+                >{{ level.label }}</UiButton
               >
-                <Utensils :size="14" /><span>{{ meal.title }}</span
-                ><Check v-if="form.reference_meal_id === meal.id" :size="14" />
-              </UiButton>
             </div>
           </div>
-        </div>
-
-        <details v-if="cycleEnabled" class="cycle-checkin-picker">
-          <summary>Zyklus-Kontext ergänzen</summary>
-          <div class="picker-label">
-            <span>Zyklus-Kontext</span>
-            <small>{{
-              form.cycle_day ? `Tag ${form.cycle_day}` : "optional"
-            }}</small>
-          </div>
-          <div class="cycle-choice-grid">
-            <UiButton
-              v-for="choice in cycleChoices"
-              :key="choice.value"
-              type="button"
-              class="cycle-choice pressable"
-              :class="{ selected: form.cycle_phase === choice.value }"
-              :aria-pressed="form.cycle_phase === choice.value"
-              @click="chooseCyclePhase(choice.value)"
-            >
-              {{ choice.label }}
-            </UiButton>
-          </div>
-          <small class="cycle-note"
-            >Grobe Kalender-Schätzung — keine medizinische oder
-            verhütungsbezogene Aussage.</small
-          >
-        </details>
+        </template>
       </template>
-
-      <UiButton
-        type="button"
-        class="details-toggle pressable"
-        :aria-expanded="showDetails"
-        @click="showDetails = !showDetails"
-      >
-        <span
-          ><Clock3 :size="16" />
-          {{
+      <template v-else>
+        <p class="entry-recap">
+          {{ selectedSymptomName }} · {{ selectedLevel }}/10
+          <UiButton type="button" class="text-button" @click="moveStep(0)"
+            >Ändern</UiButton
+          >
+        </p>
+        <div class="timing-choice-grid">
+          <UiButton
+            v-for="choice in timingChoices"
+            :key="choice.value"
+            type="button"
+            class="timing-choice"
+            :class="{ selected: form.timing_bucket === choice.value }"
+            :aria-pressed="form.timing_bucket === choice.value"
+            @click="chooseTiming(choice.value)"
+            ><strong>{{ choice.label }}</strong
+            ><small>{{ choice.hint }}</small></UiButton
+          >
+        </div>
+        <small>Zeit nach dem Essen; „Unsicher“ ist auch eine Antwort.</small>
+      </template>
+      <template v-if="meal || step === 1 || form.symptom_free">
+        <label class="entry-date" data-tone="time"
+          >Zeitpunkt<input
+            class="d-input"
+            v-model="form.occurred_at"
+            type="datetime-local"
+            required
+        /></label>
+        <UiButton
+          type="button"
+          class="details-toggle"
+          :aria-expanded="showDetails"
+          @click="showDetails = !showDetails"
+          ><span>{{
             showDetails
               ? "Details ausblenden"
-              : "Stress, Schlaf oder Notiz ergänzen"
+              : meal
+                ? "Portionen oder Notiz ergänzen"
+                : "Stress, Schlaf oder Notiz ergänzen"
           }}</span
-        >
-        <ChevronDown :size="16" :class="{ rotated: showDetails }" />
-      </UiButton>
-
-      <div v-if="showDetails" class="entry-details">
-        <div v-if="!meal" class="form-row">
+          ><ChevronDown :size="16"
+        /></UiButton>
+        <div v-if="showDetails" class="entry-details">
+          <label v-if="meal"
+            >Portionen<select class="d-select" v-model.number="form.portions">
+              <option
+                v-for="portion in portionChoices"
+                :key="portion"
+                :value="portion"
+              >
+                {{ portion }}
+              </option>
+            </select></label
+          >
+          <template v-else>
+            <div class="form-row">
+              <label data-tone="stress"
+                >Stress (manuell)<input
+                  class="d-input"
+                  type="number"
+                  min="0"
+                  max="10"
+                  v-model.number="form.stress" /></label
+              ><label data-tone="time"
+                >Schlaf<input
+                  class="d-input"
+                  type="number"
+                  min="0"
+                  max="24"
+                  step=".5"
+                  v-model.number="form.sleep_hours"
+              /></label>
+            </div>
+            <label v-if="!form.symptom_free && recentMeals.length"
+              >Mögliche Mahlzeit (optional)<select
+                class="d-select"
+                v-model="form.reference_meal_id"
+              >
+                <option value="">Nicht zuordnen</option>
+                <option
+                  v-for="item in recentMeals"
+                  :key="item.id"
+                  :value="item.id"
+                >
+                  {{ item.title }}
+                </option>
+              </select></label
+            >
+            <label v-if="cycleEnabled"
+              >Zyklus-Kontext<select
+                class="d-select"
+                v-model="form.cycle_phase"
+              >
+                <option
+                  v-for="choice in cycleChoices"
+                  :key="choice.value"
+                  :value="choice.value"
+                >
+                  {{ choice.label }}
+                </option></select
+              ><small>Grobe Kalender-Schätzung, keine Diagnose.</small></label
+            >
+          </template>
           <label
-            >Stress (manuell)<input
-              class="d-input"
-              v-model.number="form.stress"
-              type="number"
-              min="0"
-              max="10"
-          /></label>
-          <label
-            >Schlaf<input
-              class="d-input"
-              v-model.number="form.sleep_hours"
-              type="number"
-              min="0"
-              max="24"
-              step=".5"
-          /></label>
+            >Notiz <span class="optional">optional</span
+            ><textarea
+              class="d-textarea"
+              v-model="form.notes"
+              maxlength="3000"
+              rows="2"
+            />
+          </label>
         </div>
-        <small v-if="!meal" class="manual-stress-note">
-          Falls keine Watch- oder Ringmessung vorliegt, kannst du dein
-          persönliches Stresslevel hier direkt mit dem Check-in speichern.
-        </small>
-        <label>
-          Notiz <span class="optional">optional</span>
-          <textarea
-            class="d-textarea"
-            v-model="form.notes"
-            maxlength="3000"
-            rows="3"
-            placeholder="Was möchtest du noch festhalten?"
-          />
-        </label>
-      </div>
-
+      </template>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
-      <p v-if="!canSubmit" class="entry-hint">
-        {{
-          meal
-            ? "Wähle ein Rezept, um es zu speichern."
-            : "Wähle symptomfrei oder eine Beschwerde aus."
-        }}
-      </p>
-      <div class="form-actions">
+      <div class="wizard-actions">
         <UiButton
           type="button"
           class="button secondary"
-          @click="emit('close')"
           :disabled="busy"
+          @click="step === 1 ? moveStep(0) : emit('close')"
+          >{{ step === 1 ? "Zurück" : "Abbrechen" }}</UiButton
         >
-          Abbrechen
-        </UiButton>
         <UiButton
           class="button primary"
           :loading="busy"
-          :disabled="busy || !canSubmit"
-        >
-          {{
-            busy
-              ? "Wird gespeichert …"
+          :disabled="busy || !canSubmit || creatingRecipe"
+          >{{
+            !meal && !form.symptom_free && step === 0
+              ? "Weiter"
               : meal
                 ? "Mahlzeit speichern"
                 : "Eintrag speichern"
-          }}
-        </UiButton>
+          }}</UiButton
+        >
       </div>
     </form>
   </EntryPanel>

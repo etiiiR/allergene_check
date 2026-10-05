@@ -82,14 +82,15 @@ func (r *DiaryRepository) remove(ctx context.Context, kind, id string) error {
 }
 func (r *DiaryRepository) loadProfile(ctx context.Context) (UserProfile, error) {
 	profile := defaultProfile()
-	rows, err := Select[[]diaryRecord](ctx, r.store, models.Table("diary_profile"))
+	// Read the canonical record, never an arbitrary first row from the table.
+	row, err := Select[diaryRecord](ctx, r.store, models.NewRecordID("diary_profile", "default"))
 	if err != nil {
 		return profile, err
 	}
-	if rows == nil || len(*rows) == 0 {
+	if row == nil || row.Payload == "" {
 		return profile, nil
 	}
-	if err := json.Unmarshal([]byte((*rows)[0].Payload), &profile); err != nil {
+	if err := json.Unmarshal([]byte(row.Payload), &profile); err != nil {
 		return profile, fmt.Errorf("invalid profile payload")
 	}
 	if err := profile.validate(); err != nil {
@@ -109,6 +110,9 @@ func (r *DiaryRepository) load(ctx context.Context) (DiaryData, error) {
 	data := DiaryData{Recipes: []Recipe{}, Meals: []Meal{}, Checkins: []Checkin{}, Profile: defaultProfile(), RecipeFlags: []RecipeFlag{}, Stools: []StoolObservation{}, Stress: []StressObservation{}}
 	if err := r.list(ctx, "recipes", &data.Recipes); err != nil {
 		return data, err
+	}
+	for i := range data.Recipes {
+		data.Recipes[i].AnalysisIngredientIDs = ingredientKeys(data.Recipes[i].Ingredients)
 	}
 	if err := r.list(ctx, "meals", &data.Meals); err != nil {
 		return data, err

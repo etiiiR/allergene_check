@@ -1,0 +1,27 @@
+name: Bauchgefuehl
+options:
+  bundleIdPrefix: ch.bauchgefuehl
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+targets:
+  Bauchgefuehl:
+    type: application
+    platform: iOS
+    sources: [Sources]
+    info:
+      path: Info.plist
+    entitlements:
+      path: Bauchgefuehl.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ch.bauchgefuehl.diary
+        CODE_SIGN_STYLE: Automatic
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+    dependencies:
+      - sdk: HealthKit.framework
+      - sdk: WebKit.framework

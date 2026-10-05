@@ -217,7 +217,12 @@
       "carrots",
       "karotte",
       "karotten",
-      "rüebli"
+      "rüebli",
+      "möhre",
+      "möhren",
+      "moehre",
+      "moehren",
+      "ruebli"
     ],
     "category": "Vegetables",
     "level": "lower",
@@ -583,5 +588,186 @@
     "note": "Nur zur Zutaten-Erkennung und zum persönlichen Vergleich. Kein geprüfter FODMAP-Wert.",
     "source": "",
     "reviewed": "2026-09-21"
+  },
+  {
+    "id": "salt",
+    "name": "Salz",
+    "aliases": [
+      "salz",
+      "salt",
+      "speisesalz",
+      "tafelsalz",
+      "table salt",
+      "meersalz",
+      "sea salt"
+    ],
+    "category": "Seasonings",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur Zutatenidentität, keine geprüfte FODMAP-Bewertung. Mengen, Zusätze und Zubereitung bleiben im Originaltext erhalten.",
+    "source": "",
+    "reviewed": "2026-09-23"
+  },
+  {
+    "id": "baking-powder",
+    "name": "Backpulver",
+    "aliases": [
+      "backpulver",
+      "baking powder"
+    ],
+    "category": "Baking",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur Zutatenidentität, keine geprüfte FODMAP-Bewertung. Mengen, Zusätze und Zubereitung bleiben im Originaltext erhalten.",
+    "source": "",
+    "reviewed": "2026-09-23"
+  },
+  {
+    "id": "baking-soda",
+    "name": "Natron",
+    "aliases": [
+      "natron",
+      "baking soda",
+      "bicarbonate of soda"
+    ],
+    "category": "Baking",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur Zutatenidentität, keine geprüfte FODMAP-Bewertung. Mengen, Zusätze und Zubereitung bleiben im Originaltext erhalten.",
+    "source": "",
+    "reviewed": "2026-09-23"
+  },
+  {
+    "id": "powdered-sugar",
+    "name": "Puderzucker",
+    "aliases": [
+      "puderzucker",
+      "staubzucker",
+      "icing sugar",
+      "powdered sugar",
+      "confectioners sugar"
+    ],
+    "category": "Baking",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur Zutatenidentität, keine geprüfte FODMAP-Bewertung. Mengen, Zusätze und Zubereitung bleiben im Originaltext erhalten.",
+    "source": "",
+    "reviewed": "2026-09-23"
+  },
+  {
+    "id": "sugar",
+    "name": "Zucker",
+    "aliases": [
+      "zucker",
+      "sugar",
+      "kristallzucker",
+      "granulated sugar"
+    ],
+    "category": "Baking",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur Zutatenidentität, keine geprüfte FODMAP-Bewertung. Mengen, Zusätze und Zubereitung bleiben im Originaltext erhalten.",
+    "source": "",
+    "reviewed": "2026-09-23"
+  },
+  {
+    "id": "butter",
+    "name": "Butter",
+    "aliases": [
+      "butter"
+    ],
+    "category": "Dairy",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur Zutatenidentität, keine geprüfte FODMAP-Bewertung. Mengen, Zusätze und Zubereitung bleiben im Originaltext erhalten.",
+    "source": "",
+    "reviewed": "2026-09-23"
+  },
+  {
+    "id": "flour",
+    "name": "Mehl (Sorte nicht angegeben)",
+    "aliases": [
+      "mehl",
+      "flour"
+    ],
+    "category": "Grains",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur Zutatenidentität, keine geprüfte FODMAP-Bewertung. Mengen, Zusätze und Zubereitung bleiben im Originaltext erhalten.",
+    "source": "",
+    "reviewed": "2026-09-23"
+  },
+  {
+    "id": "wheat-flour",
+    "name": "Weizenmehl",
+    "aliases": [
+      "weizenmehl",
+      "wheat flour"
+    ],
+    "category": "Grains",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur Zutatenidentität, keine geprüfte FODMAP-Bewertung. Mengen, Zusätze und Zubereitung bleiben im Originaltext erhalten.",
+    "source": "",
+    "reviewed": "2026-09-23"
+  },
+  {
+    "id": "almond-flour",
+    "name": "Mandelmehl",
+    "aliases": [
+      "mandelmehl",
+      "almond flour"
+    ],
+    "category": "Nuts & seeds",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur Zutatenidentität, keine geprüfte FODMAP-Bewertung. Mengen, Zusätze und Zubereitung bleiben im Originaltext erhalten.",
+    "source": "",
+    "reviewed": "2026-09-23"
+  },
+  {
+    "id": "lemon",
+    "name": "Zitrone",
+    "aliases": [
+      "zitrone",
+      "zitronen",
+      "lemon",
+      "lemons"
+    ],
+    "category": "Fruit",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur Zutatenidentität, keine geprüfte FODMAP-Bewertung. Mengen, Zusätze und Zubereitung bleiben im Originaltext erhalten.",
+    "source": "",
+    "reviewed": "2026-09-23"
+  },
+  {
+    "id": "lemon-juice",
+    "name": "Zitronensaft",
+    "aliases": [
+      "zitronensaft",
+      "lemon juice"
+    ],
+    "category": "Fruit",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur Zutatenidentität, keine geprüfte FODMAP-Bewertung. Mengen, Zusätze und Zubereitung bleiben im Originaltext erhalten.",
+    "source": "",
+    "reviewed": "2026-09-23"
+  },
+  {
+    "id": "caraway",
+    "name": "Kümmel",
+    "aliases": [
+      "kümmel",
+      "kuemmel",
+      "caraway"
+    ],
+    "category": "Spices & herbs",
+    "level": "unknown",
+    "groups": [],
+    "note": "Nur Zutatenidentität, keine geprüfte FODMAP-Bewertung. Mengen, Zusätze und Zubereitung bleiben im Originaltext erhalten.",
+    "source": "",
+    "reviewed": "2026-09-23"
   }
 ]

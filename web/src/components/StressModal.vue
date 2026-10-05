@@ -43,6 +43,7 @@ function submit() {
   <EntryPanel
     :busy="busy"
     title="Stress manuell festhalten"
+    tone="stress"
     @close="emit('close')"
   >
     <form class="form stress-form" @submit.prevent="submit">

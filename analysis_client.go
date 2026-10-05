@@ -52,6 +52,12 @@ func (a *AnalysisClient) post(ctx context.Context, path string, payload any) (js
 	return data, nil
 }
 func analysisPayload(data DiaryData, symptom string, hours int) map[string]any {
+	checkins := []Checkin{}
+	for _, check := range data.Checkins {
+		if !check.MealBaseline {
+			checkins = append(checkins, check)
+		}
+	}
 	meals := []map[string]any{}
 	for _, m := range data.Meals {
 		meals = append(meals, map[string]any{"id": m.ID, "recipe_id": m.RecipeID, "occurred_at": m.OccurredAt, "ingredient_ids": ingredientKeys(m.Ingredients)})
@@ -68,7 +74,7 @@ func analysisPayload(data DiaryData, symptom string, hours int) map[string]any {
 		flags = append(flags, map[string]any{"id": flag.ID, "recipe_id": flag.RecipeID, "meal_id": flag.MealID, "kind": flag.Kind, "severity": flag.Severity, "symptoms": flag.Symptoms, "occurred_at": flag.OccurredAt, "ingredient_ids": ingredientIDs})
 	}
 	return map[string]any{
-		"meals": meals, "checkins": data.Checkins, "symptom": symptom, "window_hours": hours,
+		"meals": meals, "checkins": checkins, "symptom": symptom, "window_hours": hours,
 		"profile_group": data.Profile.BodyGroup, "cycle_enabled": data.Profile.BodyGroup == "female" && data.Profile.CycleTracking,
 		"recipe_flags": flags, "stools": data.Stools, "stress_observations": data.Stress,
 	}

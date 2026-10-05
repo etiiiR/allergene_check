@@ -59,7 +59,9 @@ test("recipe → meal → symptom-free check-in → patterns; persistence and cl
     await page.getByRole("button", { name: "Mahlzeit speichern" }).click();
     const mealResult = await mealResponse;
     expect(mealResult.ok()).toBeTruthy();
-    ids.push(["meals", (await mealResult.json()).id]);
+    const savedMeal = await mealResult.json();
+    ids.push(["meals", savedMeal.id]);
+    if (savedMeal.checkin) ids.push(["checkins", savedMeal.checkin.id]);
     const edit = await request.put("/api/recipes/" + recipe.id, {
       headers: { "X-Diary-Request": "1" },
       data: {
@@ -99,7 +101,7 @@ test("recipe → meal → symptom-free check-in → patterns; persistence and cl
     await page
       .locator("article")
       .filter({ has: page.getByRole("heading", { name }) })
-      .getByRole("button", { name: "Verträglichkeit ansehen" })
+      .getByRole("button", { name: "Details und Verträglichkeit ansehen" })
       .click();
     await expect(
       page.getByRole("heading", {
@@ -155,6 +157,7 @@ test("symptom check-in records its timing window", async ({
     .first()
     .click();
   await page.getByRole("button", { name: "Blähungen", exact: true }).click();
+  await page.getByRole("button", { name: "Weiter", exact: true }).click();
   await page.getByRole("button", { name: /Später/ }).click();
 
   const responsePromise = page.waitForResponse(
@@ -181,6 +184,9 @@ test("profile keeps cycle tracking in its separate context", async ({
   const original = await (await request.get("/api/diary")).json();
   try {
     await page.goto("/profile");
+    await page
+      .getByRole("button", { name: "Körper & Zyklus", exact: true })
+      .click();
     await page.getByLabel("Körperkontext").selectOption("female");
     await page.getByLabel("Zyklus in Check-ins berücksichtigen").check();
     await page.getByLabel("Beginn der letzten Periode").fill("2026-09-01");
@@ -245,6 +251,9 @@ test("recipe flags and next-day stool observation feed the diary", async ({
 
     await page.goto("/recipes");
     const card = page.locator("article").filter({ hasText: name });
+    await card
+      .locator("summary", { hasText: "Bearbeiten & weitere Optionen" })
+      .click();
     await card.getByRole("button", { name: "Verdächtig markieren" }).click();
     const suspectedResponse = page.waitForResponse(
       (response) =>
@@ -312,6 +321,10 @@ test("profile imports normalized wearable stress data", async ({
   };
   try {
     await page.goto("/profile");
+    await page.getByRole("button", { name: "Health", exact: true }).click();
+    await page
+      .getByText("Datei-Import für andere Quellen (optional)", { exact: true })
+      .click();
     await page
       .getByLabel("Quelle der Gesundheitsdaten")
       .selectOption("generic");

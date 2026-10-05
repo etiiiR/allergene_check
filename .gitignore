@@ -11,7 +11,11 @@ __pycache__/
 # macOS
 .DS_Store
 .pytest_cache/
+.recipe-audit-cache/
 web/node_modules/
 web/dist/
 web/test-results/
 web/playwright-report/
+mobile/ios/*.xcodeproj/
+mobile/ios/build/
+mobile/ios/DerivedData/

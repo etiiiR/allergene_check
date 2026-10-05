@@ -1,0 +1,840 @@
+{
+  "audited_at": "2026-09-25T09:19:42.656098+00:00",
+  "offline": true,
+  "samples": [
+    {
+      "platform": "Chefkoch",
+      "url": "https://www.chefkoch.de/rezepte/4270791701544182/Pfannkuchen.html",
+      "expected": {
+        "status": "parsed",
+        "title": "Pfannkuchen von Hebscher",
+        "ingredient_count": 11,
+        "instruction_count": 3,
+        "servings": 4
+      },
+      "fetched_at": "2026-09-25T09:07:04.898811+00:00",
+      "final_url": "https://www.chefkoch.de/rezepte/4270791701544182/Pfannkuchen.html",
+      "html_sha256": "284ddf135a7992e08bebd2ea2d311b72b6e16741e680df2454b96dbc56ca61c8",
+      "html_bytes": 403964,
+      "status": "parsed",
+      "title": "Pfannkuchen von Hebscher",
+      "method": "json_ld",
+      "ingredient_count": 11,
+      "instruction_count": 3,
+      "servings": 4,
+      "original_yield": "4 / 4 Portionen",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "FOOBY",
+      "url": "https://fooby.ch/de/rezepte/28498/kaiserschmarrn-mit-mirabellen",
+      "expected": {
+        "status": "parsed",
+        "title": "Kaiserschmarrn mit Mirabellen",
+        "ingredient_count": 14,
+        "instruction_count": 4,
+        "servings": 4
+      },
+      "fetched_at": "2026-09-25T09:07:04.898942+00:00",
+      "final_url": "https://fooby.ch/de/rezepte/28498/kaiserschmarrn-mit-mirabellen",
+      "html_sha256": "8a0526340a08ee6b759f4e30233e80af864e85154b629e5df65aec7cddf4508c",
+      "html_bytes": 275453,
+      "status": "parsed",
+      "title": "Kaiserschmarrn mit Mirabellen",
+      "method": "json_ld+html",
+      "ingredient_count": 14,
+      "instruction_count": 4,
+      "servings": 4,
+      "original_yield": "4",
+      "warnings": [
+        "Zutaten einschließlich Mengen und Verwendungshinweisen aus der sichtbaren Liste desselben Rezepts übernommen; bitte prüfen."
+      ],
+      "verification": "passed"
+    },
+    {
+      "platform": "Betty Bossi",
+      "url": "https://www.bettybossi.ch/de/rezepte/rezept/spaghetti-carbonara-10009942/",
+      "expected": {
+        "status": "parsed",
+        "title": "Spaghetti Carbonara",
+        "ingredient_count": 9,
+        "instruction_count": 3,
+        "servings": 4
+      },
+      "fetched_at": "2026-09-25T09:07:04.899973+00:00",
+      "final_url": "https://www.bettybossi.ch/de/rezepte/rezept/spaghetti-carbonara-10009942/",
+      "html_sha256": "18e2d1da50f7cc090456c4ad5cf4755459fefb114da785a03c71324567102681",
+      "html_bytes": 332888,
+      "status": "parsed",
+      "title": "Spaghetti Carbonara",
+      "method": "json_ld",
+      "ingredient_count": 9,
+      "instruction_count": 3,
+      "servings": 4,
+      "original_yield": "4 Personen",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "Migusto",
+      "url": "https://migusto.migros.ch/de/rezepte/schnittlauch-kaiserschmarrn",
+      "expected": {
+        "status": "parsed",
+        "title": "Schnittlauch-Kaiserschmarrn",
+        "ingredient_count": 13,
+        "instruction_count": 4,
+        "servings": 4
+      },
+      "fetched_at": "2026-09-25T09:07:04.900077+00:00",
+      "final_url": "https://migusto.migros.ch/de/rezepte/schnittlauch-kaiserschmarrn",
+      "html_sha256": "dcba8ef216aa902cedfbe1402c3526c752111df9bd42f96b230b9e1b019b5d05",
+      "html_bytes": 311203,
+      "status": "parsed",
+      "title": "Schnittlauch-Kaiserschmarrn",
+      "method": "json_ld",
+      "ingredient_count": 13,
+      "instruction_count": 4,
+      "servings": 4,
+      "original_yield": "Für 4 Personen",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "Essen und Trinken",
+      "url": "https://www.essen-und-trinken.de/rezepte/einfache-kartoffelsuppe-rezept-13967730.html",
+      "expected": {
+        "status": "parsed",
+        "title": "Einfache Kartoffelsuppe Rezept",
+        "ingredient_count": 9,
+        "instruction_count": 2,
+        "servings": 4
+      },
+      "fetched_at": "2026-09-25T09:07:05.183725+00:00",
+      "final_url": "https://www.essen-und-trinken.de/rezepte/einfache-kartoffelsuppe-rezept-13967730.html",
+      "html_sha256": "f6f1a4a6d6a833dd638f6c9d1e2412fe47a28a3d5f6bec7002832a31727e99c8",
+      "html_bytes": 206179,
+      "status": "parsed",
+      "title": "Einfache Kartoffelsuppe Rezept",
+      "method": "json_ld",
+      "ingredient_count": 9,
+      "instruction_count": 2,
+      "servings": 4,
+      "original_yield": "4",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "LECKER",
+      "url": "https://www.lecker.de/kartoffelsuppe-wie-von-oma-das-klassische-rezept-82249.html",
+      "expected": {
+        "status": "parsed",
+        "title": "Kartoffelsuppe wie von Oma - das klassische Rezept Rezept",
+        "ingredient_count": 12,
+        "instruction_count": 3,
+        "servings": 4
+      },
+      "fetched_at": "2026-09-25T09:07:05.275416+00:00",
+      "final_url": "https://www.lecker.de/kartoffelsuppe-wie-von-oma-das-klassische-rezept-82249.html",
+      "html_sha256": "2a7747658a0e3d1b44e4295cd10c8248ee16ea4299697e8ea18ff0c85bc89a2b",
+      "html_bytes": 842327,
+      "status": "parsed",
+      "title": "Kartoffelsuppe wie von Oma - das klassische Rezept Rezept",
+      "method": "json_ld",
+      "ingredient_count": 12,
+      "instruction_count": 3,
+      "servings": 4,
+      "original_yield": "4 Personen",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "EAT SMARTER",
+      "url": "https://eatsmarter.de/rezepte/kartoffelsuppe-smarter",
+      "expected": {
+        "status": "parsed",
+        "title": "Kartoffelsuppe – smarter",
+        "ingredient_count": 12,
+        "instruction_count": 8,
+        "servings": 4
+      },
+      "fetched_at": "2026-09-25T09:07:05.773188+00:00",
+      "final_url": "https://eatsmarter.de/rezepte/kartoffelsuppe-smarter",
+      "html_sha256": "eec7a96c7c69c8322a4890f02f7090d4ef1581aa14654d878342982ffe74934a",
+      "html_bytes": 360812,
+      "status": "parsed",
+      "title": "Kartoffelsuppe – smarter",
+      "method": "json_ld",
+      "ingredient_count": 12,
+      "instruction_count": 8,
+      "servings": 4,
+      "original_yield": "4",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "GuteKueche.at",
+      "url": "https://www.gutekueche.at/kaiserschmarrn-rezept-180",
+      "expected": {
+        "status": "parsed",
+        "title": "Kaiserschmarrn",
+        "ingredient_count": 10,
+        "instruction_count": 5,
+        "servings": 2
+      },
+      "fetched_at": "2026-09-25T09:07:05.781449+00:00",
+      "final_url": "https://www.gutekueche.at/kaiserschmarrn-rezept-180",
+      "html_sha256": "a720469e27a4edd313db40b5f5b7cbd12dc5561d0398f525e66f32c590a45186",
+      "html_bytes": 183615,
+      "status": "parsed",
+      "title": "Kaiserschmarrn",
+      "method": "json_ld",
+      "ingredient_count": 10,
+      "instruction_count": 5,
+      "servings": 2,
+      "original_yield": "2 Portionen",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "Kitchen Stories",
+      "url": "https://www.kitchenstories.com/de/rezepte/klassische-pfannkuchen",
+      "expected": {
+        "status": "parsed",
+        "title": "Pfannkuchen",
+        "ingredient_count": 9,
+        "instruction_count": 3,
+        "servings": null
+      },
+      "fetched_at": "2026-09-25T09:07:06.033064+00:00",
+      "final_url": "https://www.kitchenstories.com/klassische-pfannkuchen/193136",
+      "html_sha256": "0aa390b83d95eafaed55579d80f4bebaf594adbf04fe9bac72aa299538bca99d",
+      "html_bytes": 288467,
+      "status": "parsed",
+      "title": "Pfannkuchen",
+      "method": "json_ld",
+      "ingredient_count": 9,
+      "instruction_count": 3,
+      "servings": null,
+      "original_yield": "6 / 6 Stück",
+      "warnings": [
+        "Portionszahl nicht eindeutig erkannt (Quellangabe: 6 / 6 Stück); bitte vor dem Speichern prüfen."
+      ],
+      "verification": "passed"
+    },
+    {
+      "platform": "Einfach Backen",
+      "url": "https://www.einfachbacken.de/rezepte/pfannkuchen-das-schnelle-grundrezept",
+      "expected": {
+        "status": "parsed",
+        "title": "Pfannkuchen - Das schnelle Grundrezept",
+        "ingredient_count": 7,
+        "instruction_count": 2,
+        "servings": null
+      },
+      "fetched_at": "2026-09-25T09:07:06.126705+00:00",
+      "final_url": "https://www.einfachbacken.de/rezepte/pfannkuchen-das-schnelle-grundrezept",
+      "html_sha256": "78c7b1b2743b980361d372a09ed1647e89c2810aedc489e8de20c8e7b74ed015",
+      "html_bytes": 608030,
+      "status": "parsed",
+      "title": "Pfannkuchen - Das schnelle Grundrezept",
+      "method": "json_ld",
+      "ingredient_count": 7,
+      "instruction_count": 2,
+      "servings": null,
+      "original_yield": "7 Stück",
+      "warnings": [
+        "Portionszahl nicht eindeutig erkannt (Quellangabe: 7 Stück); bitte vor dem Speichern prüfen."
+      ],
+      "verification": "passed"
+    },
+    {
+      "platform": "Emmi kocht einfach",
+      "url": "https://emmikochteinfach.de/pfannkuchen-rezept-einfaches-grundrezept/",
+      "expected": {
+        "status": "parsed",
+        "title": "Pfannkuchen – einfaches Grundrezept",
+        "ingredient_count": 6,
+        "instruction_count": 8,
+        "servings": 5
+      },
+      "fetched_at": "2026-09-25T09:07:06.167125+00:00",
+      "final_url": "https://emmikochteinfach.de/pfannkuchen-rezept-einfaches-grundrezept/",
+      "html_sha256": "3fdbbb148ecb8eb29fbf7db7c69cdc7ca7de532fbe715df352e9b951c112e3d3",
+      "html_bytes": 535143,
+      "status": "parsed",
+      "title": "Pfannkuchen – einfaches Grundrezept",
+      "method": "json_ld",
+      "ingredient_count": 6,
+      "instruction_count": 8,
+      "servings": 5,
+      "original_yield": "5 / 5 Portionen",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "Gaumenfreundin",
+      "url": "https://www.gaumenfreundin.de/ganz-einfache-kartoffelsuppe-mit-wuerstchen-und-suppengemuese/",
+      "expected": {
+        "status": "parsed",
+        "title": "Omas Kartoffelsuppe mit Würstchen",
+        "ingredient_count": 10,
+        "instruction_count": 3,
+        "servings": 4
+      },
+      "fetched_at": "2026-09-25T09:07:06.509322+00:00",
+      "final_url": "https://www.gaumenfreundin.de/ganz-einfache-kartoffelsuppe-mit-wuerstchen-und-suppengemuese/",
+      "html_sha256": "ae8a82af1d01a1d613a9b625faab0bcefc8cb642883583c24df8c65c0ef6eafc",
+      "html_bytes": 1331073,
+      "status": "parsed",
+      "title": "Omas Kartoffelsuppe mit Würstchen",
+      "method": "json_ld",
+      "ingredient_count": 10,
+      "instruction_count": 3,
+      "servings": 4,
+      "original_yield": "4 / 4 Portionen",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "Kochkarussell",
+      "url": "https://kochkarussell.com/omas-kartoffelsuppe-wuerstchen/",
+      "expected": {
+        "status": "parsed",
+        "title": "Omas Kartoffelsuppe mit Würstchen",
+        "ingredient_count": 10,
+        "instruction_count": 3,
+        "servings": 4
+      },
+      "fetched_at": "2026-09-25T09:07:06.550022+00:00",
+      "final_url": "https://kochkarussell.com/omas-kartoffelsuppe-wuerstchen/",
+      "html_sha256": "f59a29995748bb566ca18ba389222a93c536826e85f8ca21ee241c42ed7f39f9",
+      "html_bytes": 701539,
+      "status": "parsed",
+      "title": "Omas Kartoffelsuppe mit Würstchen",
+      "method": "json_ld",
+      "ingredient_count": 10,
+      "instruction_count": 3,
+      "servings": 4,
+      "original_yield": "4 / 4 Portionen",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "Maltes Kitchen",
+      "url": "https://www.malteskitchen.de/pfannkuchen-rezept-einfach-fluffig-schnell/",
+      "expected": {
+        "status": "parsed",
+        "title": "Pfannkuchen Grundrezept | einfach, schnell & gelingt immer",
+        "ingredient_count": 9,
+        "instruction_count": 4,
+        "servings": null
+      },
+      "fetched_at": "2026-09-25T09:07:06.667940+00:00",
+      "final_url": "https://www.malteskitchen.de/pfannkuchen-rezept-einfach-fluffig-schnell/",
+      "html_sha256": "3efc66fd8f70660fd8085c42bd2f4af255dd3612b1840f1add68f4669ff106d6",
+      "html_bytes": 670037,
+      "status": "parsed",
+      "title": "Pfannkuchen Grundrezept | einfach, schnell & gelingt immer",
+      "method": "json_ld",
+      "ingredient_count": 9,
+      "instruction_count": 4,
+      "servings": null,
+      "original_yield": "12 / 12 Pfannkuchen",
+      "warnings": [
+        "Portionszahl nicht eindeutig erkannt (Quellangabe: 12 / 12 Pfannkuchen); bitte vor dem Speichern prüfen."
+      ],
+      "verification": "passed"
+    },
+    {
+      "platform": "Zucker und Jagdwurst",
+      "url": "https://www.zuckerjagdwurst.com/de/rezepte/vegane-lasagne-mit-bechamelsosse",
+      "expected": {
+        "status": "parsed",
+        "title": "Vegane Lasagne mit Béchamelsoße",
+        "ingredient_count": 28,
+        "instruction_count": 6,
+        "servings": 4
+      },
+      "fetched_at": "2026-09-25T09:07:07.024947+00:00",
+      "final_url": "https://www.zuckerjagdwurst.com/de/rezepte/vegane-lasagne-mit-bechamelsosse",
+      "html_sha256": "cd3575cb4ed257b1e85c3238bd58151d54fad46d366274cf3713ec2cadd2300b",
+      "html_bytes": 290943,
+      "status": "parsed",
+      "title": "Vegane Lasagne mit Béchamelsoße",
+      "method": "html_site",
+      "ingredient_count": 28,
+      "instruction_count": 6,
+      "servings": 4,
+      "original_yield": "4 Portionen",
+      "warnings": [
+        "Aus dem sichtbaren HTML-Rezeptblock gelesen. Bitte Zutaten, Mengen und Zubereitung besonders sorgfältig prüfen."
+      ],
+      "verification": "passed"
+    },
+    {
+      "platform": "Bianca Zapatka",
+      "url": "https://biancazapatka.com/en/best-vegan-pancakes/",
+      "expected": {
+        "status": "parsed",
+        "title": "Vegan Pancakes",
+        "ingredient_count": 12,
+        "instruction_count": 6,
+        "servings": null
+      },
+      "fetched_at": "2026-09-25T09:07:07.116955+00:00",
+      "final_url": "https://biancazapatka.com/en/best-vegan-pancakes/",
+      "html_sha256": "e283f8c40b5df03b3e184e152808cfa32ff83b7d391c21fa44c536de16c359d8",
+      "html_bytes": 533793,
+      "status": "parsed",
+      "title": "Vegan Pancakes",
+      "method": "json_ld",
+      "ingredient_count": 12,
+      "instruction_count": 6,
+      "servings": null,
+      "original_yield": "8 / 8 Pancakes",
+      "warnings": [
+        "Portionszahl nicht eindeutig erkannt (Quellangabe: 8 / 8 Pancakes); bitte vor dem Speichern prüfen."
+      ],
+      "verification": "passed"
+    },
+    {
+      "platform": "Food Network",
+      "url": "https://www.foodnetwork.com/recipes/alton-brown/pancake-cake-with-avocado-frosting-recipe-1957043",
+      "expected": {
+        "status": "parsed",
+        "title": "Pancake Cake with Avocado Frosting",
+        "ingredient_count": 14,
+        "instruction_count": 7,
+        "servings": 4
+      },
+      "fetched_at": "2026-09-25T09:07:07.635614+00:00",
+      "final_url": "https://www.foodnetwork.com/recipes/alton-brown/pancake-cake-with-avocado-frosting-recipe-1957043",
+      "html_sha256": "c41f9c81324440eaef80932a4adb19a7b5603a0af2af6df02d33efa949abbb1b",
+      "html_bytes": 439375,
+      "status": "parsed",
+      "title": "Pancake Cake with Avocado Frosting",
+      "method": "json_ld",
+      "ingredient_count": 14,
+      "instruction_count": 7,
+      "servings": 4,
+      "original_yield": "4 servings",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "Marmiton",
+      "url": "https://www.marmiton.org/recettes/recette_crepes-faciles_15899.aspx",
+      "expected": {
+        "status": "parsed",
+        "title": "Crêpes faciles : la meilleure recette",
+        "ingredient_count": 4,
+        "instruction_count": 4,
+        "servings": 2
+      },
+      "fetched_at": "2026-09-25T09:07:07.964508+00:00",
+      "final_url": "https://www.marmiton.org/recettes/recette_crepes-faciles_15899.aspx",
+      "html_sha256": "4ed22e3e64658c11dcff8303cad681b0c89b2d45c8fa919f5ecbeb75a7c8d1ee",
+      "html_bytes": 276224,
+      "status": "parsed",
+      "title": "Crêpes faciles : la meilleure recette",
+      "method": "json_ld",
+      "ingredient_count": 4,
+      "instruction_count": 4,
+      "servings": 2,
+      "original_yield": "2 personnes",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "750g",
+      "url": "https://www.750g.com/crepes-r38216.htm",
+      "expected": {
+        "status": "parsed",
+        "title": "Crêpes classiques",
+        "ingredient_count": 5,
+        "instruction_count": 2,
+        "servings": 6
+      },
+      "fetched_at": "2026-09-25T09:07:08.444128+00:00",
+      "final_url": "https://www.750g.com/crepes-r38216.htm",
+      "html_sha256": "a36f67c8cdc0f9bbea8d7dbdd99ba67535c41333d3158fb2e1f8edea97346ea6",
+      "html_bytes": 270985,
+      "status": "parsed",
+      "title": "Crêpes classiques",
+      "method": "json_ld",
+      "ingredient_count": 5,
+      "instruction_count": 2,
+      "servings": 6,
+      "original_yield": "6 personnes",
+      "warnings": [
+        "Zeilenumbrüche in den strukturierten Rezeptdaten wurden bereinigt; bitte Vorschau prüfen."
+      ],
+      "verification": "passed"
+    },
+    {
+      "platform": "Taste.com.au",
+      "url": "https://www.taste.com.au/recipes/basic-pancakes/2480dad2-f1d5-49a0-9e01-2251470dcc86",
+      "expected": {
+        "status": "download_failed",
+        "http_status": 403
+      },
+      "status": "download_failed",
+      "http_status": 403,
+      "error": "Die Zielseite erlaubt diesen Import laut robots.txt nicht.",
+      "fetched_at": "2026-09-25T09:07:08.493250+00:00",
+      "verification": "passed"
+    },
+    {
+      "platform": "Budget Bytes",
+      "url": "https://www.budgetbytes.com/coconut-curry-chickpeas/",
+      "expected": {
+        "status": "parsed",
+        "title": "Chickpea Curry",
+        "ingredient_count": 10,
+        "instruction_count": 6,
+        "servings": 4
+      },
+      "fetched_at": "2026-09-25T09:07:08.760944+00:00",
+      "final_url": "https://www.budgetbytes.com/coconut-curry-chickpeas/",
+      "html_sha256": "99ad8ebcdf08edf4afaa4376d9575fbfa2e6d575ca16c86a1ab01a595f127928",
+      "html_bytes": 617377,
+      "status": "parsed",
+      "title": "Chickpea Curry",
+      "method": "json_ld",
+      "ingredient_count": 10,
+      "instruction_count": 6,
+      "servings": 4,
+      "original_yield": "4 / 4 servings (1.5 cups each)",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "Cookie and Kate",
+      "url": "https://cookieandkate.com/best-lentil-soup-recipe/",
+      "expected": {
+        "status": "parsed",
+        "title": "Best Lentil Soup",
+        "ingredient_count": 16,
+        "instruction_count": 7,
+        "servings": 4
+      },
+      "fetched_at": "2026-09-25T09:07:09.125026+00:00",
+      "final_url": "https://cookieandkate.com/best-lentil-soup-recipe/",
+      "html_sha256": "186331cf8e54f8bcf13f48ac5593264da2c222c4c8d2739056cc0945ebab192a",
+      "html_bytes": 537336,
+      "status": "parsed",
+      "title": "Best Lentil Soup",
+      "method": "json_ld",
+      "ingredient_count": 16,
+      "instruction_count": 7,
+      "servings": 4,
+      "original_yield": "4 / 4 servings",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "RecipeTin Eats",
+      "url": "https://www.recipetineats.com/pancake-recipe/",
+      "expected": {
+        "status": "parsed",
+        "title": "Simple, Fluffy Pancakes",
+        "ingredient_count": 8,
+        "instruction_count": 7,
+        "servings": null
+      },
+      "fetched_at": "2026-09-25T09:07:09.277216+00:00",
+      "final_url": "https://www.recipetineats.com/pancake-recipe/",
+      "html_sha256": "ea6d4b59924a415c9e2f93c2bbe1728029fce9176d1f97d98f48bcd2b2133650",
+      "html_bytes": 454473,
+      "status": "parsed",
+      "title": "Simple, Fluffy Pancakes",
+      "method": "json_ld",
+      "ingredient_count": 8,
+      "instruction_count": 7,
+      "servings": null,
+      "original_yield": "13 / 13 pancakes",
+      "warnings": [
+        "Portionszahl nicht eindeutig erkannt (Quellangabe: 13 / 13 pancakes); bitte vor dem Speichern prüfen."
+      ],
+      "verification": "passed"
+    },
+    {
+      "platform": "Minimalist Baker",
+      "url": "https://minimalistbaker.com/instant-pot-red-lentils-tender-fast-no-soaking/",
+      "expected": {
+        "status": "parsed",
+        "title": "Instant Pot Red Lentils (Tender, Fast, No Soaking!)",
+        "ingredient_count": 2,
+        "instruction_count": 3,
+        "servings": 4
+      },
+      "fetched_at": "2026-09-25T09:07:09.365132+00:00",
+      "final_url": "https://minimalistbaker.com/instant-pot-red-lentils-tender-fast-no-soaking/",
+      "html_sha256": "1dd3d40b1aecd8c0b4a8abb74ea096cdacec73a3a7c53daff43561466bc54f2a",
+      "html_bytes": 611711,
+      "status": "parsed",
+      "title": "Instant Pot Red Lentils (Tender, Fast, No Soaking!)",
+      "method": "json_ld",
+      "ingredient_count": 2,
+      "instruction_count": 3,
+      "servings": 4,
+      "original_yield": "4 / 4 (~2/3 cup servings)",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "REWE",
+      "url": "https://www.rewe.de/rezepte/pfannkuchen-klassisch/",
+      "expected": {
+        "status": "download_failed",
+        "http_status": 403
+      },
+      "status": "download_failed",
+      "http_status": 403,
+      "error": "Die Rezeptplattform blockiert den automatischen Abruf (HTTP 403). Bitte Zutaten manuell einfügen.",
+      "fetched_at": "2026-09-25T09:11:42.436383+00:00",
+      "verification": "passed"
+    },
+    {
+      "platform": "EDEKA",
+      "url": "https://www.edeka.de/rezeptwelt/rezepte/suesse-pfannkuchen/",
+      "expected": {
+        "status": "download_failed",
+        "http_status": 403
+      },
+      "status": "download_failed",
+      "http_status": 403,
+      "error": "Die Rezeptplattform blockiert den automatischen Abruf (HTTP 403). Bitte Zutaten manuell einfügen.",
+      "fetched_at": "2026-09-25T09:11:46.164098+00:00",
+      "verification": "passed"
+    },
+    {
+      "platform": "LIDL Kochen",
+      "url": "https://www.lidl-kochen.de/rezeptwelt/pfannkuchen-grundrezept-150859",
+      "expected": {
+        "status": "parsed",
+        "title": "Pfannkuchen Grundrezept",
+        "ingredient_count": 5,
+        "instruction_count": 3,
+        "servings": 4
+      },
+      "fetched_at": "2026-09-25T09:07:09.898623+00:00",
+      "final_url": "https://rezepte.lidl.de/rezepte/pfannkuchen-grundrezept",
+      "html_sha256": "d0293d06699097fc10825127c96c6604ed88478010322e08a982891317685da4",
+      "html_bytes": 261447,
+      "status": "parsed",
+      "title": "Pfannkuchen Grundrezept",
+      "method": "json_ld",
+      "ingredient_count": 5,
+      "instruction_count": 3,
+      "servings": 4,
+      "original_yield": "4 Portionen",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "Alnatura",
+      "url": "https://www.alnatura.de/de-de/rezepte/suche/klassische-kartoffelsuppe-105645/",
+      "expected": {
+        "status": "parsed",
+        "title": "Klassische Kartoffelsuppe",
+        "ingredient_count": 9,
+        "instruction_count": 3,
+        "servings": 4
+      },
+      "fetched_at": "2026-09-25T09:07:10.099848+00:00",
+      "final_url": "https://www.alnatura.de/de-de/rezepte/suche/klassische-kartoffelsuppe-105645/",
+      "html_sha256": "78c0863f2ac961921cb1fec9112b33e1104e700f599b7b470ae57604e7ff677e",
+      "html_bytes": 143446,
+      "status": "parsed",
+      "title": "Klassische Kartoffelsuppe",
+      "method": "json_ld",
+      "ingredient_count": 9,
+      "instruction_count": 3,
+      "servings": 4,
+      "original_yield": "4 Portion(en)",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "Dr. Oetker",
+      "url": "https://www.oetker.de/rezepte/r/pfannkuchen-eierkuchen",
+      "expected": {
+        "status": "parsed",
+        "title": "Pfannkuchen (Eierkuchen)",
+        "ingredient_count": 7,
+        "instruction_count": 2,
+        "servings": null
+      },
+      "fetched_at": "2026-09-25T09:07:10.151443+00:00",
+      "final_url": "https://www.oetker.de/rezepte/r/pfannkuchen-eierkuchen",
+      "html_sha256": "95c9a9c66700d69d17bd59fc8d6a3442305cc044be9d0530dce74f80c63254a7",
+      "html_bytes": 805374,
+      "status": "parsed",
+      "title": "Pfannkuchen (Eierkuchen)",
+      "method": "json_ld",
+      "ingredient_count": 7,
+      "instruction_count": 2,
+      "servings": null,
+      "original_yield": "etwa 7 Stück",
+      "warnings": [
+        "Portionszahl nicht eindeutig erkannt (Quellangabe: etwa 7 Stück); bitte vor dem Speichern prüfen."
+      ],
+      "verification": "passed"
+    },
+    {
+      "platform": "Springlane",
+      "url": "https://springlane.de/blogs/rezepte/perfekte-pfannkuchen",
+      "expected": {
+        "status": "parsed",
+        "title": "Perfekte Pfannkuchen: Ein Grundrezept für Genießer und Experimentierfreudige",
+        "ingredient_count": 7,
+        "instruction_count": 4,
+        "servings": null
+      },
+      "fetched_at": "2026-09-25T09:07:10.222552+00:00",
+      "final_url": "https://springlane.de/blogs/rezepte/perfekte-pfannkuchen",
+      "html_sha256": "a9391d44e8fb899c60c01f87651fb4f7422ceb302d2ffe4e9c4f428fbe13fb28",
+      "html_bytes": 380480,
+      "status": "parsed",
+      "title": "Perfekte Pfannkuchen: Ein Grundrezept für Genießer und Experimentierfreudige",
+      "method": "html_site",
+      "ingredient_count": 7,
+      "instruction_count": 4,
+      "servings": null,
+      "original_yield": "7 Stück",
+      "warnings": [
+        "Aus dem sichtbaren HTML-Rezeptblock gelesen. Bitte Zutaten, Mengen und Zubereitung besonders sorgfältig prüfen.",
+        "Portionszahl nicht eindeutig erkannt (Quellangabe: 7 Stück); bitte vor dem Speichern prüfen."
+      ],
+      "verification": "passed"
+    },
+    {
+      "platform": "Allrecipes",
+      "url": "https://www.allrecipes.com/recipe/21014/good-old-fashioned-pancakes/",
+      "expected": {
+        "status": "parsed",
+        "title": "Good Old-Fashioned Pancakes",
+        "ingredient_count": 7,
+        "instruction_count": 5,
+        "servings": 8
+      },
+      "fetched_at": "2026-09-25T09:07:10.609596+00:00",
+      "final_url": "https://www.allrecipes.com/recipe/21014/good-old-fashioned-pancakes/",
+      "html_sha256": "47d37708c69ad571dbddd518608a9c3d13b20e67e10c33b9ff3522b0db635107",
+      "html_bytes": 551153,
+      "status": "parsed",
+      "title": "Good Old-Fashioned Pancakes",
+      "method": "json_ld",
+      "ingredient_count": 7,
+      "instruction_count": 5,
+      "servings": 8,
+      "original_yield": "8",
+      "warnings": [],
+      "verification": "passed"
+    },
+    {
+      "platform": "Simply Recipes",
+      "url": "https://www.simplyrecipes.com/recipes/banana_bread/",
+      "expected": {
+        "status": "parsed",
+        "title": "Banana Bread",
+        "ingredient_count": 8,
+        "instruction_count": 6,
+        "servings": null
+      },
+      "fetched_at": "2026-09-25T09:07:10.732603+00:00",
+      "final_url": "https://www.simplyrecipes.com/recipes/banana_bread/",
+      "html_sha256": "782c09bb0943c050e6ae62b05bb203cfb1fc396714374ed57d01d63da895aa83",
+      "html_bytes": 514260,
+      "status": "parsed",
+      "title": "Banana Bread",
+      "method": "json_ld",
+      "ingredient_count": 8,
+      "instruction_count": 6,
+      "servings": null,
+      "original_yield": "10 / 1 loaf",
+      "warnings": [
+        "Portionszahl nicht eindeutig erkannt (Quellangabe: 10 / 1 loaf); bitte vor dem Speichern prüfen."
+      ],
+      "verification": "passed"
+    },
+    {
+      "platform": "Serious Eats",
+      "url": "https://www.seriouseats.com/light-and-fluffy-pancakes-recipe",
+      "expected": {
+        "status": "parsed",
+        "title": "Light and Fluffy Buttermilk Pancakes",
+        "ingredient_count": 10,
+        "instruction_count": 3,
+        "servings": null
+      },
+      "fetched_at": "2026-09-25T09:07:10.761949+00:00",
+      "final_url": "https://www.seriouseats.com/light-and-fluffy-pancakes-recipe",
+      "html_sha256": "d3320269e9a877e99053afb72297aed873b0cac8530534ce6278334c561c1bca",
+      "html_bytes": 550213,
+      "status": "parsed",
+      "title": "Light and Fluffy Buttermilk Pancakes",
+      "method": "json_ld",
+      "ingredient_count": 10,
+      "instruction_count": 3,
+      "servings": null,
+      "original_yield": "6 / 16 pancakes",
+      "warnings": [
+        "Portionszahl nicht eindeutig erkannt (Quellangabe: 6 / 16 pancakes); bitte vor dem Speichern prüfen."
+      ],
+      "verification": "passed"
+    },
+    {
+      "platform": "BBC Good Food",
+      "url": "https://www.bbcgoodfood.com/recipes/easy-pancakes",
+      "expected": {
+        "status": "parsed",
+        "title": "Easy pancakes",
+        "ingredient_count": 6,
+        "instruction_count": 5,
+        "servings": null
+      },
+      "fetched_at": "2026-09-25T09:07:10.993811+00:00",
+      "final_url": "https://www.bbcgoodfood.com/recipes/easy-pancakes",
+      "html_sha256": "d83a6f0d8a24454bdf0c650be5b65d179016b9be7365a616f68cad0048d8ae29",
+      "html_bytes": 578103,
+      "status": "parsed",
+      "title": "Easy pancakes",
+      "method": "json_ld",
+      "ingredient_count": 6,
+      "instruction_count": 5,
+      "servings": null,
+      "original_yield": "Makes 12",
+      "warnings": [
+        "Portionszahl nicht eindeutig erkannt (Quellangabe: Makes 12); bitte vor dem Speichern prüfen."
+      ],
+      "verification": "passed"
+    },
+    {
+      "platform": "Swissmilk (Kontrolle)",
+      "url": "https://www.swissmilk.ch/de/rezepte-kochideen/rezepte/LM200801_75/kaiserschmarrn/",
+      "expected": {
+        "status": "parsed",
+        "title": "Kaiserschmarrn",
+        "ingredient_count": 9,
+        "instruction_count": 3,
+        "servings": 4
+      },
+      "fetched_at": "2026-09-25T09:07:11.367217+00:00",
+      "final_url": "https://www.swissmilk.ch/de/rezepte-kochideen/rezepte/LM200801_75/kaiserschmarrn/",
+      "html_sha256": "df54bdefe2b0300d2a68086d408e5d518a039b3bc48741e0556cc21b5903b81d",
+      "html_bytes": 281060,
+      "status": "parsed",
+      "title": "Kaiserschmarrn",
+      "method": "microdata",
+      "ingredient_count": 9,
+      "instruction_count": 3,
+      "servings": 4,
+      "original_yield": "4 Portionen",
+      "warnings": [],
+      "verification": "passed"
+    }
+  ]
+}
