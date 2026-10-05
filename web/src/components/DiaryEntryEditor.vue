@@ -179,7 +179,6 @@ function submit() {
               :key="key"
               class="edit-symptom-rating"
             >
-              <span>{{ label }}</span>
               <SymptomRating
                 :model-value="symptomIntensityFromScore(form.symptoms[key])"
                 :symptom-key="key"
@@ -190,8 +189,8 @@ function submit() {
               />
             </div>
             <small
-              >Wähle pro Symptom eine passende Stufe. Mehrere Symptome sind
-              möglich.</small
+              >0 bedeutet keine, 5 sehr starke Beschwerden. Mehrere Symptome
+              können gleichzeitig gewählt werden.</small
             >
           </div>
           <template v-if="entry.meal_baseline && form.symptom_free">

@@ -225,13 +225,14 @@ test("library renders 12 of 200 recipes, resets pages for search and differentia
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 
-test("recipe cards are compact on mobile and use a denser two-column layout on desktop", async ({
+test("recipe cards stay compact on mobile and form a denser desktop grid", async ({
   page,
 }) => {
   await page.goto("/recipes");
   for (const [width, columns] of [
     [390, 1],
-    [1440, 2],
+    [1024, 2],
+    [1440, 3],
   ]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(page.getByTestId("recipe-card")).toHaveCount(12);

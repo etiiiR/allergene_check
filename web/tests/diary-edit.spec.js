@@ -226,9 +226,11 @@ test("editing all symptoms retains context, reports ML outages separately and ca
     page.getByRole("radio", { name: "Bauchschmerzen: Mittel" }),
   ).toHaveAttribute("aria-checked", "true");
   await expect(
-    page.getByRole("radio", { name: "Blähungen: Leicht" }),
+    page.getByRole("radio", { name: "Blähungen: Sehr leicht" }),
   ).toHaveAttribute("aria-checked", "true");
-  await page.getByRole("radio", { name: "Bauchschmerzen: Leicht" }).click();
+  await page
+    .getByRole("radio", { name: "Bauchschmerzen: Sehr leicht" })
+    .click();
   const saved = await saveEditor(page, "checkins", check.id);
   expect(saved).toMatchObject({
     id: check.id,
@@ -244,7 +246,7 @@ test("editing all symptoms retains context, reports ML outages separately and ca
   expect(
     (await diary(request)).checkins.find((c) => c.id === check.id).symptoms
       .pain,
-  ).toBe(2);
+  ).toBe(4);
   await page.unroute("**/api/patterns?**");
   await page
     .getByRole("button", { name: "Auswertung erneut versuchen" })

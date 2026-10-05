@@ -35,6 +35,9 @@ DEFINE TABLE IF NOT EXISTS diary_stools SCHEMALESS;
 DEFINE FIELD IF NOT EXISTS payload ON diary_stools TYPE string;
 DEFINE TABLE IF NOT EXISTS diary_stress SCHEMALESS;
 DEFINE FIELD IF NOT EXISTS payload ON diary_stress TYPE string;
+DEFINE TABLE IF NOT EXISTS diary_vault SCHEMALESS;
+DEFINE FIELD IF NOT EXISTS revision ON diary_vault TYPE int;
+DEFINE FIELD IF NOT EXISTS payload ON diary_vault TYPE string;
 COMMIT TRANSACTION;`, nil)
 	return err
 }

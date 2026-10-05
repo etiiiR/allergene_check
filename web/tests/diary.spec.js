@@ -164,14 +164,20 @@ test("symptom check-in records its timing window", async ({
     page
       .getByRole("radiogroup", { name: "Stärke bei Blähungen" })
       .getByRole("radio"),
-  ).toHaveCount(4);
+  ).toHaveCount(6);
+  await expect(
+    page.locator(".symptom-rating-control .symptom-rating-star"),
+  ).toHaveCount(5);
+  await expect(
+    page.locator(".symptom-rating-control .symptom-rating-symptom-icon"),
+  ).toHaveText("🎈");
   await expect(
     page.getByRole("radio", { name: "Blähungen: Leicht" }),
   ).toBeVisible();
   await expect(
     page.getByRole("radio", { name: "Blähungen: Keine" }),
   ).toBeVisible();
-  await page.getByRole("radio", { name: "Blähungen: Stark" }).click();
+  await page.getByRole("radio", { name: "Blähungen: Sehr stark" }).click();
   await page.getByRole("button", { name: "Weiter", exact: true }).click();
   await page.getByRole("button", { name: /Später/ }).click();
 
@@ -286,7 +292,7 @@ test("recipe flags and next-day stool observation feed the diary", async ({
     await expect(
       page.getByRole("radiogroup", { name: "Stärke bei Durchfall" }),
     ).toBeVisible();
-    await page.getByRole("radio", { name: "Durchfall: Stark" }).click();
+    await page.getByRole("radio", { name: "Durchfall: Sehr stark" }).click();
     const reactionResponse = page.waitForResponse(
       (response) =>
         response.url().endsWith("/api/recipe-flags") &&

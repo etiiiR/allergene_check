@@ -27,6 +27,7 @@ func registerDiaryAPI(app *fiber.App, repo *DiaryRepository, analysis *AnalysisC
 		}
 		return c.Next()
 	})
+	registerVaultRoutes(api, newSurrealVaultRepository(repo.store))
 	api.Get("/diary", func(c *fiber.Ctx) error {
 		ctx, cancel := context.WithTimeout(c.UserContext(), 10*time.Second)
 		defer cancel()

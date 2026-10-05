@@ -16,7 +16,8 @@ sowie die Formulare für Mahlzeiten, Befinden, Stress, Stuhl, Rezepte und persö
 | Beobachtung im bisherigen Code | Konsequenz für die Überarbeitung |
 | --- | --- |
 | Mehr als 4.000 CSS-Zeilen mit vielen späteren Overrides und separaten Grüntönen | Ein gemeinsames Token-System und eine kompakte CSS-Datei mit klaren Komponenten- und Layoutabschnitten |
-| Mehrere gleichgewichtige Dashboard-Aktionen und doppelte Einstiege | Eine primäre Mahlzeit-Aktion, zwei Befinden-Aktionen, weitere Beobachtungen als aufklappbarer Bereich |
+| Drei tägliche Erfassungsaktionen sahen durch Akzentfarbe und Button-Variante wie verschiedene Prioritätsstufen aus | Mahlzeit, Befinden, gutes Befinden und der Einstieg zu weiteren Beobachtungen erhalten dieselbe Form, Höhe und ruhige Indigo-Fläche; die Reihenfolge und Beschriftung geben Orientierung |
+| Ein frisches oder zurückgesetztes Tagebuch konnte auf der Heute-Seite landen, ohne die persönliche Einrichtung zu beginnen | Ein unvollständiges Profil startet direkt im Einrichtungs-Wizard; überspringen bleibt möglich, und das Dashboard bietet eine sichtbare Wiederaufnahme |
 | Sechs kleine Navigationsziele auf dem Smartphone | Fünf Hauptziele; FODMAP, Bericht und Profil bleiben über Mehr erreichbar |
 | Modale Formulare und Details unterbrechen den Lesefluss | Eintrags- und Detailansichten werden im Hauptbereich der Seite angezeigt |
 | Speichern ist erst durch das Schliessen des Formulars erkennbar | Sichtbarer Pending-Zustand, Erfolgsfeedback und aktualisierte Daten |
@@ -55,13 +56,13 @@ Nutzerwunsch entfernt, auch aus Erfolgs- und Kalenderzuständen. Farbe unterstü
 | Eingaberahmen | `--border-strong: #cbd5e1` |
 | Primäraktion | `--accent: #4338ca` |
 | Aktive Auswahl | `--accent-soft: #eef2ff` |
-| Guter Moment / Speicherung | Indigo mit Check-Symbol / Text |
-| Offenes Befinden / Beschwerdehinweis | Amber mit Text |
+| Mahlzeit, Alltagserfassung und guter Moment | Indigo plus klare Beschriftung / Symbol |
+| Eingetragene Beschwerden | Rosé plus Symptomtext; kein Diagnosealarm |
+| Freiwilliger Kontext (Stress, Zyklus, Schlaf, Stuhl) | Neutrales Slate; Kontext bleibt beschriftet |
 | Fehler / Löschen | Rot |
-| Zyklus / Stress-Kontext | Gedämpftes Violett |
 
-Rot wird nicht pauschal zur Darstellung von Symptomen eingesetzt.
-Ein statistischer Zusammenhang ist kein Alarm. Kalender ohne Check-in bekommen keine positive Bewertung.
+Es gibt keine eigene Farbe pro Feld. Rot bleibt Fehlern und Löschen vorbehalten; ein
+statistischer Zusammenhang ist kein Alarm. Kalender ohne Check-in bekommen keine positive Bewertung.
 
 ### Form, Schrift und Abstände
 
@@ -308,28 +309,33 @@ Offene qualitative Validierung: Personen ein selten genutztes Rezept aus 200 Ein
 
 Technische Validierung: 36 Browser-Regressionsprüfungen einschließlich der 200-Rezepte-Fälle, sechs Such-Unit-Tests, Go-Tests und Frontend-Build erfolgreich. Die mobile Auswahl und Sammlung wurden zusätzlich als Screenshots geprüft. Die früher in Abschnitt 10 genannten Browser-/Container-Freigabeblocker sind inzwischen behoben; die native HealthKit-App benötigt weiterhin einen separaten Xcode-/Gerätetest.
 
-## 12. Mehr Farbe als Orientierung, ohne zusätzliche UI-Komplexität
+## 12. Zurückhaltende Farbe und gleichwertige Erfassungsaktionen
 
-Auf Wunsch vom 24.09.2026 erhalten Eingaben und Beobachtungen wieder mehr Farbe. Die indigo-blaue Navigation bleibt bestehen; Grün wird weiterhin nicht verwendet. Die Kategoriezuordnung ist keine medizinische Ampel.
+Das Feedback vom 05.10.2026 korrigiert die frühere, zu stark ausdifferenzierte Farbpalette:
+Farbe soll Orientierung geben, aber nicht jede Eingabeart in eine eigene Farbe kleiden oder
+Alltagsaktionen als unterschiedlich wichtig darstellen. Grün bleibt ausgeschlossen.
 
-| Bereich | Akzent | Anwendung |
+| Semantische Gruppe | Behandlung | Bedeutung |
 | --- | --- | --- |
-| Mahlzeiten & Rezepte | Orange / dunkles Terrakotta | Schnellaktion, Rezeptsuche, Auswahl, Tagebuchmarkierung |
-| Beschwerden | Rosé / dunkles Himbeerrot | Befinden-Formular, Symptomwahl, Beobachtung |
-| Gutes Befinden | Blau | Eigene Schnellaktion, positive Beobachtung, Kalenderlegende |
-| Zeit & Schlaf | Blau | Abgesetzte Eingabefelder, unabhängig vom Formulartyp |
-| Stress & Health | Violett | Erfassung, Messungen und zugehörige Profilfelder |
-| Stuhl | Ocker | Beobachtungsformular und Verlauf |
-| Zyklus | Beerenrosa | Optionaler Profil- und Zykluskontext |
-| Notizen | Schiefergrau | Ruhige, klar getrennte Freitextflächen |
+| Tagebuch-Alltag, Mahlzeit und gutes Befinden | Indigo und sehr helle Indigo-Fläche | Primäre Erfassung; Essen und Befinden haben gleichwertig erreichbare Aktionen |
+| Symptome | Dunkles Rosé auf sehr heller Rosé-Fläche | Eingetragene Beschwerden, kein Warn- oder Diagnoseurteil |
+| Stress, Stuhl, Zyklus, Zeit und Notiz | Neutrales Slate | Freiwilliger Kontext; Unterschiede bleiben in Text und Symbolen erkennbar |
 
-Gemeinsame Tokens und Darstellungsregeln liegen in `web/src/colors.css`; `entry-tones.js` liefert die gleiche Kategorie für Startseite, Tagebuch und Kalender. `EntryPanel` reicht die Farbe ausdrücklich an den teleportalisierten Editor weiter. Neue Formulare nutzen diese Zuordnung statt eigener Farbwerte.
+Die vier Einstiege „Mahlzeit eintragen“, „Befinden“, „Gutes Befinden“ und „Weitere
+Beobachtungen“ teilen im Heute-Bereich dieselbe Höhe, Fläche, Kontur und Rundung. Mahlzeit
+steht zuerst, doch ein kräftig gefüllter Sonderbutton macht sie nicht visuell wichtiger als die
+anderen Alltagseinträge. Weitere Beobachtungen bleiben aufklappbar und gleich gross.
 
-Farbe ergänzt Beschriftung, Symbole, Rahmen und `aria-pressed`; sie ersetzt diese nicht. Fehler und Löschen behalten ihre eigenen roten Warnstile. Gemischte Kalendertage kennzeichnen gute und symptomatische Momente mit beiden Akzenten. Farbflächen direkt in den Eingaben trennen Bereiche, ohne zusätzliche Formularschritte oder vertikale Abstände einzuführen.
+Die semantischen Variablen in `web/src/colors.css` bündeln Essen und gutes Befinden unter
+Indigo, Beschwerden unter Rosé und seltene Kontextfelder unter Slate. Labels und Icons bleiben
+erhalten; Farbe ist nie der einzige Hinweis. Ausgewählte Symptomstufen nutzen eine neutrale
+Darstellung für „Keine“ und dieselbe kontrastreiche Beschwerdefarbe für „Leicht“, „Mittel“ und
+„Stark“ – die Textstufe, nicht eine weitere Ampelfarbe, vermittelt die Stärke.
 
-Feinschliff nach Nutzerfeedback: `data-tone` bleibt eine technische Kategorie, erzeugt aber keine zusätzliche sichtbare Box. Keine dicken seitlichen Farblinien, keine durchgehend farbigen Editor-Rahmen und keine doppelten Auswahlrahmen. Stattdessen helle Eingabeflächen, zurückhaltende 1px-Konturen und 10–14px-Rundungen. Beschriftungen bleiben dunkel; deutliche Akzentfarbe erscheint bei Fokus und Auswahl. Editor- und Profilkarten sind neutral gerahmt, damit Rosé nicht wie ein Formularfehler wirkt. Gute-Befinden-Auswahl und Rezeptzusammenfassung bleiben klar beschriftet.
-
-Validierung: 38 Browserprüfungen bestanden, einschließlich neuer Kontrast-/Axe-Checks in allen fünf Erfassungsansichten und unterscheidbarer Zeit-/Stress-/Notizfelder. Mobile Screenshots wurden überprüft; bestehende Prüfungen für direkt erreichbare Hauptaktionen, reduzierte Bewegung, Druckansicht und 200 Rezepte bleiben erhalten. Dies ersetzt keinen Nutzertest mit Personen mit unterschiedlichen Sehfähigkeiten.
+Die Rezeptbibliothek behält auf schmalen Geräten eine gut bedienbare Spalte, zeigt ab 1024px
+zwei und auf breiten 1440px-Ansichten drei kompaktere Karten nebeneinander. Dadurch werden
+breite horizontale Rezeptboxen vermieden, ohne die Zutaten- und Aktionsbeschriftungen zu
+verstecken.
 
 ## 13. Planmanager-Update: Produktführung vereinfachen und mit Aufgaben prüfen
 
@@ -393,11 +399,14 @@ Lebensmittel speichern und versteht sie, dass fehlende Daten keine Entwarnung si
 keinen Mahlzeitenbezug erzwingen; „Zusammenhang“ und „keine ausreichenden Daten“ klar von
 Ursache/Diagnose unterscheiden.
 
-**Iteration nach allen Runden:** Die erste Vereinfachung entfernt sichtbare Zahlen-/Sterneskalen
-für Symptome und reduziert die Rezeptkartenfläche. Der nächste Walkthrough prüft diese
-Änderungen bei 320px, 390px und Desktop, mit Tastatur und Screenreader. Wenn Begriffe,
-Rückwege oder Datenstatus unklar bleiben, wird der Ablauf vor dem echten Test erneut angepasst.
-Diese Simulation belegt keine Zeitersparnis und keine erfolgreiche Nutzung durch reale Personen.
+**Aktualisierte Iteration:** Symptomstärke wird jetzt als echte 0–5-Sterne-Auswahl erfasst,
+nicht als freies Zahlenfeld und nicht nur durch ein Emoji. Die Symptomart bleibt mit Name und
+passendem Icon sichtbar; fünf Sterne wählen die Stärke, eine eigene 0-Auswahl bedeutet „keine“.
+Die aktuelle Stufe wird zusätzlich ausgeschrieben und ist per Tastatur bedienbar. Der nächste
+Walkthrough prüft diese Änderung bei 320px, 390px und Desktop, mit Tastatur und Screenreader.
+Wenn Begriffe, Rückwege oder Datenstatus unklar bleiben, wird der Ablauf vor dem echten Test
+erneut angepasst. Diese Simulation belegt keine Zeitersparnis und keine erfolgreiche Nutzung
+durch reale Personen.
 
 ### UX-Regeln: tun und vermeiden
 
@@ -407,8 +416,9 @@ Diese Simulation belegt keine Zeitersparnis und keine erfolgreiche Nutzung durch
 - Pro Ansicht eine klare Hauptaktion und einen sichtbaren Rückweg anbieten.
 - Alltagswörter und benannte Zustände verwenden; Symptomstärke als qualitative Wahl,
   Stress als getrennten Kontext kennzeichnen.
-- Symptomart beschriften und das passende Emoji in jede Stufe der Rating-Auswahl integrieren;
-  Stärke zusätzlich durch benannte Stufen und klaren Auswahl-/Fokusrahmen vermitteln.
+- Symptomart mit Name und passendem Icon kennzeichnen; die Stärke selbst mit einer echten
+  Rating-Auswahl aus fünf Sternen plus ausdrücklich auswählbarer 0 erfassen. Stufe, Fokus und
+  Auswahlzustand zusätzlich verständlich beschriften.
 - Optionale Felder als optional markieren und erst bei Bedarf zeigen.
 - Eingegebene Daten bei Fehlern erhalten und Erfolg, Laden sowie Analysefehler voneinander
   unterscheiden.
@@ -418,15 +428,16 @@ Diese Simulation belegt keine Zeitersparnis und keine erfolgreiche Nutzung durch
 
 **Vermeiden**
 
-- Keine sichtbaren 0–10- oder 1–5-Zahlenskalen und keine Sterne für die Symptomstärke.
-  Keine Änderung der separaten Stressmessung mit dieser Regel implizieren.
-- Keine falsche Genauigkeit durch einen Zahlenwert, wenn sich Beschwerden besser als
-  „leicht/mittel/stark“ erinnern lassen.
+- Keine freien 0–10-Eingabefelder für Symptome und kein dekoratives Emoji als Ersatz für eine
+  Rating-Auswahl. Die fünf Sterne sind auswählbare Stärke-Stufen; 0 muss separat erreichbar
+  und als beschwerdefrei beschriftet sein. Stress bleibt eine getrennte Messung.
+- Keine falsche Genauigkeit behaupten: Sterne erfassen die persönliche Einschätzung, keine
+  medizinisch kalibrierte Messung.
 - Keine Pflicht, jede Mahlzeit, jedes Symptom oder jeden Kontext vollständig zu dokumentieren.
 - Keine Ursache, Allergie oder Unverträglichkeit aus einer Korrelation ableiten.
 - Keine Farbcodierung oder Emojis als alleinige Beschriftung verwenden.
-- Das Emoji nicht nur dekorativ neben die Skala setzen; es gehört sichtbar in die auswählbaren
-  Rating-Stufen und ersetzt deren Textbeschriftung nicht.
+- Das Symptom-Emoji nicht als ganze Bewertung oder Dekoration neben einem Zahlenfeld verwenden;
+  Symptomart und Rating müssen gemeinsam sichtbar sein, aber klar verschiedene Aufgaben haben.
 - Keine überbreiten Inhaltskarten, endlosen Listen, verschachtelten Scrollbereiche oder
   unbeschrifteten Aktionen.
 - Keine erfolgreichen Nutzertests, Zeitgewinne oder qualitative Ergebnisse behaupten,
@@ -436,8 +447,10 @@ Diese Simulation belegt keine Zeitersparnis und keine erfolgreiche Nutzung durch
 
 | Prio | Arbeit | Abnahmekriterium | Status |
 | --- | --- | --- | --- |
-| P0 | Symptomstärke in Erfassen, Bearbeiten, Markierung, Tagebuch, Kalender und Bericht vereinheitlichen. | Keine sichtbare Zahl-/Sterneskala; vier klar benannte Stufen; API/Analyse erhalten gültige Werte; bestehende Einträge bleiben lesbar und Speichern/Bearbeiten getestet. | Im Quellcode umgesetzt; Build, Unit-Tests und lesender Laufzeit-Smoke-Test bestanden; vollständige CRUD-/Axe-Suite noch offen. |
-| P0 | Rezeptbibliothek kompakter darstellen. | 12 Einträge pro Seite bleiben; bei 320/390px eine Spalte ohne Überlauf, bei 1440px zwei Spalten; Suche, Aktionen, lange Namen und Screenreader-Beschriftungen bleiben nutzbar. | Im Quellcode umgesetzt; Layout-Smoke-Test bei 390/1440px bestanden; vollständige Browser-/Axe-Prüfung noch offen. |
+| P0 | Symptomstärke in Erfassen, Bearbeiten, Markierung, Tagebuch, Kalender und Bericht vereinheitlichen. | Ein auswählbarer 0–5-Sterne-Status mit sichtbarem Symptomname/Icon, klarer Textstufe, Tastatursteuerung und lesbarer Übernahme bestehender Einträge. | 0–5-Control, Legacy-Mapping, Unit-Tests und Build umgesetzt; aktueller Browser-/Axe-Retest ausstehend. |
+| P0 | Rezeptbibliothek kompakter darstellen. | 12 Einträge pro Seite; bei 320/390px eine Spalte ohne Überlauf, bei 1024px zwei und bei 1440px drei kompakte Spalten; Suche, Aktionen, lange Namen und Screenreader-Beschriftungen bleiben nutzbar. | Im Quellcode umgesetzt; mobile/desktop Layout- und vollständige Browser-/Axe-Prüfung bestanden. |
+| P0 | Gleichwertige Heute-Aktionen und reduzierte Farbpalette. | Mahlzeit, Befinden, Gutes Befinden und Weitere Beobachtungen teilen Grösse und Gestaltung; drei semantische Farbfamilien; Kontrast/Axe bestehen. | Im Quellcode umgesetzt; Computed-Style-, Farbgruppen- und vollständige Axe-Prüfungen bestanden. |
+| P0 | Erststart und erneutes Durchgehen der Profileinrichtung. | Kein vollständiges Profil führt in den dreistufigen Wizard; später fortsetzen; bestehende Profile vorausgefüllt erneut öffnen; Übergänge animiert und reduzierte Bewegung respektiert. | Im Quellcode umgesetzt; Erststart, späterer Wiedereinstieg, Profiländerung, Schritt-Fokus, reduzierte Bewegung und mobile Axe-Prüfungen bestanden. |
 | P1 | Zutateneditor verdichten und Allergenauswahl für Mobilgeräte neu ordnen. | Alle Zutatennamen bleiben in der Liste sichtbar; Zuordnung/Allergene überlappen nicht; Import- und manuelle Zutaten bleiben änderbar. | Backlog; als nächste UI-Änderung. |
 | P1 | Tagebuch-Hauptschleife mit fünf moderierten Personen prüfen. | Aufgaben: wiederholtes Rezept erfassen, neues Essen protokollieren, Beschwerden mit Verzögerung eintragen, Kontext ohne Mahlzeitenbezug ergänzen, Muster vorsichtig erklären. | Studienplan vorhanden; Personen noch nicht rekrutiert/getestet. |
 | P2 | Erkenntnisse aus echten Sitzungen priorisieren und zweite Iteration prüfen. | Ergebnisse enthalten Erfolgsquote, Zeit, Fehlbedienungen, Rücksprünge, Missverständnisse, Zitat nur mit Einwilligung sowie konkrete Änderung und Retest. | Nach der ersten echten Testrunde. |
@@ -464,10 +477,17 @@ bestehenden internen Datenbereich abgebildet, damit keine Backend-Migration erfo
 Das ist ein Kompatibilitätsdetail, keine Zahlenskala in der Bedienoberfläche. Stresswerte aus
 manueller Eingabe oder Health-Anbietern bleiben eine getrennte Funktion.
 
-Frontend-Build, acht Unit-Tests und `go test ./...` bestanden. Der App-Container wurde mit
-`docker-compose up -d --build app` neu gebaut; `/health` meldete App und Datenbank als bereit.
-Ein lesender Browser-Smoke-Test am laufenden Container bestätigte die vier qualitativen
-Symptomstufen, keinen horizontalen Überlauf bei 390px und Rezeptkarten in einer Spalte bei 390px
-bzw. zwei Spalten bei 1440px. Die vollständige Playwright-/Axe-Regression wurde bewusst nicht
-gegen das persönliche Tagebuch ausgeführt; sie benötigt die separat dokumentierte `ux_tests`-
-Datenbank. Kein Ergebnis dieses Updates ersetzt den geplanten Test mit Personen.
+Frontend-Build, acht Unit-Tests und `go test ./...` bestanden. Alle 43 Playwright-Tests liefen gegen die isolierte
+SurrealDB-Datenbank `ux_tests` und bestanden. Die Suite prüft acht Hauptansichten bei
+320/390/768/1440px, Axe/WCAG-A, Tastatur und Fokus, Fehlererhalt, reduzierte Bewegung,
+Tagebuch-CRUD, 200 Rezepte, die Aktionsgestaltung/Rezeptdichte und das Onboarding mit fehlendem
+Profil, späterem Wiedereinstieg und Profil-Assistent. Im ersten Lauf wurden drei Testabläufe
+entdeckt, die nach Auswahl eines Symptoms keine Stärke gesetzt hatten, sowie ein widersprüchlicher
+gespeicherter Erwartungswert; die Tests wurden korrigiert und der Farbkontrast verbessert.
+Danach bestanden 42/42, mit dem ergänzten Onboarding 43/43 Playwright-Tests. Die abschliessenden
+Fokus- und Reduced-Motion-Prüfungen liefen erneut in den drei Profil-Tests und bestanden.
+`main` wurde von der Suite nicht verwendet. Anschliessend wurde nur der normale App-Service neu gebaut; `/health`
+bestätigte App und Datenbank als bereit. Am 2026-10-05 wurde die Sterneskala auf Wunsch neu
+festgelegt: zwölf Frontend-Unit-Tests, Go-Tests und Produktionsbuild bestehen; Playwright/Axe
+wurden in dieser Umgebung nicht erneut ausgeführt, da Docker und der isolierte Testserver fehlen.
+Keine dieser technischen Prüfungen ersetzt den geplanten Test mit echten Personen.

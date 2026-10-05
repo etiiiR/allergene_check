@@ -2,6 +2,102 @@ import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 const headers = { "X-Diary-Request": "1" };
 
+test("a missing profile opens the setup wizard, while setup can be deferred and resumed", async ({
+  page,
+  request,
+}) => {
+  const original = await (await request.get("/api/diary")).json();
+  try {
+    const reset = {
+      ...original.profile,
+      display_name: "",
+      onboarding_completed: false,
+    };
+    expect(
+      (await request.put("/api/profile", { headers, data: reset })).ok(),
+    ).toBeTruthy();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/onboarding$/);
+    await expect(
+      page.getByRole("heading", { name: "Einfach starten" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Für wen ist das Tagebuch?" }),
+    ).toBeFocused();
+    await expect(page.getByRole("progressbar")).toHaveAttribute(
+      "aria-valuetext",
+      "Schritt 1 von 3",
+    );
+    expect(
+      await page
+        .locator(".setup-progress > span")
+        .evaluate((el) => getComputedStyle(el).transitionDuration),
+    ).toBe("0.24s");
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    expect(
+      await page
+        .locator(".setup-progress > span")
+        .evaluate((el) => getComputedStyle(el).transitionDuration),
+    ).toBe("0s");
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+
+    await page.getByRole("link", { name: "Später einrichten" }).click();
+    await expect(page).toHaveURL(/\/?setup=later$/);
+    await expect(page.locator(".setup-nudge")).toBeVisible();
+    await page.locator(".setup-nudge").click();
+    await expect(page).toHaveURL(/\/onboarding$/);
+  } finally {
+    expect(
+      (
+        await request.put("/api/profile", { headers, data: original.profile })
+      ).ok(),
+    ).toBeTruthy();
+  }
+});
+
+test("setup suggests an editable pseudonym without requiring a real name", async ({
+  page,
+  request,
+}) => {
+  const original = await (await request.get("/api/diary")).json();
+  try {
+    expect(
+      (
+        await request.put("/api/profile", {
+          headers,
+          data: {
+            ...original.profile,
+            display_name: "",
+            onboarding_completed: false,
+          },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    await page.goto("/onboarding");
+    const name = page.getByLabel("Pseudonym");
+    const first = await name.inputValue();
+    expect(first).toMatch(/\d{2}$/u);
+    await page
+      .getByRole("button", { name: "Neues Pseudonym erstellen" })
+      .click();
+    await expect(name).not.toHaveValue(first);
+    await expect(
+      page.getByText("Du brauchst keinen echten Namen.", { exact: false }),
+    ).toBeVisible();
+  } finally {
+    expect(
+      (
+        await request.put("/api/profile", {
+          headers,
+          data: original.profile,
+        })
+      ).ok(),
+    ).toBeTruthy();
+  }
+});
+
 test("guided setup persists a named person, preserves diary records and survives a new browser context", async ({
   page,
   request,
@@ -11,8 +107,11 @@ test("guided setup persists a named person, preserves diary records and survives
   try {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/onboarding");
-    await page.getByLabel("Name der Person").fill("  Testperson Léa  ");
+    await page.getByLabel("Pseudonym").fill("  Testperson Léa  ");
     await page.getByRole("button", { name: "Weiter", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Was sollen wir berücksichtigen?" }),
+    ).toBeFocused();
     await page.getByLabel("Körperkontext").selectOption("female");
     await page.getByLabel("Zyklus berücksichtigen").check();
     expect(
@@ -68,16 +167,24 @@ test("guided setup persists a named person, preserves diary records and survives
     try {
       const freshPage = await context.newPage();
       await freshPage.goto(new URL("/profile", page.url()).href);
-      await expect(freshPage.getByLabel("Name der Person")).toHaveValue(
+      await expect(freshPage.getByLabel("Pseudonym")).toHaveValue(
         "Testperson Léa",
       );
-      await freshPage.getByLabel("Name der Person").fill("Testperson Alex");
+      await freshPage.getByLabel("Pseudonym").fill("Testperson Alex");
       await freshPage.getByRole("button", { name: "Profil speichern" }).click();
       await expect(
         freshPage.locator(".profile-settings [role=status]"),
       ).toContainText("Profil gespeichert");
       await freshPage.reload();
-      await expect(freshPage.getByLabel("Name der Person")).toHaveValue(
+      await expect(freshPage.getByLabel("Pseudonym")).toHaveValue(
+        "Testperson Alex",
+      );
+      await freshPage.goto(new URL("/profile", page.url()).href);
+      await freshPage
+        .getByRole("link", { name: "Profil-Assistent öffnen" })
+        .click();
+      await expect(freshPage).toHaveURL(/\/onboarding\?edit=1$/);
+      await expect(freshPage.getByLabel("Pseudonym")).toHaveValue(
         "Testperson Alex",
       );
       await freshPage.goto(new URL("/report", page.url()).href);

@@ -16,6 +16,7 @@ import AppShell from "../components/AppShell.vue";
 import { api } from "../lib";
 import { notify } from "../ui/feedback";
 import { nativeHealthAvailable, syncAppleHealth } from "../ui/health";
+import { generatePseudonym } from "../privacy/pseudonym";
 
 const props = defineProps({ diary: Object });
 const stored = props.diary?.profile || {};
@@ -172,25 +173,34 @@ async function importHealth() {
       >
         <div class="section-heading">
           <h2>Deine Person</h2>
-          <Link
-            v-if="!stored.onboarding_completed"
-            href="/onboarding"
-            class="text-button"
-            >Geführt einrichten</Link
-          >
+          <Link href="/onboarding?edit=1" class="text-button">{{
+            stored.onboarding_completed
+              ? "Profil-Assistent öffnen"
+              : "Geführt einrichten"
+          }}</Link>
         </div>
         <label
-          >Name der Person<input
+          >Pseudonym<input
             class="d-input"
             v-model="form.display_name"
             maxlength="80"
-            autocomplete="given-name"
+            autocomplete="nickname"
             :required="Boolean(form.onboarding_completed)"
             @input="saved = false"
         /></label>
+        <UiButton
+          type="button"
+          class="text-button"
+          @click="
+            form.display_name = generatePseudonym();
+            saved = false;
+          "
+          >Neues Pseudonym erstellen</UiButton
+        >
         <p class="helper">
-          Vorname oder Spitzname. Ein Profil für alle Einträge in diesem
-          Tagebuch; keine Anmeldung oder getrennten Benutzerkonten.
+          Verwende am besten keinen echten Namen. Das Pseudonym ist nur ein
+          Anzeigename, keine Verschlüsselung oder Zugriffssperre. Ein Profil für
+          dieses Tagebuch; derzeit gibt es keine getrennten Konten.
         </p>
       </section>
       <section

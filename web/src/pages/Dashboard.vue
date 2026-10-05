@@ -112,7 +112,7 @@ function closeEntry() {
         ><ArrowRight :size="18" />
       </Link>
       <section class="compact-capture" aria-label="Schnell erfassen">
-        <UiButton variant="primary" data-tone="meal" @click="openMeal()"
+        <UiButton variant="secondary" data-tone="meal" @click="openMeal()"
           ><Utensils :size="20" /><span>Mahlzeit eintragen</span></UiButton
         >
         <UiButton

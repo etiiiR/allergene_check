@@ -2,29 +2,36 @@
    compact capture into a longer form. No green; color never replaces text. */
 :root {
   --canvas: #f7f7fc;
-  --meal-ink: #9a3412;
-  --meal-soft: #fff4eb;
-  --meal-line: #f2d7c4;
+  --brand-ink: #4338ca;
+  --brand-soft: #eef2ff;
+  --brand-line: #c7d2fe;
+  --neutral-ink: #475569;
+  --neutral-soft: #f1f5f9;
+  --neutral-line: #cbd5e1;
+  --meal-ink: var(--brand-ink);
+  --meal-soft: var(--brand-soft);
+  --meal-line: var(--brand-line);
   --symptom-ink: #9f1239;
   --symptom-soft: #fff1f5;
   --symptom-line: #efd0da;
-  --well-ink: #1d4ed8;
-  --well-soft: #eff6ff;
-  --well-line: #cbdcf4;
-  --stress-ink: #6d28d9;
-  --stress-soft: #f5f0ff;
-  --stress-line: #dcd2f2;
-  --stool-ink: #854d0e;
-  --stool-soft: #fff8e5;
-  --stool-line: #eadcae;
-  --cycle-ink: #9d174d;
-  --cycle-soft: #fdf2f8;
-  --cycle-line: #eed1df;
+  --well-ink: var(--brand-ink);
+  --well-soft: var(--brand-soft);
+  --well-line: var(--brand-line);
+  --stress-ink: var(--neutral-ink);
+  --stress-soft: var(--neutral-soft);
+  --stress-line: var(--neutral-line);
+  --stool-ink: var(--neutral-ink);
+  --stool-soft: var(--neutral-soft);
+  --stool-line: var(--neutral-line);
+  --cycle-ink: var(--neutral-ink);
+  --cycle-soft: var(--neutral-soft);
+  --cycle-line: var(--neutral-line);
   --tone-ink: #4338ca;
   --tone-soft: #eef2ff;
   --tone-line: #a5b4fc;
 }
-[data-tone="meal"] {
+[data-tone="meal"],
+[data-tone="well"] {
   --tone-ink: var(--meal-ink);
   --tone-soft: var(--meal-soft);
   --tone-line: var(--meal-line);
@@ -34,31 +41,19 @@
   --tone-soft: var(--symptom-soft);
   --tone-line: var(--symptom-line);
 }
-[data-tone="well"],
-[data-tone="time"] {
-  --tone-ink: var(--well-ink);
-  --tone-soft: var(--well-soft);
-  --tone-line: var(--well-line);
-}
-[data-tone="stress"] {
+[data-tone="stress"],
+[data-tone="stool"],
+[data-tone="cycle"],
+[data-tone="time"],
+[data-tone="neutral"] {
   --tone-ink: var(--stress-ink);
   --tone-soft: var(--stress-soft);
   --tone-line: var(--stress-line);
 }
-[data-tone="stool"] {
-  --tone-ink: var(--stool-ink);
-  --tone-soft: var(--stool-soft);
-  --tone-line: var(--stool-line);
-}
-[data-tone="cycle"] {
-  --tone-ink: var(--cycle-ink);
-  --tone-soft: var(--cycle-soft);
-  --tone-line: var(--cycle-line);
-}
 [data-tone="neutral"] {
-  --tone-ink: #475569;
-  --tone-soft: #f1f5f9;
-  --tone-line: #cbd5e1;
+  --tone-ink: var(--neutral-ink);
+  --tone-soft: var(--neutral-soft);
+  --tone-line: var(--neutral-line);
 }
 [data-tone] {
   --accent: var(--tone-ink);
@@ -77,16 +72,28 @@ button.primary[data-tone] {
   box-shadow: none;
   border-radius: 12px;
 }
-.compact-capture > .d-btn-primary[data-tone],
-button.primary[data-tone] {
-  background: var(--tone-ink);
-  color: #fff;
+.compact-capture > button[data-tone] {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+  border-color: var(--brand-line);
+  font-weight: 600;
 }
 .compact-more summary {
-  background: #f0edff;
-  color: #5b21b6;
-  border-color: #ddd6fe;
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+  border-color: var(--brand-line);
   border-radius: 12px;
+  font-weight: 600;
+}
+.compact-capture > button[data-tone]:hover,
+.compact-more summary:hover {
+  background: #e0e7ff;
+  border-color: var(--brand-ink);
+}
+.compact-capture > button[data-tone]:focus-visible,
+.compact-more summary:focus-visible {
+  outline: 3px solid var(--brand-ink);
+  outline-offset: 2px;
 }
 .repeat-chip[data-tone]:hover,
 button[data-tone]:not(:disabled):hover {
@@ -161,14 +168,14 @@ button[data-tone]:not(:disabled):hover {
 }
 :is(.entry-workspace, .profile-settings)
   label:has(input[type="date"], input[type="datetime-local"]) {
-  --tone-ink: var(--well-ink);
-  --tone-soft: var(--well-soft);
-  --tone-line: var(--well-line);
+  --tone-ink: var(--neutral-ink);
+  --tone-soft: var(--neutral-soft);
+  --tone-line: var(--neutral-line);
 }
 :is(.entry-workspace, .profile-settings) label:has(textarea) {
-  --tone-ink: #475569;
-  --tone-soft: #f1f5f9;
-  --tone-line: #cbd5e1;
+  --tone-ink: var(--neutral-ink);
+  --tone-soft: var(--neutral-soft);
+  --tone-line: var(--neutral-line);
 }
 :is(.entry-workspace, .profile-settings) label :is(input, select, textarea) {
   border-color: var(--tone-line);

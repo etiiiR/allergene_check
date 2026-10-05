@@ -128,6 +128,8 @@ test("inline editor retains failed inputs, re-enables saving, and restores focus
   await expect(heading).toBeFocused();
   await expect(page.locator("dialog, [aria-modal=true]")).toHaveCount(0);
   await page.getByRole("button", { name: "Blähungen", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Weiter", exact: true })).toBeDisabled();
+  await page.getByRole("radio", { name: "Blähungen: Leicht" }).click();
   await page.getByRole("button", { name: "Weiter", exact: true }).click();
   await page.getByRole("button", { name: "Später 2–6 h", exact: true }).click();
   await page
@@ -213,6 +215,7 @@ test("daily overview and both symptom steps keep primary actions above mobile na
   await aboveNavigation(page.locator(".home-footer"));
   await page.getByRole("button", { name: "Befinden", exact: true }).click();
   await page.getByRole("button", { name: "Blähungen", exact: true }).click();
+  await page.getByRole("radio", { name: "Blähungen: Leicht" }).click();
   await aboveNavigation(
     page.getByRole("button", { name: "Weiter", exact: true }),
   );

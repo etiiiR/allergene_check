@@ -36,6 +36,7 @@ func registerWeb(app *fiber.App, repo *DiaryRepository) {
 	app.Static("/assets", "./web/dist/assets")
 	pages := map[string]string{"/": "Dashboard", "/onboarding": "Onboarding", "/diary": "Diary", "/recipes": "Recipes", "/insights": "Insights", "/report": "Report", "/calendar": "Calendar", "/foods": "Foods", "/profile": "Profile"}
 	for path, component := range pages {
+		path, component := path, component
 		app.Get(path, adaptor.HTTPHandler(manager.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Cache-Control", "no-store")
 			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
@@ -44,6 +45,14 @@ func registerWeb(app *fiber.App, repo *DiaryRepository) {
 			var loadError string
 			if err != nil {
 				loadError = "Das Tagebuch konnte nicht geladen werden. Bitte prüfe die Datenbank und lade die Seite erneut."
+			}
+			// A new or reset personal profile starts with the setup wizard. The
+			// explicit skip URL keeps the diary usable if someone chooses to
+			// finish setup later. Other routes, including historical entries,
+			// remain available while the profile is incomplete.
+			if err == nil && path == "/" && !data.Profile.OnboardingCompleted && r.URL.Query().Get("setup") != "later" {
+				http.Redirect(w, r, "/onboarding", http.StatusSeeOther)
+				return
 			}
 			props := map[string]any{"diary": data, "foods": foods, "symptoms": symptomNames, "allergens": allergenNames, "loadError": loadError}
 			if err := manager.Render(w, r, component, inertia.Props(props)); err != nil {

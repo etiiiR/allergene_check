@@ -6,7 +6,7 @@ A German-language personal food diary built with Go Fiber, the [Gonertia Go adap
 
 - Save and edit recipes; paste ingredient lines for NLTK recognition, then confirm food mappings and allergens.
 - Log a recipe as a timestamped meal with portions and notes. Every meal retains a snapshot of the recipe's ingredients.
-- Record six symptom types on a 0–10 scale, stress, sleep, or an explicit symptom-free check-in. Add multiple moments on the same day and optionally describe when symptoms started after a meal.
+- Record six symptom types with a 0–5 star-style scale (kept in the existing 0–10 analysis format), stress, sleep, or an explicit symptom-free check-in. Add multiple moments on the same day and optionally describe when symptoms started after a meal.
 - Filter the diary by date, symptom, or symptom-free entries and sort by severity.
 - Compare ingredient, spice, and confirmed-allergen associations across observed moments. Open a recipe's personal comparison before choosing what to cook.
 - Browse 27 general food references and 10 unclassified spices/herbs. English and German aliases are supported; this is a small curated vocabulary, not unrestricted recipe understanding.
@@ -53,10 +53,12 @@ Unknown or ambiguous names stay reviewable; no LLM, external API or model downlo
 See [INGREDIENT_NORMALIZATION.md](INGREDIENT_NORMALIZATION.md) for the researched alternatives,
 mapping rules, safety boundaries and shared Go/Python regression corpus.
 
-Use **Person anlegen** on Today, or open `/onboarding`, to save one named personal profile in
-three short steps. Name and setup completion persist in SurrealDB alongside cycle settings;
-existing diary records are not changed. `/profile` separates Person, Body/Cycle, and Health.
-This is one shared local diary, not authentication or separate user accounts.
+Use **Person anlegen** on Today, or open `/onboarding`, to save one personal profile in
+three short steps. It suggests a pseudonym; no real name is needed. The pseudonym is a display
+label only and does not encrypt or lock the diary. Profile and setup completion persist in
+SurrealDB alongside cycle settings; existing diary records are not changed. `/profile` separates
+Person, Body/Cycle, and Health. This is one shared local diary, not authentication or separate
+user accounts.
 
 Today shows quick actions, two recipe shortcuts and the three newest entries. The complete
 history stays in the diary. Symptom logging uses two steps; good moments and meals stay short.
