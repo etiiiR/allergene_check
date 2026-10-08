@@ -29,6 +29,7 @@ sowie die Formulare für Mahlzeiten, Befinden, Stress, Stuhl, Rezepte und persö
 
 - Häufige Einträge mit wenigen Entscheidungen ermöglichen.
 - Auf jeder Seite die nächste Aktion erkennbar machen.
+- Auf dem Smartphone nur die aktive Inertia-Seite im ersten JavaScript-Bundle laden.
 - Eine Mahlzeit oder einen guten Moment bei vorhandenem Rezept in ungefähr zehn Sekunden erfassen können.
 - Bei Fehlern Eingaben erhalten und einen erneuten Versuch ermöglichen.
 - Fehlende Dokumentation niemals als Symptomfreiheit interpretieren.
@@ -198,6 +199,10 @@ Datenbasis und Modellgrenzen stehen am Anfang. Zuerst werden maximal drei Muster
 weitere sind auf ausdrückliche Auswahl zugänglich. Stress und mögliche weitere Einflüsse bleiben sichtbar.
 Timing, Zyklus, Stuhl und Health-Details sind unter Weitere Zusammenhänge gruppiert.
 Vergleichszahlen und methodische Grenzen bleiben erhalten.
+Optionale Stress- und Schlafwerte starten leer; es werden keine Standardwerte still gespeichert.
+Ältere, nicht bestätigte Kontextwerte zählen erst nach Prüfung im Editor zur Auswertung.
+Mehrfaktorenmodelle verwenden optionale Kontextdaten nur bei ausreichender Zahl verschiedener,
+ausdrücklich dokumentierter Werte.
 
 ### Profil, FODMAP und Bericht
 
@@ -257,6 +262,7 @@ Keine individuellen Farbwerte in neue Seiten kopieren. Varianten und gemeinsame 
 - [x] Axe-Prüfung der Seiten und des fehlerhaften Befinden-Editors abschliessen.
 - [x] Druckansicht prüfen.
 - [x] Testdatenbereinigung in isolierter Datenbank prüfen.
+- [x] Seitenbündel pro Inertia-Route laden; CI begrenzt die Startseite samt statischen Abhängigkeiten auf 450 KiB raw / 155 KiB gzip.
 
 Prüfergebnis am 23. September 2026: `npm run build`, `go test ./...` und alle 19
 Playwright-Tests der ersten Überarbeitung bestanden. Die Browserprüfung lief gegen eine separate lokale Datenbank,
@@ -270,6 +276,13 @@ Zusätzlich geprüft: Fokus-Rückkehr, Wechsel von gutem Befinden zu Beschwerden
 eines Editors über die Navigation und Reduced Motion. Die Druckansicht wurde im Browser
 mit Print-Media und visuell geprüft; ein physischer Drucktest wurde nicht durchgeführt.
 Automatisierte Checks ersetzen keine vollständige Accessibility-Prüfung mit Assistenztechnik.
+
+Die Routen werden inzwischen dynamisch geladen, sodass nicht alle Seiten und deren Symbole beim
+Start geladen werden. Produktionsbuild am 08.10.2026: `app.js` 310.45 kB raw / 108.24 kB gzip
+(vorher 504.89 kB raw / 164.98 kB gzip). Die Startseite lädt zusätzlich gemeinsame Komponenten;
+der gesamte statische JavaScript-Ladepfad beträgt 413.55 kB raw / 142.95 kB gzip. Vite meldet
+keinen Chunk-Size-Warnhinweis mehr. CI begrenzt diesen vollständigen Startpfad. Echte
+Geräte-/Netzwerk-Labormessungen bleiben offen.
 
 ## 10. Spätere Validierung
 
@@ -366,7 +379,7 @@ Zusammenfassung bleibt ein Hinweis und keine Diagnose.
 
 | Priorität | Codebefund | Risiko für die Person | Richtung |
 | --- | --- | --- | --- |
-| P0 | Symptomstärken wurden in bestehenden Check-ins als 0–10-Zahlen bearbeitet; die Analyse nutzt weiter den historischen Zahlenvertrag. | Eine sichtbare Zahlen- oder Sterneskala macht „keine“ und Stärke uneinheitlich und kann mehr Genauigkeit vermitteln, als die eigene Erinnerung hergibt. | Für jedes Symptom die verständlichen Stufen „Keine / Leicht / Mittel / Stark“ anbieten; keine Sterne und keine Zahlen im Formular oder in der Tagebuchzusammenfassung. Die ältere API-Skala nur intern weiterverwenden. |
+| P0 | Symptomstärken wurden in bestehenden Check-ins als 0–10-Zahlen bearbeitet; die Analyse nutzt weiter den historischen Zahlenvertrag. | Ein freies Zahlenfeld ist mühsam und suggeriert eine Genauigkeit, die die eigene Erinnerung nicht immer hergibt. | Pro Symptom eine zusammenhängende 0–5-Sterne-Auswahl mit passendem Symptomnamen und Icon; 0 bedeutet „Keine“. Die gewählte Stufe zusätzlich ausschreiben und per Tastatur bedienbar machen. Keine freie 0–10-Eingabe. |
 | P0 | Die Rezeptbibliothek zeigt eine einspaltige, über die ganze Inhaltsbreite laufende Kartenliste. | Auf breiten Bildschirmen entstehen breite Inhaltsbänder und wenig Überblick; Personen müssen vertikal viele Karten absuchen. | Karteninhalt kompakter setzen, auf breiten Desktop-Ansichten zwei Spalten nutzen und auf Mobilgeräten bei einer lesbaren Spalte bleiben. Suche, Zutatenhinweis und primäre Aktion sichtbar halten. |
 | P1 | Der Rezepteditor kann pro Zutat Zuordnung, Vorschläge und Allergene zeigen. | Viele Zutaten vergrössern den Editor stark; native Mehrfachauswahl kann auf schmalen Geräten unleserlich werden. | Vollständige Zutatenliste mit kompakten Zeilen; seltene Detailfelder inline bei Bedarf öffnen. Allergene als umfließende, beschriftete Auswahl statt horizontal gequetschter Mehrfachauswahl. |
 | P1 | Die App bündelt Tagebuch, Rezeptcrawler, ML-Auswertung und optionale Gesundheitskontexte. | Neue Personen können nicht sofort erkennen, was sie täglich tun müssen und was nur Zusatz ist. | Pro Seite eine nächste Hauptaktion, übrige Funktionen klar nachgeordnet; optionale Kontexte nicht als Pflicht oder Voraussetzung formulieren. |
@@ -383,13 +396,13 @@ gemessen; Rezeptwahl und Formularerhalt bleiben als reale Testaufgaben offen.
 
 **Runde 2 – zeitversetzte Beschwerden.** Modellperson: bemerkt Blähungen mehrere Stunden
 nach dem Essen und ist sich bei der Ursache nicht sicher. Walkthrough: Befinden → Symptom
-und qualitative Stärke → Zeitpunkt/Abstand → Mahlzeit auswählen oder ausdrücklich offenlassen
-→ speichern. Vermutete Hürde: eine Zahlen- oder Sterneskala muss erst gelernt werden und wirkt
-präziser, als die eigene Erinnerung ist. Änderung: „Keine / Leicht / Mittel / Stark“ als
-vierstufige Rating-Auswahl, in deren jeder Stufe das passende Symptom-Emoji direkt sichtbar
-und auswählbar ist; Zeit- und Mahlzeitangabe bleiben getrennte, verständliche
-Fragen. Die separate Stress-Skala ist Kontext und keine Symptomstärke. Echte Verständlichkeit
-ist noch zu prüfen.
+und Stärke → Zeitpunkt/Abstand → Mahlzeit auswählen oder ausdrücklich offenlassen → speichern.
+Die erste Hypothese war eine vierstufige qualitative Auswahl. Sie wurde nach der konkreten
+Nutzerpräferenz verworfen: Die aktuelle Richtung ist eine zusammenhängende 0–5-Sterne-Auswahl
+mit Symptomname und passendem Icon, wobei 0 „Keine“ bedeutet und die aktuelle Stufe zusätzlich
+ausgeschrieben wird. Es gibt kein freies 0–10-Eingabefeld. Zeitpunkt und Mahlzeitenbezug bleiben
+getrennte Fragen; die separate Stressangabe ist Kontext und keine Symptomstärke. Echte
+Verständlichkeit und Bedienbarkeit sind noch zu prüfen.
 
 **Runde 3 – kein klarer Essensbezug.** Modellperson: hat Beschwerden, kann sie aber keinem
 Rezept zuordnen; Stress oder andere Umstände könnten ebenfalls eine Rolle spielen. Walkthrough:
@@ -399,7 +412,7 @@ Lebensmittel speichern und versteht sie, dass fehlende Daten keine Entwarnung si
 keinen Mahlzeitenbezug erzwingen; „Zusammenhang“ und „keine ausreichenden Daten“ klar von
 Ursache/Diagnose unterscheiden.
 
-**Aktualisierte Iteration:** Symptomstärke wird jetzt als echte 0–5-Sterne-Auswahl erfasst,
+**Aktualisierte Iteration:** Symptomstärke wird als echte 0–5-Sterne-Auswahl erfasst,
 nicht als freies Zahlenfeld und nicht nur durch ein Emoji. Die Symptomart bleibt mit Name und
 passendem Icon sichtbar; fünf Sterne wählen die Stärke, eine eigene 0-Auswahl bedeutet „keine“.
 Die aktuelle Stufe wird zusätzlich ausgeschrieben und ist per Tastatur bedienbar. Der nächste
@@ -451,7 +464,7 @@ durch reale Personen.
 | P0 | Rezeptbibliothek kompakter darstellen. | 12 Einträge pro Seite; bei 320/390px eine Spalte ohne Überlauf, bei 1024px zwei und bei 1440px drei kompakte Spalten; Suche, Aktionen, lange Namen und Screenreader-Beschriftungen bleiben nutzbar. | Im Quellcode umgesetzt; mobile/desktop Layout- und vollständige Browser-/Axe-Prüfung bestanden. |
 | P0 | Gleichwertige Heute-Aktionen und reduzierte Farbpalette. | Mahlzeit, Befinden, Gutes Befinden und Weitere Beobachtungen teilen Grösse und Gestaltung; drei semantische Farbfamilien; Kontrast/Axe bestehen. | Im Quellcode umgesetzt; Computed-Style-, Farbgruppen- und vollständige Axe-Prüfungen bestanden. |
 | P0 | Erststart und erneutes Durchgehen der Profileinrichtung. | Kein vollständiges Profil führt in den dreistufigen Wizard; später fortsetzen; bestehende Profile vorausgefüllt erneut öffnen; Übergänge animiert und reduzierte Bewegung respektiert. | Im Quellcode umgesetzt; Erststart, späterer Wiedereinstieg, Profiländerung, Schritt-Fokus, reduzierte Bewegung und mobile Axe-Prüfungen bestanden. |
-| P1 | Zutateneditor verdichten und Allergenauswahl für Mobilgeräte neu ordnen. | Alle Zutatennamen bleiben in der Liste sichtbar; Zuordnung/Allergene überlappen nicht; Import- und manuelle Zutaten bleiben änderbar. | Backlog; als nächste UI-Änderung. |
+| P1 | Zutateneditor verdichten und Allergenauswahl für Mobilgeräte neu ordnen. | Alle Zutatennamen bleiben in der Liste sichtbar; Zuordnung/Allergene überlappen nicht; Import- und manuelle Zutaten bleiben änderbar. | Kompakte Zeilen und aufklappbare Zuordnung/Allergen-Checkboxen umgesetzt; Unit-Test, Build und E2E-Testfall-Erkennung bestanden. Echter mobiler Browserlauf steht noch aus. |
 | P1 | Tagebuch-Hauptschleife mit fünf moderierten Personen prüfen. | Aufgaben: wiederholtes Rezept erfassen, neues Essen protokollieren, Beschwerden mit Verzögerung eintragen, Kontext ohne Mahlzeitenbezug ergänzen, Muster vorsichtig erklären. | Studienplan vorhanden; Personen noch nicht rekrutiert/getestet. |
 | P2 | Erkenntnisse aus echten Sitzungen priorisieren und zweite Iteration prüfen. | Ergebnisse enthalten Erfolgsquote, Zeit, Fehlbedienungen, Rücksprünge, Missverständnisse, Zitat nur mit Einwilligung sowie konkrete Änderung und Retest. | Nach der ersten echten Testrunde. |
 
@@ -486,8 +499,8 @@ entdeckt, die nach Auswahl eines Symptoms keine Stärke gesetzt hatten, sowie ei
 gespeicherter Erwartungswert; die Tests wurden korrigiert und der Farbkontrast verbessert.
 Danach bestanden 42/42, mit dem ergänzten Onboarding 43/43 Playwright-Tests. Die abschliessenden
 Fokus- und Reduced-Motion-Prüfungen liefen erneut in den drei Profil-Tests und bestanden.
-`main` wurde von der Suite nicht verwendet. Anschliessend wurde nur der normale App-Service neu gebaut; `/health`
-bestätigte App und Datenbank als bereit. Am 2026-10-05 wurde die Sterneskala auf Wunsch neu
-festgelegt: zwölf Frontend-Unit-Tests, Go-Tests und Produktionsbuild bestehen; Playwright/Axe
-wurden in dieser Umgebung nicht erneut ausgeführt, da Docker und der isolierte Testserver fehlen.
-Keine dieser technischen Prüfungen ersetzt den geplanten Test mit echten Personen.
+`main` wurde von den Browser-Suiten nicht verwendet. Am 2026-10-05 wurde die Sterneskala auf
+Wunsch neu festgelegt: zwölf Frontend-Unit-Tests, Go-Tests und Produktionsbuild bestehen. Ein
+erster vollständiger 44-Test-Lauf hatte zwei Timeouts unter Gesamtlast; beide Tests bestanden
+einzeln, danach bestand der vollständige isolierte Lauf erneut mit 44/44 in 1,1 Minuten. Keine
+dieser technischen Prüfungen ersetzt den geplanten Test mit echten Personen.

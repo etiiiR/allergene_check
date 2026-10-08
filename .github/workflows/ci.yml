@@ -1,0 +1,248 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go tests and static checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: 1.27.1
+          cache-dependency-path: go.sum
+      - run: go test -race ./...
+      - run: go vet ./...
+
+  web:
+    name: Web unit tests and production build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24.21.0
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --prefix web
+      - run: npm --prefix web run test:unit
+      - run: npm --prefix web run build
+      - name: Enforce initial-route JavaScript budget
+        working-directory: web
+        run: |
+          node --input-type=module -e '
+            import { readFileSync, statSync } from "node:fs";
+            import { gzipSync } from "node:zlib";
+            import { join } from "node:path";
+            const manifest = JSON.parse(readFileSync("dist/.vite/manifest.json", "utf8"));
+            const loaded = new Set();
+            function includeStaticImports(key) {
+              const item = manifest[key];
+              if (!item || loaded.has(key)) return;
+              loaded.add(key);
+              for (const imported of item.imports || []) includeStaticImports(imported);
+            }
+            const entry = manifest["src/main.js"];
+            if (!entry?.isEntry || !entry.dynamicImports?.includes("src/pages/Dashboard.vue")) {
+              throw new Error("The entry or lazy-loaded dashboard is missing from the Vite manifest.");
+            }
+            includeStaticImports("src/main.js");
+            includeStaticImports("src/pages/Dashboard.vue");
+            const files = [...loaded].map(key => manifest[key].file).filter(file => file.endsWith(".js"));
+            const rawBytes = files.reduce((sum, file) => sum + statSync(join("dist", file)).size, 0);
+            const gzipBytes = files.reduce((sum, file) => sum + gzipSync(readFileSync(join("dist", file))).length, 0);
+            console.log(`Initial route JavaScript (${files.length} files): ${rawBytes} bytes raw, ${gzipBytes} bytes gzip`);
+            if (rawBytes > 450 * 1024 || gzipBytes > 155 * 1024) {
+              throw new Error("Initial route JavaScript exceeds the mobile budget.");
+            }
+          '
+
+  ml-service:
+    name: Python analysis, scraper, and CPU BERT tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ml-service
+    env:
+      HF_HOME: ${{ runner.temp }}/gutfeeling-hf-cache
+      NLTK_DATA: ${{ runner.temp }}/gutfeeling-nltk-data
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: 0.12.20
+          enable-cache: true
+          cache-dependency-glob: ml-service/uv.lock
+      - run: uv python install 3.12.15
+      - run: uv sync --locked --all-groups --python 3.12.15
+      - name: Cache NLTK data and pinned BERT model
+        run: |
+          uv run python -m nltk.downloader -d "$NLTK_DATA" stopwords
+          uv run python -c "from transformers import AutoModel, AutoTokenizer; name='prajjwal1/bert-tiny'; revision='6f75de8b60a9f8a2fdf7b69cbd86d9e64bcb3837'; AutoTokenizer.from_pretrained(name, revision=revision); AutoModel.from_pretrained(name, revision=revision)"
+      - name: Run all tests, including CPU-only BERT
+        env:
+          RUN_BERT_TESTS: "1"
+          BERT_LOCAL_FILES_ONLY: "true"
+        run: uv run python -m pytest -q
+
+  compose-smoke:
+    name: Compose production-stack smoke test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      SURREALDB_NAMESPACE: gutfeeling_ci_tests
+      SURREALDB_DATABASE: gutfeeling_ci_tests
+      SURREALDB_USER: root
+      SURREALDB_PASS: root
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
+      - name: Build and start the complete stack
+        run: docker compose up --detach --build
+      - name: Wait for Fiber, SurrealDB, and ML service health
+        run: |
+          ready=false
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:3000/health >/dev/null && \
+               curl --silent --fail http://127.0.0.1:8001/health >/dev/null; then
+              ready=true
+              break
+            fi
+            sleep 5
+          done
+          if [ "$ready" != true ]; then
+            docker compose ps
+            docker compose logs --tail=200
+            exit 1
+          fi
+      - name: Verify empty vault, blocked plaintext route, and packaged CPU BERT
+        run: |
+          test "$(docker compose exec --no-TTY ml-service id -u)" = "10001"
+          docker compose exec --no-TTY ml-service python -c 'import os; assert os.environ["HF_HUB_OFFLINE"] == "1" and os.getuid() == 10001'
+          db_ip=$(docker inspect "$(docker compose ps --quiet surrealdb)" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+          if docker compose exec --no-TTY ml-service python -c 'import socket; socket.getaddrinfo("surrealdb",8000)' >/dev/null 2>&1; then
+            echo "The recipe crawler can resolve SurrealDB across networks."
+            exit 1
+          fi
+          if docker compose exec --no-TTY --env DB_IP="$db_ip" ml-service python -c 'import os,socket; socket.create_connection((os.environ["DB_IP"],8000),timeout=1)' >/dev/null 2>&1; then
+            echo "The recipe crawler can connect to SurrealDB by IP."
+            exit 1
+          fi
+          curl --silent --show-error --fail http://127.0.0.1:3000/api/vault \
+            | python3 -c 'import json,sys; v=json.load(sys.stdin); assert v["revision"] == 0 and v["envelope"] is None and not v["legacy_available"]'
+          legacy_status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3000/api/diary)
+          test "$legacy_status" = "423"
+          curl --silent --show-error --fail http://127.0.0.1:8001/health \
+            | python3 -c 'import json,sys; v=json.load(sys.stdin); assert v["bert_device"] == "cpu" and v["bert_local_files_only"] is True'
+          curl --silent --show-error --fail http://127.0.0.1:8001/nlp/bert-similarity \
+            -H 'Content-Type: application/json' \
+            --data '{"text_a":"The allergen warning is important.","text_b":"The allergen warning is important."}' \
+            | python3 -c 'import json,sys; v=json.load(sys.stdin); assert v["device"] == "cpu" and v["cosine_similarity"] > 0.99'
+      - name: Show Compose logs on failure
+        if: failure()
+        run: docker compose logs --tail=200
+      - name: Stop stack and remove disposable database volume
+        if: always()
+        run: docker compose down --volumes --remove-orphans || true
+
+  browser-and-database:
+    name: Browser UX and isolated SurrealDB integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      PORT: "3001"
+      LISTEN_HOST: 127.0.0.1
+      APP_URL: http://localhost:3001
+      SURREALDB_URL: ws://localhost:8000/rpc
+      SURREALDB_NAMESPACE: gutfeeling_ci_tests
+      SURREALDB_DATABASE: gutfeeling_ci_tests
+      SURREALDB_USER: root
+      SURREALDB_PASS: root
+      ML_SERVICE_URL: http://127.0.0.1:8001
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: 1.27.1
+          cache-dependency-path: go.sum
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24.21.0
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --prefix web
+      - run: npm --prefix web run test:e2e:build
+      - name: Install Playwright Chromium and system dependencies
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+      - name: Start disposable SurrealDB
+        run: |
+          docker run --detach --name gutfeeling-ci-surrealdb \
+            --publish 127.0.0.1:8000:8000 \
+            surrealdb/surrealdb:v3.3.0 \
+            start --user root --pass root memory
+          for attempt in $(seq 1 45); do
+            if curl --silent --fail http://127.0.0.1:8000/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs gutfeeling-ci-surrealdb
+          exit 1
+      - name: Verify transaction, live query, and vault concurrency against SurrealDB
+        env:
+          RUN_INTEGRATION_TESTS: "1"
+        run: go test -count=1 ./...
+      - name: Start the isolated app
+        run: |
+          nohup go run . >"$RUNNER_TEMP/gutfeeling-ci-app.log" 2>&1 </dev/null &
+          for attempt in $(seq 1 45); do
+            if curl --silent --fail http://127.0.0.1:3001/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          sed -n '1,240p' "$RUNNER_TEMP/gutfeeling-ci-app.log"
+          exit 1
+      - name: Run responsive, accessibility, workflow, and encrypted-vault browser tests
+        working-directory: web
+        env:
+          ALLOW_E2E_VAULT_MUTATION: "1"
+          APP_TEST_URL: http://localhost:3001
+        run: npm test
+      - name: Show service logs on failure
+        if: failure()
+        run: |
+          if [ -f "$RUNNER_TEMP/gutfeeling-ci-app.log" ]; then
+            sed -n '1,240p' "$RUNNER_TEMP/gutfeeling-ci-app.log"
+          fi
+          docker logs gutfeeling-ci-surrealdb || true

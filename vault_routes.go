@@ -11,14 +11,18 @@ const maxVaultEnvelopeBytes = 16 << 20
 type putVaultRequest struct {
 	ExpectedRevision *int64          `json:"expected_revision"`
 	Envelope         json.RawMessage `json:"envelope"`
+	MigrateLegacy    bool            `json:"migrate_legacy"`
 }
 
-// registerVaultRoutes exposes only an opaque JSON envelope. It does not
-// replace or disable the legacy plaintext diary routes; that cutover must
-// happen together with the client-side vault migration.
+// registerVaultRoutes exposes only an opaque JSON envelope. Legacy plaintext
+// routes are separately disabled; this API is the browser's persistence path.
 func registerVaultRoutes(api fiber.Router, repository VaultRepository) {
 	api.Get("/vault", func(c *fiber.Ctx) error {
 		vault, err := repository.LoadVault(c.UserContext())
+		if err != nil {
+			return err
+		}
+		vault.LegacyAvailable, err = repository.LegacyDataAvailable(c.UserContext())
 		if err != nil {
 			return err
 		}
@@ -37,7 +41,14 @@ func registerVaultRoutes(api fiber.Router, repository VaultRepository) {
 		if err := json.Unmarshal(request.Envelope, &envelope); err != nil || envelope == nil {
 			return invalid("Der verschlüsselte Tresor muss ein JSON-Objekt sein.")
 		}
-		vault, err := repository.SaveVault(c.UserContext(), *request.ExpectedRevision, request.Envelope)
+		legacyAvailable, err := repository.LegacyDataAvailable(c.UserContext())
+		if err != nil {
+			return err
+		}
+		if legacyAvailable && !request.MigrateLegacy {
+			return NewAppError(409, "legacy_migration_required", "Vorhandene unverschlüsselte Einträge müssen zuerst in den Tresor übernommen werden.")
+		}
+		vault, err := repository.SaveVault(c.UserContext(), *request.ExpectedRevision, request.Envelope, request.MigrateLegacy)
 		if err != nil {
 			return err
 		}

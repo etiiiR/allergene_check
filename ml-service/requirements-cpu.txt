@@ -1,4 +1,3 @@
-# The official CPU index keeps the BERT runtime free of CUDA/NVIDIA packages.
---extra-index-url https://download.pytorch.org/whl/cpu
--r requirements.txt
-torch==2.14.0+cpu
+# Compatibility entry point. The hash-locked export selects the CPU-only
+# PyTorch wheel from the explicit PyTorch index on Linux.
+-r requirements.lock

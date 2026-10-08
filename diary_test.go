@@ -175,6 +175,12 @@ func TestInertiaPageProtocolAndSafeRoot(t *testing.T) {
 		if page.Component == "" || page.Props["loadError"] == "" {
 			t.Fatalf("page missing data/error state: %#v", page)
 		}
+		if _, hasPlaintextDiary := page.Props["diary"]; hasPlaintextDiary {
+			t.Fatalf("Inertia page props must never contain the plaintext diary: %#v", page.Props)
+		}
+		if _, hasOpaqueVault := page.Props["vault"]; !hasOpaqueVault {
+			t.Fatalf("Inertia page props must include the opaque vault envelope: %#v", page.Props)
+		}
 		if res.Header.Get("X-Inertia") != "true" || !strings.Contains(res.Header.Get("Vary"), "X-Inertia") {
 			t.Fatal("missing Inertia protocol headers")
 		}
@@ -186,7 +192,7 @@ func TestInertiaPageProtocolAndSafeRoot(t *testing.T) {
 	b, _ := io.ReadAll(res.Body)
 	res.Body.Close()
 	if !strings.Contains(string(b), "/assets/app.js") || !strings.Contains(string(b), "data-page=") {
-		t.Fatal("HTML shell missing")
+		t.Fatalf("HTML shell missing: %s", b)
 	}
 }
 func TestDiaryRejectsCrossOriginAndUnconfirmedMutations(t *testing.T) {

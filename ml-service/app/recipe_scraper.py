@@ -69,7 +69,10 @@ def _validate_public_url(value: str) -> str:
 
     for address in addresses:
         ip = ipaddress.ip_address(address[4][0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified:
+        # `is_private` alone is not sufficient: shared address space such as
+        # 100.64.0.0/10 is neither private nor globally routable. Require every
+        # resolved address to be public before making an outbound request.
+        if not ip.is_global:
             raise HTTPException(status_code=422, detail="Lokale oder interne Adressen sind nicht erlaubt.")
     return value
 

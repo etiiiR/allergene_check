@@ -1,10 +1,10 @@
 <script setup>
 import { computed, reactive, ref } from "vue";
-import { usePage } from "@inertiajs/vue3";
 import EntryPanel from "./EntryPanel.vue";
 import RecipePicker from "./RecipePicker.vue";
 import SymptomRating from "./SymptomRating.vue";
 import { entryTone } from "../ui/entry-tones";
+import { useVaultDiary } from "../privacy/vault-session.js";
 import {
   cyclePhases,
   dateTime,
@@ -17,12 +17,21 @@ import {
 
 const props = defineProps({ entry: { type: Object, required: true } });
 const emit = defineEmits(["close", "saved"]);
-const page = usePage();
+const diary = useVaultDiary();
 const { busy, error, save } = useMutation();
 // A detached draft keeps cancel/error paths from changing the visible diary.
 const form = reactive(JSON.parse(JSON.stringify(props.entry)));
 const confirmObservation = ref(false);
 const kind = props.entry.kind;
+const contextRecorded = ref(props.entry.context_recorded === true);
+const hasContextValues = computed(
+  () => form.stress != null || form.sleep_hours != null,
+);
+const legacyContextUnconfirmed = computed(
+  () =>
+    !Object.hasOwn(props.entry, "context_recorded") &&
+    (props.entry.stress != null || props.entry.sleep_hours != null),
+);
 const title = {
   meals: "Mahlzeit bearbeiten",
   checkins: "Befinden bearbeiten",
@@ -46,13 +55,13 @@ const time = ref(initialLocalTime);
 const isBaseline = computed(
   () => form.meal_baseline && form.symptom_free && !confirmObservation.value,
 );
-const recipes = computed(() => page.props.diary?.recipes || []);
-const meals = computed(() => page.props.diary?.meals || []);
+const recipes = computed(() => diary.value.recipes || []);
+const meals = computed(() => diary.value.meals || []);
 const symptoms = computed(() => page.props.symptoms || {});
 const showCycle = computed(
   () =>
-    (page.props.diary?.profile?.cycle_tracking &&
-      page.props.diary?.profile?.body_group === "female") ||
+    (diary.value.profile?.cycle_tracking &&
+      diary.value.profile?.body_group === "female") ||
     (form.cycle_phase && form.cycle_phase !== "unknown"),
 );
 const missingMeal = computed(
@@ -102,6 +111,10 @@ function submit() {
       cycle_day: form.cycle_day,
       stress: form.stress,
       sleep_hours: form.sleep_hours,
+      context_recorded:
+        contextRecorded.value &&
+        (form.stress != null && form.stress !== "" ||
+          form.sleep_hours != null && form.sleep_hours !== ""),
       confirm_observation: confirmObservation.value,
     };
   save(
@@ -294,7 +307,7 @@ function submit() {
                   max="10"
                   step="1"
                   v-model.number="form.stress"
-                  required
+                  @input="contextRecorded = true"
               /></label>
               <label data-tone="time"
                 >Schlaf (Stunden)<input
@@ -304,9 +317,18 @@ function submit() {
                   max="24"
                   step="any"
                   v-model.number="form.sleep_hours"
-                  required
+                  @input="contextRecorded = true"
               /></label>
             </div>
+            <p v-if="legacyContextUnconfirmed" class="helper" role="note">
+              Ältere Einträge können automatisch gesetzte Standardwerte
+              enthalten. Sie werden erst nach deiner Bestätigung für die
+              Stress-/Schlafauswertung verwendet.
+            </p>
+            <label v-if="hasContextValues" class="edit-confirm">
+              <input type="checkbox" v-model="contextRecorded" />
+              Diese Werte für die persönliche Auswertung verwenden
+            </label>
             <div v-if="showCycle" class="form-row">
               <label data-tone="cycle"
                 >Zyklusphase<select class="d-select" v-model="form.cycle_phase">

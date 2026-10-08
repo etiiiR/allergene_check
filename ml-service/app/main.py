@@ -18,6 +18,10 @@ from app.recipe_scraper import router as recipe_scraper_router
 
 
 BERT_MODEL_NAME = os.getenv("BERT_MODEL_NAME", "prajjwal1/bert-tiny")
+BERT_MODEL_REVISION = os.getenv(
+    "BERT_MODEL_REVISION", "6f75de8b60a9f8a2fdf7b69cbd86d9e64bcb3837"
+)
+BERT_LOCAL_FILES_ONLY = os.getenv("BERT_LOCAL_FILES_ONLY", "false").lower() == "true"
 BERT_DEVICE = torch.device("cpu")
 torch.set_num_threads(int(os.getenv("TORCH_NUM_THREADS", "1")))
 
@@ -152,6 +156,8 @@ def health():
         "status": "ok",
         "service": "ml",
         "bert_model": BERT_MODEL_NAME,
+        "bert_revision": BERT_MODEL_REVISION,
+        "bert_local_files_only": BERT_LOCAL_FILES_ONLY,
         "bert_device": str(BERT_DEVICE),
         "bert_loaded": _bert_model is not None,
     }
@@ -189,8 +195,16 @@ def _load_bert():
 
     with _bert_lock:
         if _bert_model is None or _bert_tokenizer is None:
-            _bert_tokenizer = AutoTokenizer.from_pretrained(BERT_MODEL_NAME)
-            _bert_model = AutoModel.from_pretrained(BERT_MODEL_NAME)
+            _bert_tokenizer = AutoTokenizer.from_pretrained(
+                BERT_MODEL_NAME,
+                revision=BERT_MODEL_REVISION,
+                local_files_only=BERT_LOCAL_FILES_ONLY,
+            )
+            _bert_model = AutoModel.from_pretrained(
+                BERT_MODEL_NAME,
+                revision=BERT_MODEL_REVISION,
+                local_files_only=BERT_LOCAL_FILES_ONLY,
+            )
             _bert_model.to(BERT_DEVICE)
             _bert_model.eval()
     return _bert_tokenizer, _bert_model

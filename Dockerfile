@@ -1,11 +1,11 @@
-FROM node:24-alpine AS frontend
+FROM node:24.21.0-alpine3.24 AS frontend
 WORKDIR /web
 COPY web/package*.json ./
 RUN npm ci
 COPY web/ ./
 RUN npm run build
 
-FROM golang:1.27-alpine AS build
+FROM golang:1.27.1-alpine3.24 AS build
 
 WORKDIR /src
 
@@ -15,7 +15,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/fiber-api .
 
-FROM alpine:3.22
+FROM alpine:3.24.2
 
 RUN adduser -D -H appuser
 COPY --from=build /out/fiber-api /usr/local/bin/fiber-api

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 
 test("recipe → meal → symptom-free check-in → patterns; persistence and cleanup", async ({
   page,
@@ -96,7 +96,11 @@ test("recipe → meal → symptom-free check-in → patterns; persistence and cl
       page.getByRole("heading", { name: "Ein gutes Bauchgefühl" }),
     ).toBeVisible();
     await page.getByRole("link", { name: "Muster", exact: true }).click();
-    await expect(page.getByText("Deine Datenbasis wächst.")).toBeVisible();
+    await expect(
+      page.getByText("Für den Mehrfaktorenvergleich fehlen noch Einträge."),
+    ).toBeVisible();
+    await expect(page.getByText("Ab „Sehr leicht“ (ab 1 Stern)")).toBeVisible();
+    await expect(page.getByText("Ab 3 von 10")).toHaveCount(0);
     await page.getByRole("link", { name: "Rezepte", exact: true }).click();
     await page
       .locator("article")
@@ -192,6 +196,9 @@ test("symptom check-in records its timing window", async ({
   const checkin = await response.json();
   expect(checkin.timing_bucket).toBe("mid");
   expect(checkin.symptoms.bloating).toBe(10);
+  expect(checkin.stress).toBeNull();
+  expect(checkin.sleep_hours).toBeNull();
+  expect(checkin.context_recorded).toBe(false);
 
   const cleanup = await request.delete("/api/checkins/" + checkin.id, {
     headers: { "X-Diary-Request": "1" },
@@ -402,6 +409,9 @@ test("dashboard saves a manual stress score", async ({ page, request }) => {
     await page.goto("/");
     await page.getByText("Weitere Beobachtungen", { exact: true }).click();
     await page.getByRole("button", { name: "Stress manuell" }).click();
+    await expect(
+      page.getByRole("button", { name: "Stress speichern" }),
+    ).toBeDisabled();
     await page.getByRole("button", { name: "Hoch" }).click();
     const responsePromise = page.waitForResponse(
       (response) =>

@@ -49,6 +49,17 @@ func TestValidTableName(t *testing.T) {
 	}
 }
 
+func TestDiaryTablesCannotBeWatchedOverWebSocket(t *testing.T) {
+	for _, value := range []string{"diary_recipes", "diary_meals", "diary_profile", "diary_vault"} {
+		if watchableTableName(value) {
+			t.Errorf("private diary table %q must not be exposed to live queries", value)
+		}
+	}
+	if !watchableTableName("notes") {
+		t.Fatal("non-diary boilerplate tables should keep the live-query helper")
+	}
+}
+
 func TestSurrealStoreWithoutDatabase(t *testing.T) {
 	_, err := NewSurrealStore(nil).Version(t.Context())
 	if !errors.Is(err, ErrDatabaseNotConfigured) {

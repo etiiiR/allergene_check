@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { Head } from "@inertiajs/vue3";
 import {
   Activity,
@@ -20,17 +20,19 @@ import {
   symptomIntensityLabels,
 } from "../lib";
 import { notify } from "../ui/feedback";
+import { useVaultDiary } from "../privacy/vault-session.js";
 
-const props = defineProps({ diary: Object, foods: Array, symptoms: Object });
+const props = defineProps({ foods: Array, symptoms: Object });
+const diary = useVaultDiary();
 const result = ref(null);
 const loading = ref(false);
 const error = ref("");
 const shareStatus = ref("");
-const reportLabel = ref(props.diary?.profile?.display_name || "");
+const reportLabel = ref(diary.value.profile?.display_name || "");
 
-const checkins = computed(() => props.diary?.checkins || []);
-const meals = computed(() => props.diary?.meals || []);
-const profile = computed(() => props.diary?.profile || {});
+const checkins = computed(() => diary.value.checkins || []);
+const meals = computed(() => diary.value.meals || []);
+const profile = computed(() => diary.value.profile || {});
 
 function dateValue(value) {
   const timestamp = Date.parse(value || "");
@@ -65,8 +67,8 @@ const periodLabel = computed(() => {
   const values = [
     ...meals.value.map((item) => item.occurred_at),
     ...checkins.value.map((item) => item.occurred_at),
-    ...(props.diary?.stools || []).map((item) => item.observed_at),
-    ...(props.diary?.stress_observations || []).map((item) => item.observed_at),
+    ...(diary.value.stools || []).map((item) => item.observed_at),
+    ...(diary.value.stress_observations || []).map((item) => item.observed_at),
   ]
     .map(dateValue)
     .filter(Boolean)
@@ -148,7 +150,7 @@ function buildShareText() {
     "Bauchgefühl – persönliche Gesundheitsübersicht",
     reportLabel.value ? `Person/Initialen: ${reportLabel.value}` : "",
     `Zeitraum: ${periodLabel.value}`,
-    `Datenbasis: ${meals.value.length} Mahlzeiten, ${checkins.value.length} Check-ins, ${props.diary?.stools?.length || 0} Stuhlbeobachtungen`,
+    `Datenbasis: ${meals.value.length} Mahlzeiten, ${checkins.value.length} Check-ins, ${diary.value.stools?.length || 0} Stuhlbeobachtungen`,
     "",
     "Häufig dokumentierte Beschwerden:",
     ...symptomRows.value
@@ -211,26 +213,7 @@ async function shareReport() {
   await copyReport();
 }
 
-onMounted(() => {
-  try {
-    // Honour an explicit local report alias (including a blank one for privacy).
-    // A fresh browser starts with the persisted personal profile name.
-    reportLabel.value =
-      localStorage.getItem("bauchgefuehl-report-label") ??
-      props.diary?.profile?.display_name ??
-      "";
-  } catch {
-    // Private browsing may disable localStorage; the report still works.
-  }
-  load();
-});
-watch(reportLabel, (value) => {
-  try {
-    localStorage.setItem("bauchgefuehl-report-label", value);
-  } catch {
-    // The label is optional and never blocks report generation.
-  }
-});
+onMounted(load);
 </script>
 
 <template>
@@ -329,11 +312,11 @@ watch(reportLabel, (value) => {
             ><span>Check-ins</span>
           </div>
           <div>
-            <strong>{{ props.diary?.stools?.length || 0 }}</strong
+            <strong>{{ diary.stools?.length || 0 }}</strong
             ><span>Stuhlbeobachtungen</span>
           </div>
           <div>
-            <strong>{{ props.diary?.stress_observations?.length || 0 }}</strong
+            <strong>{{ diary.stress_observations?.length || 0 }}</strong
             ><span>Health-Messungen</span>
           </div>
         </section>

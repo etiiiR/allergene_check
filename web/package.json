@@ -6,6 +6,7 @@
     "build": "vite build",
     "dev": "vite build --watch",
     "test": "playwright test",
+    "test:e2e:build": "VITE_E2E_TESTS=true npm run build",
     "test:unit": "node --test unit/*.test.js"
   },
   "dependencies": {

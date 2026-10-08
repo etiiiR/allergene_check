@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -14,7 +15,14 @@ import (
 
 // newApp builds the Fiber routes around one shared SurrealDB client.
 func newApp(db *surrealdb.DB) *fiber.App {
-	app := fiber.New(fiber.Config{ErrorHandler: AppErrorHandler})
+	// Match the vault endpoint's explicit ciphertext limit while allowing room
+	// for the surrounding JSON request. Individual routes still validate their
+	// own payload sizes and shapes.
+	app := fiber.New(fiber.Config{
+		ErrorHandler: AppErrorHandler,
+		BodyLimit:    maxVaultEnvelopeBytes + (64 << 10),
+	})
+	app.Use(localSecurityHeaders)
 	store := NewSurrealStore(db)
 	if db != nil {
 		app.Use(localHostGuard)
@@ -74,7 +82,7 @@ func registerLiveQueryRoutes(app *fiber.App, store *SurrealStore, databaseConfig
 		}
 
 		tableName := conn.Params("table")
-		if !validTableName(tableName) {
+		if !watchableTableName(tableName) {
 			writeWebSocketError(conn, NewAppError(fiber.StatusBadRequest, ErrorCodeInvalidTable, "invalid table name"))
 			return
 		}
@@ -139,4 +147,8 @@ var tableNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 func validTableName(value string) bool {
 	return tableNamePattern.MatchString(value)
+}
+
+func watchableTableName(value string) bool {
+	return validTableName(value) && !strings.HasPrefix(value, "diary_")
 }

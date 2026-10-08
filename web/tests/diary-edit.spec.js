@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 import AxeBuilder from "@axe-core/playwright";
 
 const headers = { "X-Diary-Request": "1" };
@@ -206,6 +206,7 @@ test("editing all symptoms retains context, reports ML outages separately and ca
     timing_bucket: "mid",
     stress: 7,
     sleep_hours: 6.5,
+    context_recorded: true,
     notes: "before",
   });
   await page.route("**/api/patterns?**", (route) =>
@@ -237,6 +238,7 @@ test("editing all symptoms retains context, reports ML outages separately and ca
     symptoms: { pain: 4, bloating: 4 },
     stress: 7,
     sleep_hours: 6.5,
+    context_recorded: true,
     timing_bucket: "mid",
     occurred_at: check.occurred_at,
   });
@@ -335,6 +337,7 @@ test("failed writes retain the draft and invalid or missing entries are not upse
     symptoms: { pain: 6 },
     stress: 4,
     sleep_hours: 8,
+    context_recorded: true,
   });
   await openEditor(page, check.id);
   await page.getByLabel("Notiz", { exact: true }).fill("keep my draft");

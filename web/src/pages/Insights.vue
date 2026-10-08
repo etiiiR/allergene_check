@@ -141,11 +141,11 @@ const rows = computed(() =>
         </article>
         <article class="stat">
           <div>
-            <p>Mit Beschwerden</p>
+            <p>Als Beschwerden gezählt</p>
             <strong>{{
               result.symptomatic_moments ?? result.symptomatic_days
             }}</strong
-            ><small>Ab 3 von 10</small>
+            ><small>Ab „Sehr leicht“ (ab 1 Stern)</small>
           </div>
         </article>
         <article class="stat">
@@ -154,23 +154,27 @@ const rows = computed(() =>
             <strong>{{
               result.comparison_moments ?? result.comparison_days
             }}</strong
-            ><small>Unter 3 von 10</small>
+            ><small>Unter der Auswertungsschwelle</small>
           </div>
         </article>
       </div>
       <div class="notice">
         <strong>{{
           result.model_status === "insufficient_data"
-            ? "Deine Datenbasis wächst."
-            : "Exploratives ML-Modell aktiv."
+            ? "Für den Mehrfaktorenvergleich fehlen noch Einträge."
+            : "Vergleich mit mehreren Faktoren verfügbar."
         }}</strong>
         <p>
           {{
             result.model_status === "insufficient_data"
-              ? "Für die logistische Regression brauchen wir mindestens 20 auswertbare Momente, davon je 5 mit und ohne relevante Beschwerden sowie vergleichbare Zutaten. Vorher zeigen wir nur Beobachtungen."
-              : "Das Modell berücksichtigt mehrere Zutaten sowie protokollierten Stress und Schlaf. Seine Gewichte sind nicht klinisch validiert und keine Risikowahrscheinlichkeiten."
+              ? "Dafür braucht es mindestens 20 passende Check-ins: mindestens fünf mit und fünf ohne ausgewertete Beschwerden sowie Zutaten, die sich vergleichen lassen. Bis dahin zeigen wir einfache Beobachtungen."
+              : "Zutaten stehen im Vordergrund. Stress und Schlaf fliessen nur ein, wenn genug ausdrücklich erfasste Werte vorliegen; leere Felder gelten nicht als Messung. Die Muster beweisen keine Ursache, Allergie oder Unverträglichkeit."
           }}
         </p>
+        <small class="helper">
+          „Unter der Auswertungsschwelle“ bedeutet nicht automatisch
+          symptomfrei.
+        </small>
       </div>
       <div v-if="!rows.length" class="panel empty-state">
         <Activity :size="34" />
@@ -434,10 +438,9 @@ const rows = computed(() =>
         >
           <div class="section-heading">
             <div>
-              <h2>Mögliche Unverträglichkeiten</h2>
+              <h2>Zutaten zum Weiterbeobachten</h2>
               <small
-                >Manuelle Hinweise, Stuhlbeobachtungen und Essensmuster
-                zusammengeführt</small
+                >Deine Markierungen, Stuhlbeobachtungen und Essensmuster</small
               >
             </div>
             <Sparkles :size="19" class="muted" />
@@ -452,14 +455,12 @@ const rows = computed(() =>
                 <strong>{{ foodName(item.ingredient_id, foods) }}</strong>
                 <small>{{ item.reasons.join(" · ") }}</small>
               </div>
-              <span class="candidate-score">{{ item.evidence_score }}</span>
             </div>
           </div>
           <p class="helper">
-            Diese Liste priorisiert persönliche Markierungen und zeitlich
-            folgende Verdauungsbeobachtungen. Sie sagt nicht sicher voraus, was
-            du nicht verträgst — einzelne Zutaten sollten gezielt und sicher
-            weiterbeobachtet werden.
+            Das sind persönliche Hinweise und zeitliche Überschneidungen, kein
+            Unverträglichkeitstest. Mehrere Zutaten oder andere Faktoren können
+            gleichzeitig eine Rolle spielen.
           </p>
         </section>
         <section
@@ -549,8 +550,8 @@ const rows = computed(() =>
           Tag bleiben erhalten. Die davor gegessenen Mahlzeiten werden anhand
           des gewählten Zeitfensters und optional der zugeordneten Mahlzeit
           verglichen. Fehlende Einträge gelten niemals als symptomfrei.
-          Dokumentierte Beschwerden zählen als beobachtetes Ereignis. Die
-          Auswahl zeigt qualitative Stufen statt einer Zahlen- oder Sterneskala.
+          Die Symptomstärke wird mit der gewählten Sternestufe ausgewertet;
+          „Sehr leicht“ und stärkere Stufen zählen als Beschwerden.
         </p>
         <p>
           Ein Vergleich braucht mindestens drei Momente mit und drei ohne die
@@ -558,6 +559,13 @@ const rows = computed(() =>
           unvollständige Einträge, Medikamente und weitere Faktoren können das
           Bild verzerren. Das Zeitfenster ist eine Analyse-Einstellung und kein
           medizinisch bestätigtes Reaktionsfenster.
+        </p>
+        <p>
+          Stress und Schlaf sind freiwillig. Nur eingetragene, bestätigte oder
+          separat normalisierte Stresswerte werden berücksichtigt. Rohwerte
+          wie HRV oder Puls werden nicht als Stress ausgegeben. Ältere,
+          unbestätigte Angaben kannst du im Tagebuch prüfen; fehlende Angaben
+          gelten nicht als Messwerte.
         </p>
         <p>
           Ein fehlender Zusammenhang beweist keine Verträglichkeit. Besprich

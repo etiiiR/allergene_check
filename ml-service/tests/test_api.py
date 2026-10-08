@@ -3,7 +3,7 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import BERT_LOCAL_FILES_ONLY, BERT_MODEL_REVISION, app
 
 
 client = TestClient(app)
@@ -16,6 +16,8 @@ def test_health():
     assert body["status"] == "ok"
     assert body["service"] == "ml"
     assert body["bert_model"] == "prajjwal1/bert-tiny"
+    assert body["bert_revision"] == BERT_MODEL_REVISION
+    assert body["bert_local_files_only"] == BERT_LOCAL_FILES_ONLY
     assert body["bert_device"] == "cpu"
     assert body["bert_loaded"] is False
 

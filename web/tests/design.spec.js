@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 import AxeBuilder from "@axe-core/playwright";
 
 // Exercise populated screens as well as the existing CRUD suite. Fixtures are
@@ -44,6 +44,7 @@ test.beforeAll(async ({ request }) => {
     timing_bucket: "mid",
     stress: 7,
     sleep_hours: 7,
+    context_recorded: true,
     notes: "UX test fixture",
   });
   await create("checkins", {
@@ -52,6 +53,7 @@ test.beforeAll(async ({ request }) => {
     symptoms: {},
     stress: 2,
     sleep_hours: 8,
+    context_recorded: true,
     notes: "UX test fixture",
   });
 });

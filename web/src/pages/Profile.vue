@@ -1,9 +1,10 @@
 <script setup>
-import { reactive, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { Head, Link, router } from "@inertiajs/vue3";
 import {
   CalendarDays,
   Check,
+  Download,
   FileJson,
   HeartPulse,
   Info,
@@ -13,24 +14,29 @@ import {
   Upload,
 } from "@lucide/vue";
 import AppShell from "../components/AppShell.vue";
+import PrivacySummary from "../components/PrivacySummary.vue";
 import { api } from "../lib";
 import { notify } from "../ui/feedback";
 import { nativeHealthAvailable, syncAppleHealth } from "../ui/health";
 import { generatePseudonym } from "../privacy/pseudonym";
+import { useVaultDiary, vaultSessionState } from "../privacy/vault-session.js";
+import { createEncryptedVaultBackup } from "../privacy/vault-backup.js";
 
-const props = defineProps({ diary: Object });
-const stored = props.diary?.profile || {};
+const diary = useVaultDiary();
+const stored = computed(() => diary.value.profile || {});
 const form = reactive({
-  ...stored,
-  display_name: stored.display_name || "",
-  body_group: stored.body_group || "unspecified",
-  cycle_tracking: Boolean(stored.cycle_tracking),
-  cycle_length_days: stored.cycle_length_days || 28,
-  period_start: stored.period_start || "",
+  ...stored.value,
+  display_name: stored.value.display_name || "",
+  body_group: stored.value.body_group || "unspecified",
+  cycle_tracking: Boolean(stored.value.cycle_tracking),
+  cycle_length_days: stored.value.cycle_length_days || 28,
+  period_start: stored.value.period_start || "",
 });
 const busy = ref(false);
 const error = ref("");
 const saved = ref(false);
+const backupError = ref("");
+const backupStatus = ref("");
 const tab = ref("person");
 const healthSource = ref("apple_healthkit");
 const healthFile = ref(null);
@@ -132,6 +138,29 @@ async function importHealth() {
     healthBusy.value = false;
   }
 }
+
+function downloadEncryptedBackup() {
+  backupError.value = "";
+  backupStatus.value = "";
+  try {
+    const backup = createEncryptedVaultBackup(vaultSessionState.envelope);
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `gutfeeling-encrypted-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    backupStatus.value =
+      "Verschlüsselte Sicherung heruntergeladen. Bewahre die Datei sicher auf.";
+  } catch (e) {
+    backupError.value = e.message;
+  }
+}
 </script>
 
 <template>
@@ -144,7 +173,7 @@ async function importHealth() {
         <p>
           {{
             stored.display_name
-              ? "Dein persönliches Tagebuch. Änderungen werden auf dem Server gespeichert."
+              ? "Dein persönliches Tagebuch. Änderungen werden verschlüsselt im Tresor gespeichert."
               : "Füge eine Person für dieses Tagebuch hinzu."
           }}
         </p>
@@ -198,10 +227,32 @@ async function importHealth() {
           >Neues Pseudonym erstellen</UiButton
         >
         <p class="helper">
-          Verwende am besten keinen echten Namen. Das Pseudonym ist nur ein
-          Anzeigename, keine Verschlüsselung oder Zugriffssperre. Ein Profil für
-          dieses Tagebuch; derzeit gibt es keine getrennten Konten.
+          Ein Pseudonym ist nur ein Anzeigename und macht dich nicht anonym.
+          Auch der Name liegt im verschlüsselten Tagebuch.
         </p>
+        <div class="profile-backup">
+          <div>
+            <strong>Verschlüsselte Sicherung</strong>
+            <p class="helper">
+              Lädt eine Datei mit verschlüsselten Daten herunter. Für eine
+              Wiederherstellung brauchst du deine Passphrase oder Phrase.
+            </p>
+          </div>
+          <UiButton
+            type="button"
+            class="button secondary"
+            @click="downloadEncryptedBackup"
+          >
+            <Download :size="16" /> Sicherung herunterladen
+          </UiButton>
+          <p v-if="backupError" class="alert error" role="alert">
+            {{ backupError }}
+          </p>
+          <p v-if="backupStatus" class="alert success" role="status">
+            {{ backupStatus }}
+          </p>
+        </div>
+        <PrivacySummary />
       </section>
       <section
         v-show="tab === 'body'"

@@ -9,6 +9,9 @@ import (
 // connectDatabase creates and authenticates the single shared SurrealDB client.
 // The returned client is reused by the store, HTTP handlers, transactions, and live queries.
 func connectDatabase(ctx context.Context, config appConfig) (*surrealdb.DB, error) {
+	if err := config.validate(); err != nil {
+		return nil, err
+	}
 	db, err := surrealdb.FromEndpointURLString(ctx, config.dbURL)
 	if err != nil {
 		return nil, WrapAppError(503, ErrorCodeDatabaseUnavailable, "could not connect to SurrealDB", err)

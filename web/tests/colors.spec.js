@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 import AxeBuilder from "@axe-core/playwright";
 
 test("capture actions share one visual style and the app uses only three semantic tones", async ({

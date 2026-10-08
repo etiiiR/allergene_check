@@ -10,8 +10,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// registerDiaryAPI exposes a local personal diary. Same-origin JSON requests
-// prevent a third-party site from silently changing sensitive diary records.
+// registerDiaryAPI keeps recipe import available and retains old handlers only
+// behind the encrypted-vault guard. Personal operations are now executed in
+// the browser and persisted as ciphertext through the vault routes.
 func registerDiaryAPI(app *fiber.App, repo *DiaryRepository, analysis *AnalysisClient) {
 	api := app.Group("/api")
 	api.Use(func(c *fiber.Ctx) error {
@@ -27,7 +28,34 @@ func registerDiaryAPI(app *fiber.App, repo *DiaryRepository, analysis *AnalysisC
 		}
 		return c.Next()
 	})
-	registerVaultRoutes(api, newSurrealVaultRepository(repo.store))
+	vaultRepository := newSurrealVaultRepository(repo.store)
+	registerVaultRoutes(api, vaultRepository)
+	api.Get("/legacy/diary", func(c *fiber.Ctx) error {
+		if c.Get("X-Encrypted-Migration") != "1" {
+			return NewAppError(403, "migration_confirmation_required", "Bitte bestätige ausdrücklich, dass du vorhandene Einträge in den verschlüsselten Tresor übernehmen möchtest.")
+		}
+		vault, err := vaultRepository.LoadVault(c.UserContext())
+		if err != nil {
+			return err
+		}
+		if vault.Revision != 0 {
+			return NewAppError(409, "migration_unavailable", "Ein verschlüsselter Tresor ist bereits eingerichtet.")
+		}
+		data, err := repo.load(c.UserContext())
+		if err != nil {
+			return err
+		}
+		return c.JSON(data)
+	})
+	// All older diary routes are disabled. The one-time migration endpoint above
+	// is the only route allowed to expose a legacy plaintext record, and it is
+	// available only while no encrypted vault has been saved.
+	api.Use(func(c *fiber.Ctx) error {
+		if c.Path() == "/api/vault" || c.Path() == "/api/legacy/diary" || c.Path() == "/api/recipes/import" {
+			return c.Next()
+		}
+		return NewAppError(423, "encrypted_vault_required", "Persönliche Einträge werden nur noch im verschlüsselten Tresor verarbeitet.")
+	})
 	api.Get("/diary", func(c *fiber.Ctx) error {
 		ctx, cancel := context.WithTimeout(c.UserContext(), 10*time.Second)
 		defer cancel()

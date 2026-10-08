@@ -1,6 +1,8 @@
-import pytest
-import httpx
+import socket
 from pathlib import Path
+
+import httpx
+import pytest
 from fastapi import HTTPException
 
 from app.recipe_scraper import parse_recipe_document
@@ -144,6 +146,28 @@ def mock_public_download(monkeypatch, handler):
     monkeypatch.setattr(recipe_scraper.httpx, "Client", lambda **kw: client_class(
         transport=httpx.MockTransport(handler), **kw,
     ))
+
+
+@pytest.mark.parametrize("ip", [
+    "127.0.0.1",
+    "100.64.0.1",
+    "169.254.169.254",
+    "::1",
+    "fc00::1",
+])
+def test_non_global_dns_answers_are_rejected_before_http(monkeypatch, ip):
+    family = socket.AF_INET6 if ":" in ip else socket.AF_INET
+    sockaddr = (ip, 443, 0, 0) if family == socket.AF_INET6 else (ip, 443)
+    monkeypatch.setattr(
+        recipe_scraper.socket,
+        "getaddrinfo",
+        lambda *args, **kwargs: [(family, socket.SOCK_STREAM, 6, "", sockaddr)],
+    )
+
+    with pytest.raises(HTTPException) as error:
+        recipe_scraper._validate_public_url("https://example.org/recipe")
+
+    assert error.value.status_code == 422
 
 
 def test_download_then_parse_microdata_endpoint_keeps_final_source(monkeypatch):

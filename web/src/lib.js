@@ -1,6 +1,6 @@
 import { ref } from "vue";
-import { router } from "@inertiajs/vue3";
 import { notify } from "./ui/feedback";
+import { clientVaultApi } from "./privacy/client-vault-api.js";
 export {
   symptomIntensityFromScore,
   symptomScoreFromIntensity,
@@ -93,24 +93,7 @@ export async function api(path, options = {}) {
       (path.includes("?") ? "&" : "?") +
       "timezone=" +
       encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  const response = await fetch("/api" + path, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      "X-Diary-Request": "1",
-      ...options.headers,
-    },
-  });
-  if (!response.ok) {
-    let data;
-    try {
-      data = await response.json();
-    } catch {}
-    throw new Error(
-      data?.error?.message || "Die Anfrage konnte nicht abgeschlossen werden.",
-    );
-  }
-  return response.status === 204 ? null : response.json();
+  return clientVaultApi(path, options);
 }
 export function useMutation() {
   const busy = ref(false),
@@ -137,17 +120,8 @@ export function useMutation() {
           ? "Eintrag gelöscht."
           : labels[path.split("/")[1]] || "Gespeichert.",
       );
-      router.reload({
-        onError: () =>
-          notify(
-            "Gespeichert. Die Ansicht konnte nicht aktualisiert werden. Bitte neu laden.",
-            "error",
-          ),
-        onFinish: () => {
-          busy.value = false;
-          done(result);
-        },
-      });
+      busy.value = false;
+      await done(result);
     } catch (e) {
       error.value = e.message;
       notify(e.message, "error");

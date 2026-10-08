@@ -13,6 +13,7 @@ import {
   ClipboardCheck,
 } from "@lucide/vue";
 import AppShell from "../components/AppShell.vue";
+import { useVaultDiary } from "../privacy/vault-session.js";
 import EntryModal from "../components/EntryModal.vue";
 import EntryPanel from "../components/EntryPanel.vue";
 import DiaryEntryEditor from "../components/DiaryEntryEditor.vue";
@@ -32,7 +33,8 @@ import {
   useMutation,
   api,
 } from "../lib";
-const props = defineProps({ diary: Object, symptoms: Object });
+const props = defineProps({ symptoms: Object });
+const diary = useVaultDiary();
 const entry = ref(""),
   date = ref(localDate()),
   filter = ref("all"),
@@ -61,14 +63,14 @@ function edited(saved) {
 }
 const events = computed(() => {
   const all = [
-    ...props.diary.meals.map((x) => ({ ...x, kind: "meals" })),
-    ...props.diary.checkins.map((x) => ({ ...x, kind: "checkins" })),
-    ...(props.diary.stools || []).map((x) => ({
+    ...diary.value.meals.map((x) => ({ ...x, kind: "meals" })),
+    ...diary.value.checkins.map((x) => ({ ...x, kind: "checkins" })),
+    ...(diary.value.stools || []).map((x) => ({
       ...x,
       kind: "stools",
       occurred_at: x.observed_at,
     })),
-    ...(props.diary.stress_observations || []).map((x) => ({
+    ...(diary.value.stress_observations || []).map((x) => ({
       ...x,
       kind: "stress",
       occurred_at: x.observed_at,
@@ -347,9 +349,31 @@ const groups = computed(() => {
                     · Tag {{ item.cycle_day }}</span
                   >
                 </div>
-                <p v-if="!item.meal_baseline" class="helper">
-                  Stress {{ item.stress }}/10 · Schlaf
-                  {{ item.sleep_hours }} Stunden
+                <p
+                  v-if="
+                    !item.meal_baseline &&
+                    item.context_recorded &&
+                    (item.stress != null || item.sleep_hours != null)
+                  "
+                  class="helper"
+                >
+                  <template v-if="item.stress != null"
+                    >Stress {{ item.stress }}/10</template
+                  ><template
+                    v-if="item.stress != null && item.sleep_hours != null"
+                    > · </template
+                  ><template v-if="item.sleep_hours != null"
+                    >Schlaf {{ item.sleep_hours }} Stunden</template
+                  >
+                </p>
+                <p
+                  v-else-if="
+                    !item.meal_baseline &&
+                    (item.stress != null || item.sleep_hours != null)
+                  "
+                  class="helper"
+                >
+                  Stress-/Schlafwerte noch nicht für die Auswertung bestätigt.
                 </p></template
               >
               <details v-if="item.notes" class="entry-note">

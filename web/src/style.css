@@ -1288,19 +1288,120 @@ textarea:focus-visible {
   border: 1px solid var(--line);
   border-radius: 8px;
 }
+.recipe-form {
+  gap: 12px;
+}
 .ingredient-editor,
 .detail-section {
   border-bottom: 1px solid var(--line);
-  padding: 16px 0;
+  padding: 8px 0;
+}
+.ingredient-editor {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
 }
 .ingredient-top {
   display: flex;
   gap: 8px;
-  align-items: flex-end;
-  margin-bottom: 12px;
+  align-items: center;
+  margin-bottom: 0;
 }
 .ingredient-top label {
   flex: 1;
+  gap: 4px;
+}
+.ingredient-top input {
+  min-height: 40px;
+  padding: 8px 10px;
+}
+.ingredient-details {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.ingredient-details > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 12px;
+  font-weight: 600;
+}
+.ingredient-details > summary::-webkit-details-marker {
+  display: none;
+}
+.ingredient-details > summary > span:first-child {
+  flex: 0 0 auto;
+}
+.ingredient-detail-status {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+  font-weight: 400;
+}
+.ingredient-details > summary > svg {
+  flex: 0 0 auto;
+  transition: transform 140ms ease;
+}
+.ingredient-details[open] > summary > svg {
+  transform: rotate(180deg);
+}
+.ingredient-details-body {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+}
+.allergen-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.allergen-options legend {
+  grid-column: 1 / -1;
+  margin-bottom: 4px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+.allergen-options label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.allergen-options input[type="checkbox"] {
+  flex: 0 0 20px;
+  width: 20px;
+  min-height: 20px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+}
+.allergen-options label > span {
+  min-width: 0;
+}
+.ingredient-safety-note {
+  margin: 0;
 }
 .food-detail {
   margin: 16px 0;
@@ -1539,10 +1640,6 @@ textarea:focus-visible {
 }
 .candidate-item small {
   display: block;
-}
-.candidate-score {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
 }
 .stool-summary-row,
 .health-source-list {
@@ -2611,6 +2708,33 @@ td strong {
 .compact-profile .helper {
   margin: 8px 0 0;
 }
+.profile-backup {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--brand-line);
+  border-radius: 14px;
+  background: var(--brand-soft);
+}
+.profile-backup strong { display: block; }
+.vault-backup-restore {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--brand-line);
+  border-radius: 14px;
+  background: var(--brand-soft);
+}
+.vault-backup-restore > summary {
+  cursor: pointer;
+  color: var(--brand-ink);
+  font-weight: 700;
+  line-height: 1.4;
+}
+.vault-backup-restore > p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
 @media (max-width: 767px) {
   .page-content,
   #entry-workspace {
@@ -3094,4 +3218,103 @@ td strong {
   .report-section {
     break-inside: avoid;
   }
+}
+
+.vault-gate {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background:
+    radial-gradient(ellipse at 12% 5%, #e0e7ff 0, transparent 38%),
+    radial-gradient(ellipse at 90% 90%, #fce7f3 0, transparent 30%),
+    var(--canvas);
+}
+.vault-panel {
+  width: min(100%, 480px);
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+  padding: clamp(22px, 6vw, 36px);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: 0 18px 60px rgb(30 41 59 / 10%);
+}
+.vault-panel h1,
+.vault-panel p { margin-bottom: 0; }
+.vault-panel .eyebrow { margin-bottom: -10px; }
+.vault-mark {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--brand-line);
+  border-radius: 16px;
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+.vault-intro,
+.vault-footnote { color: var(--muted); }
+.vault-footnote { font-size: 12px; }
+.vault-form,
+.vault-field {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+}
+.vault-field { gap: 6px; font-weight: 600; }
+.vault-field > span { color: var(--muted); font-size: 12px; font-weight: 400; }
+.vault-form > .button,
+.vault-panel > .button { width: 100%; justify-content: center; }
+.vault-migration-note,
+.vault-recovery-warning {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--brand-line);
+  border-radius: 14px;
+  background: var(--brand-soft);
+}
+.vault-migration-note p,
+.vault-recovery-warning p { color: var(--muted); font-size: 13px; }
+.vault-recovery-key {
+  width: 100%;
+  padding: 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--subtle);
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.vault-loading { display: flex; align-items: center; gap: 10px; color: var(--muted); }
+.vault-active { min-height: 100vh; }
+.vault-lock-button {
+  position: fixed;
+  z-index: 100;
+  top: 10px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 92%);
+  color: var(--muted);
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 6%);
+  backdrop-filter: blur(8px);
+}
+.vault-lock-button:hover { border-color: var(--brand-ink); color: var(--brand-ink); }
+@media (max-width: 640px) {
+  .vault-gate { align-items: start; padding-top: max(28px, env(safe-area-inset-top)); }
+  .vault-panel { gap: 14px; border-radius: 20px; }
+  .vault-lock-button { top: auto; right: 10px; bottom: calc(76px + env(safe-area-inset-bottom)); }
 }

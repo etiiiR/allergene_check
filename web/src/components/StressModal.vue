@@ -12,7 +12,7 @@ const occurredAt =
   props.day && props.day !== localDate() ? props.day + "T20:00" : now;
 const form = reactive({
   observed_at: occurredAt,
-  stress: 3,
+  stress: null,
   notes: "",
 });
 const choices = [
@@ -57,7 +57,10 @@ function submit() {
         </div>
       </div>
       <div class="picker-label">
-        <span>Dein Stresslevel</span><small>{{ form.stress }}/10</small>
+        <span>Dein Stresslevel</span>
+        <small>{{
+          form.stress === null ? "Noch nicht gewählt" : form.stress + "/10"
+        }}</small>
       </div>
       <div class="stress-choice-grid">
         <UiButton
@@ -101,7 +104,11 @@ function submit() {
         <UiButton type="button" class="button secondary" @click="emit('close')">
           Abbrechen
         </UiButton>
-        <UiButton class="button primary" :loading="busy" :disabled="busy">
+        <UiButton
+          class="button primary"
+          :loading="busy"
+          :disabled="busy || form.stress === null"
+        >
           {{ busy ? "Wird gespeichert …" : "Stress speichern" }}
         </UiButton>
       </div>

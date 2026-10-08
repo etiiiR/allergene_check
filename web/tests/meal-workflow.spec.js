@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 
 test("equal actions and inline recipe creation preserve the meal and its editable good default", async ({
   page,

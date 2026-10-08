@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
@@ -12,8 +13,9 @@ import (
 )
 
 type memoryVaultRepository struct {
-	mu    sync.Mutex
-	vault EncryptedVault
+	mu     sync.Mutex
+	vault  EncryptedVault
+	legacy bool
 }
 
 func (r *memoryVaultRepository) LoadVault(context.Context) (EncryptedVault, error) {
@@ -22,14 +24,55 @@ func (r *memoryVaultRepository) LoadVault(context.Context) (EncryptedVault, erro
 	return cloneVault(r.vault), nil
 }
 
-func (r *memoryVaultRepository) SaveVault(_ context.Context, expected int64, envelope json.RawMessage) (EncryptedVault, error) {
+func (r *memoryVaultRepository) LegacyDataAvailable(context.Context) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.legacy, nil
+}
+
+func (r *memoryVaultRepository) SaveVault(_ context.Context, expected int64, envelope json.RawMessage, migrateLegacy bool) (EncryptedVault, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if expected != r.vault.Revision {
 		return EncryptedVault{}, NewAppError(409, "vault_revision_conflict", "revision conflict")
 	}
 	r.vault = EncryptedVault{Revision: expected + 1, Envelope: append(json.RawMessage(nil), envelope...)}
+	if migrateLegacy {
+		r.legacy = false
+	}
 	return cloneVault(r.vault), nil
+}
+
+func TestVaultRequiresAndConfirmsLegacyMigration(t *testing.T) {
+	repository := &memoryVaultRepository{vault: EncryptedVault{Envelope: json.RawMessage("null")}, legacy: true}
+	app := newVaultTestApp(repository)
+	put := func(body string) *http.Response {
+		req := httptest.NewRequest("PUT", "/api/vault", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Diary-Request", "1")
+		response, err := app.Test(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return response
+	}
+
+	withoutMigration := put(`{"expected_revision":0,"envelope":{"version":1}}`)
+	if withoutMigration.StatusCode != 409 {
+		t.Fatalf("unconfirmed migration status=%d, want 409", withoutMigration.StatusCode)
+	}
+	unchanged, _ := repository.LoadVault(context.Background())
+	if unchanged.Revision != 0 || !repository.legacy {
+		t.Fatalf("rejected setup changed legacy data or vault: %#v, legacy=%v", unchanged, repository.legacy)
+	}
+
+	confirmed := put(`{"expected_revision":0,"migrate_legacy":true,"envelope":{"version":1,"payload":{"ciphertext":"opaque"}}}`)
+	if confirmed.StatusCode != 200 {
+		t.Fatalf("confirmed migration status=%d, want 200", confirmed.StatusCode)
+	}
+	if repository.legacy {
+		t.Fatal("confirmed migration did not clear the legacy marker")
+	}
 }
 
 func cloneVault(v EncryptedVault) EncryptedVault {

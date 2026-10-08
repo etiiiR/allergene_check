@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -91,8 +92,11 @@ func TestLoadConfigDefaults(t *testing.T) {
 	config := loadConfig()
 	if config.port != "3000" || config.dbURL != "ws://localhost:8000/rpc" ||
 		config.namespace != "main" || config.database != "main" ||
-		config.username != "root" || config.password != "root" {
+		config.username != "" || config.password != "" {
 		t.Fatalf("unexpected default config: %#v", config)
+	}
+	if err := config.validate(); err == nil {
+		t.Fatal("configuration without database credentials should fail closed")
 	}
 }
 
@@ -109,5 +113,24 @@ func TestLoadConfigFromEnvironment(t *testing.T) {
 		config.namespace != "production" || config.database != "allergens" ||
 		config.username != "app" || config.password != "secret" {
 		t.Fatalf("unexpected environment config: %#v", config)
+	}
+	if err := config.validate(); err != nil {
+		t.Fatalf("complete configuration should validate: %v", err)
+	}
+}
+
+func TestConfigRejectsWhitespaceDatabaseCredentials(t *testing.T) {
+	t.Setenv("SURREALDB_USER", "   ")
+	t.Setenv("SURREALDB_PASS", "\t")
+	if err := loadConfig().validate(); err == nil {
+		t.Fatal("whitespace-only credentials should fail closed")
+	}
+}
+
+func TestConnectDatabaseRejectsMissingCredentialsBeforeConnecting(t *testing.T) {
+	_, err := connectDatabase(context.Background(), appConfig{dbURL: "not-a-valid-url"})
+	var appErr *AppError
+	if !errors.As(err, &appErr) || appErr.Code != ErrorCodeStartup {
+		t.Fatalf("missing credentials should fail before database connection, got %v", err)
 	}
 }

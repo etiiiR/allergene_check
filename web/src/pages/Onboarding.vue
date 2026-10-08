@@ -2,22 +2,24 @@
 import { ref, reactive, nextTick, computed, onMounted } from "vue";
 import { Head, Link, router } from "@inertiajs/vue3";
 import AppShell from "../components/AppShell.vue";
+import PrivacySummary from "../components/PrivacySummary.vue";
 import UiSteps from "../components/ui/UiSteps.vue";
 import { api } from "../lib";
 import { notify } from "../ui/feedback";
 import { generatePseudonym } from "../privacy/pseudonym";
-const props = defineProps({ diary: Object });
+import { useVaultDiary } from "../privacy/vault-session.js";
+const diary = useVaultDiary();
 // Start from the persisted profile so setup never discards existing cycle settings.
 const form = reactive({
-  ...(props.diary?.profile || {}),
-  display_name: props.diary?.profile?.display_name || generatePseudonym(),
+  ...(diary.value.profile || {}),
+  display_name: diary.value.profile?.display_name || generatePseudonym(),
 });
 const step = ref(0),
   busy = ref(false),
   error = ref(""),
   heading = ref(null);
 const editing = computed(() =>
-  Boolean(props.diary?.profile?.onboarding_completed),
+  Boolean(diary.value.profile?.onboarding_completed),
 );
 const progress = computed(() => `${((step.value + 1) / 3) * 100}%`);
 function focusStep() {
@@ -124,10 +126,7 @@ async function finish() {
                 @click="form.display_name = generatePseudonym()"
                 >Neues Pseudonym erstellen</UiButton
               >
-              <p class="helper">
-                Ein persönliches Tagebuch auf diesem Server. Kein Konto und
-                keine Anmeldung. Vorhandene Einträge bleiben erhalten.
-              </p>
+              <PrivacySummary compact />
             </template>
             <template v-else-if="step === 1">
               <p>Optional. Du kannst das später im Profil ändern.</p>

@@ -1,7 +1,7 @@
 <script setup>
 import { entryTone } from "../ui/entry-tones";
-import { computed, ref } from "vue";
-import { Head, Link } from "@inertiajs/vue3";
+import { computed, onMounted, ref } from "vue";
+import { Head, Link, router, usePage } from "@inertiajs/vue3";
 import {
   ArrowRight,
   Check,
@@ -13,6 +13,7 @@ import {
   CalendarDays,
 } from "@lucide/vue";
 import AppShell from "../components/AppShell.vue";
+import { useVaultDiary } from "../privacy/vault-session.js";
 import EntryModal from "../components/EntryModal.vue";
 import StoolModal from "../components/StoolModal.vue";
 import StressModal from "../components/StressModal.vue";
@@ -23,20 +24,27 @@ import {
   symptomIntensityFromScore,
   symptomIntensityLabels,
 } from "../lib";
-const props = defineProps({ diary: Object });
+const diary = useVaultDiary();
+const page = usePage();
+onMounted(() => {
+  if (
+    !diary.value.profile?.onboarding_completed &&
+    !page.url.includes("setup=later")
+  ) router.visit("/onboarding");
+});
 const entry = ref("");
 const selectedRecipe = ref("");
 const today = localDate();
 const todayItems = computed(() =>
   [
-    ...(props.diary.meals || []).map((x) => ({ ...x, kind: "meal" })),
-    ...(props.diary.checkins || []).map((x) => ({ ...x, kind: "check" })),
-    ...(props.diary.stools || []).map((x) => ({
+    ...(diary.value.meals || []).map((x) => ({ ...x, kind: "meal" })),
+    ...(diary.value.checkins || []).map((x) => ({ ...x, kind: "check" })),
+    ...(diary.value.stools || []).map((x) => ({
       ...x,
       kind: "stool",
       occurred_at: x.observed_at,
     })),
-    ...(props.diary.stress_observations || []).map((x) => ({
+    ...(diary.value.stress_observations || []).map((x) => ({
       ...x,
       kind: "stress",
       occurred_at: x.observed_at,
@@ -53,13 +61,13 @@ const latestCheckin = computed(() =>
 );
 const recentRecipes = computed(() => {
   const lastUsed = new Map();
-  for (const meal of props.diary.meals || [])
+  for (const meal of diary.value.meals || [])
     if (
       !lastUsed.has(meal.recipe_id) ||
       meal.occurred_at > lastUsed.get(meal.recipe_id)
     )
       lastUsed.set(meal.recipe_id, meal.occurred_at);
-  return [...(props.diary.recipes || [])]
+  return [...(diary.value.recipes || [])]
     .sort((a, b) =>
       (lastUsed.get(b.id) || "").localeCompare(lastUsed.get(a.id) || ""),
     )

@@ -7,6 +7,7 @@ import RecipeModal from "./RecipeModal.vue";
 import RecipePicker from "./RecipePicker.vue";
 import SymptomRating from "./SymptomRating.vue";
 import UiSteps from "./ui/UiSteps.vue";
+import { useVaultDiary } from "../privacy/vault-session.js";
 import {
   localTime,
   symptomScoreFromIntensity,
@@ -22,11 +23,12 @@ const props = defineProps({
 });
 const emit = defineEmits(["close"]);
 const page = usePage();
+const diary = useVaultDiary();
 const { busy, error, save } = useMutation();
 const now = localTime();
 const symptoms = computed(() => page.props.symptoms || {});
 const symptomKeys = computed(() => Object.keys(symptoms.value));
-const profile = computed(() => page.props.diary?.profile || {});
+const profile = computed(() => diary.value.profile || {});
 const cycleEnabled = computed(
   () => profile.value.body_group === "female" && profile.value.cycle_tracking,
 );
@@ -110,15 +112,15 @@ const form = reactive({
   reference_meal_id: "",
   cycle_phase: initialCycle.phase,
   cycle_day: initialCycle.day,
-  stress: 3,
-  sleep_hours: 8,
+  stress: null,
+  sleep_hours: null,
 });
 
 const selectedSymptomName = computed(
   () => symptoms.value[selectedSymptom.value] || "Beschwerden",
 );
 const recentMeals = computed(() =>
-  [...(page.props.diary?.meals || [])]
+  [...(diary.value.meals || [])]
     .sort((a, b) => b.occurred_at.localeCompare(a.occurred_at))
     .slice(0, 3),
 );
@@ -170,6 +172,11 @@ function submit() {
   }
   const data = {
     ...form,
+    context_recorded:
+      !meal.value &&
+      [form.stress, form.sleep_hours].some(
+        (value) => value !== null && value !== undefined && value !== "",
+      ),
     record_good_moment: meal.value && wellbeing.value === "good",
     occurred_at: new Date(form.occurred_at).toISOString(),
     symptoms: form.symptom_free
@@ -228,8 +235,8 @@ function submit() {
       <template v-if="meal">
         <RecipePicker
           v-model="form.recipe_id"
-          :recipes="page.props.diary?.recipes || []"
-          :meals="page.props.diary?.meals || []"
+          :recipes="diary.recipes || []"
+          :meals="diary.meals || []"
         />
         <UiButton
           type="button"
@@ -402,6 +409,7 @@ function submit() {
                   v-model.number="form.sleep_hours"
               /></label>
             </div>
+            <small>Leer lassen, wenn du Stress oder Schlaf nicht eintragen möchtest.</small>
             <label v-if="!form.symptom_free && recentMeals.length"
               >Mögliche Mahlzeit (optional)<select
                 class="d-select"

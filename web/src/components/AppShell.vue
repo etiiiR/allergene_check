@@ -14,7 +14,9 @@ import {
 } from "@lucide/vue";
 import ToastHost from "./ui/ToastHost.vue";
 import { workspace } from "../ui/workspace";
+import { useVaultDiary } from "../privacy/vault-session.js";
 const page = usePage();
+const diary = useVaultDiary();
 const nav = [
   ["/", "Heute", LayoutDashboard],
   ["/diary", "Tagebuch", BookOpen],
@@ -93,8 +95,8 @@ const reload = () => window.location.reload();
           aria-label="Profil und Zyklus"
           ><Settings :size="18" /><span
             class="header-person"
-            v-if="page.props.diary?.profile?.display_name"
-            >{{ page.props.diary.profile.display_name }}</span
+          v-if="diary.profile?.display_name"
+          >{{ diary.profile.display_name }}</span
           ></Link
         >
       </header>

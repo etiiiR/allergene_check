@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 
 // HTTP/parser behavior is covered by Python's offline fixtures. Here we check
 // the editable preview contract without depending on a third-party website.
@@ -8,6 +8,31 @@ async function openImport(page) {
   await page.getByRole("button", { name: "Rezept hinzufügen" }).click();
   await page.getByLabel("Rezept von URL übernehmen").fill(source);
 }
+
+test("many ingredient rows stay compact and allergen choices fit a narrow phone", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 780 });
+  await page.goto("/recipes");
+  await page.getByRole("button", { name: "Rezept hinzufügen" }).click();
+  await page.getByLabel("Rezeptname").fill("Kompaktes Testrezept");
+  for (let count = 0; count < 10; count += 1) {
+    await page.getByRole("button", { name: "Zutat manuell hinzufügen" }).click();
+  }
+  await expect(page.locator(".ingredient-editor")).toHaveCount(10);
+  await expect(page.getByLabel("Zutat 10", { exact: true })).toBeVisible();
+
+  const first = page.locator(".ingredient-editor").first();
+  await first.getByText("Zuordnung & Allergene", { exact: true }).click();
+  const milk = first.getByRole("checkbox", { name: "Milch", exact: true });
+  await milk.check();
+  await expect(first.locator("summary")).toContainText("Milch");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBeTruthy();
+});
 
 test("HTML import fills portions and preserves preview plus all warnings if normalization is unavailable", async ({
   page,

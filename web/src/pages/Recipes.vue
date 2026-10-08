@@ -17,9 +17,11 @@ import RecipeModal from "../components/RecipeModal.vue";
 import EntryModal from "../components/EntryModal.vue";
 import RecipeFlagModal from "../components/RecipeFlagModal.vue";
 import EntryPanel from "../components/EntryPanel.vue";
+import { useVaultDiary } from "../privacy/vault-session.js";
 import { api, foodName, useMutation, allergenLabels } from "../lib";
 import { recipeIndex, findRecipes } from "../recipe-search";
-const props = defineProps({ diary: Object, foods: Array });
+const props = defineProps({ foods: Array });
+const diary = useVaultDiary();
 const search = ref(""),
   editing = ref(null),
   creating = ref(false),
@@ -37,7 +39,7 @@ const sort = ref("recent"),
   resultsHeading = ref(null),
   searchInput = ref(null);
 const index = computed(() =>
-  recipeIndex(props.diary.recipes, props.diary.meals),
+  recipeIndex(diary.value.recipes, diary.value.meals),
 );
 const list = computed(() => findRecipes(index.value, search.value, sort.value));
 const pageSize = 12;
@@ -75,7 +77,7 @@ function level(r) {
     : "Zutaten prüfen";
 }
 function flagsFor(recipe) {
-  return (props.diary.recipe_flags || []).filter(
+  return (diary.value.recipe_flags || []).filter(
     (flag) => flag.recipe_id === recipe.id,
   );
 }
@@ -93,7 +95,7 @@ async function inspect(recipe) {
   analysisBusy.value = true;
   try {
     const data = await api("/patterns");
-    // Use the same server-derived identities as the analysis of old meal snapshots.
+    // Reuse the same local ingredient identities used by meal history.
     const ids = new Set(recipe.analysis_ingredient_ids || []);
     analysis.value = {
       ...data,
@@ -419,7 +421,7 @@ async function inspect(recipe) {
       v-if="flagging"
       :recipe="flagging"
       :kind="flagKind"
-      :meals="props.diary.meals"
+      :meals="diary.meals"
       @close="flagging = null"
     />
     <EntryPanel v-if="pending" title="Rezept löschen?" @close="pending = null"

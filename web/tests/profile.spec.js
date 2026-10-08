@@ -1,5 +1,6 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, E2E_PASSPHRASE } from "./fixtures.js";
 import AxeBuilder from "@axe-core/playwright";
+import { readFile } from "node:fs/promises";
 const headers = { "X-Diary-Request": "1" };
 
 test("a missing profile opens the setup wizard, while setup can be deferred and resumed", async ({
@@ -98,6 +99,129 @@ test("setup suggests an editable pseudonym without requiring a real name", async
   }
 });
 
+test("profile explains the encrypted vault and its local-only limits", async ({
+  page,
+}) => {
+  await page.goto("/profile");
+  await expect(
+    page
+      .getByLabel("Datenschutzinformationen")
+      .getByText("Pseudonym und verschlüsseltes Tagebuch"),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Datenschutzinformationen")
+      .getByText(/verschlüsselten Tresor/u),
+  ).toBeVisible();
+  await page
+    .getByLabel("Datenschutzinformationen")
+    .getByText("Was das schützt – und was nicht")
+    .click();
+  await expect(
+    page
+      .getByLabel("Datenschutzinformationen")
+      .getByText(/keine Konto-Anmeldung/u),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Datenschutzinformationen")
+      .getByText(/Ein Pseudonym ist keine Anonymität/u),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/Änderungen werden verschlüsselt im Tresor/u),
+  ).toBeVisible();
+});
+
+test("profile downloads a generic encrypted backup without diary text", async ({
+  page,
+  request,
+}) => {
+  const original = await (await request.get("/api/diary")).json();
+  const sentinel = `BACKUP-PRIVATE-${Date.now()}`;
+  try {
+    expect(
+      (
+        await request.put("/api/profile", {
+          headers,
+          data: { ...original.profile, display_name: sentinel },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    await page.goto("/profile");
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Sicherung herunterladen" }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(
+      /^gutfeeling-encrypted-backup-\d{4}-\d{2}-\d{2}\.json$/u,
+    );
+    const contents = await readFile(await download.path(), "utf8");
+    const backup = JSON.parse(contents);
+    const serverVault = await (await request.get("/api/vault")).json();
+    expect(backup.format).toBe("gutfeeling-encrypted-vault");
+    expect(backup.envelope).toEqual(serverVault.envelope);
+    expect(contents).not.toContain(sentinel);
+    expect(contents).not.toContain(E2E_PASSPHRASE);
+  } finally {
+    expect(
+      (
+        await request.put("/api/profile", {
+          headers,
+          data: original.profile,
+        })
+      ).ok(),
+    ).toBeTruthy();
+  }
+});
+
+test("onboarding explains pseudonym and encryption without interrupting setup", async ({
+  page,
+}) => {
+  await page.goto("/onboarding");
+  const privacy = page.getByLabel("Datenschutzinformationen");
+  await expect(privacy).toBeVisible();
+  await expect(
+    privacy.getByText(/Anzeigename und deine Einträge/u),
+  ).toBeVisible();
+  await expect(
+    privacy.getByText("Was das schützt – und was nicht"),
+  ).toBeVisible();
+  await expect(page.locator("dialog, [aria-modal=true]")).toHaveCount(0);
+});
+
+test("diary sentinel is absent from Inertia page props and the stored vault envelope", async ({
+  page,
+  request,
+}) => {
+  const original = await (await request.get("/api/diary")).json();
+  const sentinel = `PRIVATE-SENTINEL-${Date.now()}-not-for-server`;
+  try {
+    expect(
+      (
+        await request.put("/api/profile", {
+          headers,
+          data: { ...original.profile, display_name: sentinel },
+        })
+      ).ok(),
+    ).toBeTruthy();
+
+    const response = await page.goto("/profile");
+    const html = await response.text();
+    expect(html).not.toContain(sentinel);
+    const vault = await (await request.get("/api/vault")).json();
+    expect(JSON.stringify(vault)).not.toContain(sentinel);
+    expect(vault.envelope?.payload?.ciphertext).toBeTruthy();
+  } finally {
+    expect(
+      (
+        await request.put("/api/profile", {
+          headers,
+          data: original.profile,
+        })
+      ).ok(),
+    ).toBeTruthy();
+  }
+});
+
 test("guided setup persists a named person, preserves diary records and survives a new browser context", async ({
   page,
   request,
@@ -123,7 +247,7 @@ test("guided setup persists a named person, preserves diary records and survives
     ).toEqual([]);
     await page.getByRole("button", { name: "Weiter", exact: true }).click();
     await expect(page.getByText("Alles bereit, Testperson Léa.")).toBeVisible();
-    await page.route("**/api/profile", (route) =>
+    await page.route("**/api/vault", (route) =>
       route.fulfill({
         status: 503,
         contentType: "application/json",
@@ -141,7 +265,7 @@ test("guided setup persists a named person, preserves diary records and survives
     await expect(
       page.getByRole("button", { name: "Profil anlegen und starten" }),
     ).toBeEnabled();
-    await page.unroute("**/api/profile");
+    await page.unroute("**/api/vault");
     await page
       .getByRole("button", { name: "Profil anlegen und starten" })
       .click();
@@ -167,6 +291,11 @@ test("guided setup persists a named person, preserves diary records and survives
     try {
       const freshPage = await context.newPage();
       await freshPage.goto(new URL("/profile", page.url()).href);
+      await freshPage.getByLabel("Passphrase").fill(E2E_PASSPHRASE);
+      await freshPage
+        .getByRole("button", { name: "Tagebuch entsperren" })
+        .click();
+      await expect(freshPage.locator(".vault-lock-button")).toBeVisible();
       await expect(freshPage.getByLabel("Pseudonym")).toHaveValue(
         "Testperson Léa",
       );
@@ -176,10 +305,20 @@ test("guided setup persists a named person, preserves diary records and survives
         freshPage.locator(".profile-settings [role=status]"),
       ).toContainText("Profil gespeichert");
       await freshPage.reload();
+      await freshPage.getByLabel("Passphrase").fill(E2E_PASSPHRASE);
+      await freshPage
+        .getByRole("button", { name: "Tagebuch entsperren" })
+        .click();
+      await expect(freshPage.locator(".vault-lock-button")).toBeVisible();
       await expect(freshPage.getByLabel("Pseudonym")).toHaveValue(
         "Testperson Alex",
       );
       await freshPage.goto(new URL("/profile", page.url()).href);
+      await freshPage.getByLabel("Passphrase").fill(E2E_PASSPHRASE);
+      await freshPage
+        .getByRole("button", { name: "Tagebuch entsperren" })
+        .click();
+      await expect(freshPage.locator(".vault-lock-button")).toBeVisible();
       await freshPage
         .getByRole("link", { name: "Profil-Assistent öffnen" })
         .click();
@@ -188,6 +327,11 @@ test("guided setup persists a named person, preserves diary records and survives
         "Testperson Alex",
       );
       await freshPage.goto(new URL("/report", page.url()).href);
+      await freshPage.getByLabel("Passphrase").fill(E2E_PASSPHRASE);
+      await freshPage
+        .getByRole("button", { name: "Tagebuch entsperren" })
+        .click();
+      await expect(freshPage.locator(".vault-lock-button")).toBeVisible();
       await expect(freshPage.locator("#patient-report")).toContainText(
         "Testperson Alex",
       );

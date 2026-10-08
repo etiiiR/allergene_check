@@ -14,6 +14,7 @@ import {
   Utensils,
 } from "@lucide/vue";
 import AppShell from "../components/AppShell.vue";
+import { useVaultDiary } from "../privacy/vault-session.js";
 import EntryModal from "../components/EntryModal.vue";
 import StoolModal from "../components/StoolModal.vue";
 import StressModal from "../components/StressModal.vue";
@@ -25,7 +26,8 @@ import {
   symptomIntensityLabels,
 } from "../lib";
 
-const props = defineProps({ diary: Object, symptoms: Object });
+const props = defineProps({ symptoms: Object });
+const diary = useVaultDiary();
 const today = localDate();
 const selectedDay = ref(today);
 const monthCursor = ref(new Date(`${today}T00:00:00`));
@@ -39,22 +41,22 @@ const monthLabel = computed(() =>
 );
 
 const allEvents = computed(() => [
-  ...(props.diary?.meals || []).map((item) => ({
+  ...(diary.value.meals || []).map((item) => ({
     ...item,
     kind: "meal",
     occurred_at: item.occurred_at,
   })),
-  ...(props.diary?.checkins || []).map((item) => ({
+  ...(diary.value.checkins || []).map((item) => ({
     ...item,
     kind: "checkin",
     occurred_at: item.occurred_at,
   })),
-  ...(props.diary?.stress_observations || []).map((item) => ({
+  ...(diary.value.stress_observations || []).map((item) => ({
     ...item,
     kind: "stress",
     occurred_at: item.observed_at,
   })),
-  ...(props.diary?.stools || []).map((item) => ({
+  ...(diary.value.stools || []).map((item) => ({
     ...item,
     kind: "stool",
     occurred_at: item.observed_at,

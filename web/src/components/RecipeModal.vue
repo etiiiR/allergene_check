@@ -1,7 +1,7 @@
 <script setup>
 import { ref, reactive } from "vue";
 import { usePage } from "@inertiajs/vue3";
-import { Globe, Sparkles, Plus, Trash2 } from "@lucide/vue";
+import { Globe, Sparkles, Plus, Trash2, ChevronDown } from "@lucide/vue";
 import EntryPanel from "./EntryPanel.vue";
 import { api, useMutation, allergenLabels } from "../lib";
 const props = defineProps({ recipe: Object, inline: Boolean }),
@@ -26,6 +26,20 @@ const raw = ref(""),
   parseError = ref("");
 function manual() {
   form.ingredients.push({ text: "", food_ids: [], allergens: [] });
+}
+function ingredientDetailsSummary(item) {
+  const food = page.props.foods?.find((candidate) =>
+    item.food_ids?.includes(candidate.id),
+  );
+  const selectedAllergens = (item.allergens || [])
+    .map((allergen) => allergenLabels[allergen])
+    .filter(Boolean);
+  return [
+    food?.name || (item.needs_review ? "Zuordnung prüfen" : "Nicht zugeordnet"),
+    selectedAllergens.length
+      ? selectedAllergens.join(", ")
+      : "Allergene nicht markiert",
+  ].join(" · ");
 }
 // Keep original amounts for the recipe; canonical IDs are only for comparisons.
 function recognizedIngredient(item) {
@@ -249,39 +263,49 @@ function submit() {
             >{{ suggestion.name }} übernehmen</UiButton
           >
         </div>
-        <div class="form-row">
-          <label
-            >Lebensmittel-Zuordnung<select
-              class="d-select"
-              :value="item.food_ids[0] || ''"
-              @change="
-                item.food_ids = $event.target.value ? [$event.target.value] : []
-              "
+        <details class="ingredient-details">
+          <summary>
+            <span>Zuordnung & Allergene</span>
+            <small class="ingredient-detail-status">{{
+              ingredientDetailsSummary(item)
+            }}</small>
+            <ChevronDown :size="16" aria-hidden="true" />
+          </summary>
+          <div class="ingredient-details-body">
+            <label
+              >Lebensmittel-Zuordnung<select
+                class="d-select"
+                :value="item.food_ids[0] || ''"
+                @change="
+                  item.food_ids = $event.target.value
+                    ? [$event.target.value]
+                    : []
+                "
+              >
+                <option value="">Eigene Zutat / nicht zugeordnet</option>
+                <option
+                  v-for="f in page.props.foods"
+                  :key="f.id"
+                  :value="f.id"
+                >
+                  {{ f.name }}
+                </option>
+              </select></label
             >
-              <option value="">Eigene Zutat / nicht zugeordnet</option>
-              <option v-for="f in page.props.foods" :key="f.id" :value="f.id">
-                {{ f.name }}
-              </option>
-            </select></label
-          ><label
-            >Enthaltene Allergene<select
-              class="d-select"
-              v-model="item.allergens"
-              multiple
-              size="3"
-              aria-label="Allergene dieser Zutat"
-            >
-              <option v-for="a in page.props.allergens" :value="a" :key="a">
-                {{ allergenLabels[a] }}
-              </option>
-            </select></label
-          >
-        </div>
-        <p class="helper">
-          Allergene anhand der Verpackung bestätigen. Mehrfachauswahl mit
-          Cmd/Strg. Nicht aufgeführt bedeutet nicht allergenfrei.
-        </p>
+            <fieldset class="allergen-options">
+              <legend>Enthaltene Allergene für Zutat {{ index + 1 }}</legend>
+              <label v-for="a in page.props.allergens" :key="a">
+                <input type="checkbox" :value="a" v-model="item.allergens" />
+                <span>{{ allergenLabels[a] }}</span>
+              </label>
+            </fieldset>
+          </div>
+        </details>
       </div>
+      <p v-if="form.ingredients.length" class="helper ingredient-safety-note">
+        Allergene anhand der Verpackung prüfen. „Nicht markiert“ bedeutet nicht
+        allergenfrei.
+      </p>
       <UiButton type="button" class="text-button" @click="manual">
         <Plus :size="16" />Zutat manuell hinzufügen
       </UiButton>
