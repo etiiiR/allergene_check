@@ -158,6 +158,99 @@ func TestSurrealVaultConcurrentRevisionCAS(t *testing.T) {
 	}
 }
 
+// TestSurrealVaultMigrationCommitsCiphertextAndRemovesLegacyRows verifies the
+// complete first-save migration on a disposable database. The migration is
+// intentionally destructive to the old diary tables, so the database-name
+// guard below is mandatory and this test is opt-in.
+func TestSurrealVaultMigrationCommitsCiphertextAndRemovesLegacyRows(t *testing.T) {
+	if os.Getenv("RUN_INTEGRATION_TESTS") != "1" {
+		t.Skip("set RUN_INTEGRATION_TESTS=1 to run against SurrealDB")
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	defer cancel()
+	db, err := connectDatabase(ctx, requireIsolatedIntegrationConfig(t))
+	if err != nil {
+		t.Fatalf("connect to SurrealDB: %v", err)
+	}
+	defer db.Close(context.Background())
+	store := NewSurrealStore(db)
+	diary := &DiaryRepository{store: store}
+	if err := diary.initialize(ctx); err != nil {
+		t.Fatalf("initialize isolated diary schema: %v", err)
+	}
+
+	sentinel := "legacy-migration-" + uuid.NewString()
+	legacyKinds := []string{"recipes", "meals", "checkins", "recipe_flags", "stools", "stress"}
+	for _, kind := range legacyKinds {
+		if err := diary.save(ctx, kind, sentinel, map[string]string{"migration_test": sentinel}); err != nil {
+			t.Fatalf("seed legacy %s row: %v", kind, err)
+		}
+	}
+	profile := defaultProfile()
+	profile.DisplayName = sentinel
+	if err := diary.saveProfile(ctx, profile); err != nil {
+		t.Fatalf("seed legacy profile: %v", err)
+	}
+
+	vaultRepo := &surrealVaultRepository{store: store, key: "migration-" + uuid.NewString()}
+	defer Delete[any](context.Background(), store, vaultRepo.recordID())
+	legacyAvailable, err := vaultRepo.LegacyDataAvailable(ctx)
+	if err != nil || !legacyAvailable {
+		t.Fatalf("expected seeded legacy diary to be detected, available=%t err=%v", legacyAvailable, err)
+	}
+
+	envelope := json.RawMessage(`{"version":1,"payload":{"ciphertext":"opaque-test-ciphertext"}}`)
+	if _, err := vaultRepo.SaveVault(ctx, 99, envelope, true); err == nil {
+		t.Fatal("expected stale revision to reject migration")
+	} else {
+		var appErr *AppError
+		if !errors.As(err, &appErr) || appErr.Status != 409 {
+			t.Fatalf("expected a revision conflict before migration, got %v", err)
+		}
+	}
+	for _, kind := range legacyKinds {
+		row, err := Select[diaryRecord](ctx, store, models.NewRecordID("diary_"+kind, sentinel))
+		if err != nil {
+			t.Fatalf("check legacy %s row after rejected migration: %v", kind, err)
+		}
+		if row == nil {
+			t.Fatalf("stale vault revision deleted legacy %s data", kind)
+		}
+	}
+	saved, err := vaultRepo.SaveVault(ctx, 0, envelope, true)
+	if err != nil {
+		t.Fatalf("save encrypted vault and migrate legacy rows: %v", err)
+	}
+	if saved.Revision != 1 || string(saved.Envelope) != string(envelope) {
+		t.Fatalf("unexpected saved vault: %#v", saved)
+	}
+	loaded, err := vaultRepo.LoadVault(ctx)
+	if err != nil || loaded.Revision != 1 || string(loaded.Envelope) != string(envelope) {
+		t.Fatalf("could not read committed encrypted vault: %#v err=%v", loaded, err)
+	}
+
+	for _, kind := range legacyKinds {
+		row, err := Select[diaryRecord](ctx, store, models.NewRecordID("diary_"+kind, sentinel))
+		if err != nil {
+			t.Fatalf("check migrated %s row: %v", kind, err)
+		}
+		if row != nil {
+			t.Errorf("legacy %s row remains after vault migration", kind)
+		}
+	}
+	profileRow, err := Select[diaryRecord](ctx, store, models.NewRecordID("diary_profile", "default"))
+	if err != nil {
+		t.Fatalf("check migrated profile: %v", err)
+	}
+	if profileRow != nil {
+		t.Error("legacy profile remains after vault migration")
+	}
+	legacyAvailable, err = vaultRepo.LegacyDataAvailable(ctx)
+	if err != nil || legacyAvailable {
+		t.Fatalf("expected no primary legacy rows after commit, available=%t err=%v", legacyAvailable, err)
+	}
+}
+
 // requireIsolatedIntegrationConfig prevents opt-in tests from modifying a
 // normal development or production database. The integration suite can remove
 // a test table and the migration suite may clear legacy tables, so both names

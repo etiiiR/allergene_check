@@ -21,7 +21,6 @@ const step = ref(0),
 const editing = computed(() =>
   Boolean(diary.value.profile?.onboarding_completed),
 );
-const progress = computed(() => `${((step.value + 1) / 3) * 100}%`);
 function focusStep() {
   heading.value?.focus({ preventScroll: true });
 }
@@ -75,6 +74,7 @@ async function finish() {
       </header>
       <div
         class="setup-progress"
+        :data-step="step + 1"
         role="progressbar"
         :aria-valuenow="step + 1"
         aria-valuemin="1"
@@ -82,7 +82,7 @@ async function finish() {
         :aria-valuetext="`Schritt ${step + 1} von 3`"
         aria-label="Einrichtungsfortschritt"
       >
-        <span :style="{ width: progress }"></span>
+        <span aria-hidden="true"></span>
       </div>
       <UiSteps :labels="['Person', 'Kontext', 'Startklar']" :current="step" />
       <form

@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures.js";
+import { test, expect, createEncryptedDiaryRequest } from "./fixtures.js";
 import AxeBuilder from "@axe-core/playwright";
 
 // Use only the isolated test app described in README. Create 200 real records,
@@ -7,6 +7,7 @@ const headers = { "X-Diary-Request": "1" },
   recipes = [],
   created = [];
 let meal;
+let fixtureAPI;
 async function create(request, kind, data) {
   const response = await request.post(`/api/${kind}`, { headers, data });
   expect(response.ok(), await response.text()).toBeTruthy();
@@ -14,7 +15,8 @@ async function create(request, kind, data) {
   created.push([kind, record.id]);
   return record;
 }
-test.beforeAll(async ({ request }) => {
+test.beforeAll(async ({ playwright, baseURL }) => {
+  fixtureAPI = await createEncryptedDiaryRequest({ playwright, baseURL });
   for (let start = 0; start < 200; start += 10) {
     const batch = await Promise.all(
       Array.from({ length: 10 }, (_, offset) => {
@@ -35,7 +37,7 @@ test.beforeAll(async ({ request }) => {
               : n === 199
                 ? "Tomate"
                 : "Karotte";
-        return create(request, "recipes", {
+        return create(fixtureAPI, "recipes", {
           title,
           servings: 2,
           ingredients: [{ text: ingredient, food_ids: [], allergens: [] }],
@@ -49,7 +51,7 @@ test.beforeAll(async ({ request }) => {
     [165, 24],
     [170, 1],
   ]) {
-    const record = await create(request, "meals", {
+    const record = await create(fixtureAPI, "meals", {
       recipe_id: recipes[index].id,
       portions: 1,
       occurred_at: new Date(Date.now() - hours * 3600000).toISOString(),
@@ -57,11 +59,13 @@ test.beforeAll(async ({ request }) => {
     if (index === 170) meal = record;
   }
 });
-test.afterAll(async ({ request }) => {
+test.afterAll(async () => {
+  if (!fixtureAPI) return;
   for (const [kind, id] of created.reverse())
     expect(
-      (await request.delete(`/api/${kind}/${id}`, { headers })).ok(),
+      (await fixtureAPI.delete(`/api/${kind}/${id}`, { headers })).ok(),
     ).toBeTruthy();
+  await fixtureAPI.dispose();
 });
 async function openMeal(page) {
   await page.goto("/");

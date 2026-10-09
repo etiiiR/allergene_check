@@ -111,6 +111,7 @@ async function openEditor(page, id) {
     .getByRole("button", { name: "Eintrag bearbeiten" })
     .click();
   await expect(page.locator("dialog, [aria-modal=true]")).toHaveCount(0);
+  await expect(page.locator(".entry-workspace")).toBeVisible();
   // Measure accessibility after the entrance fade, not a translucent frame.
   await page.locator(".entry-workspace").evaluate(async (element) => {
     await Promise.all(
@@ -195,7 +196,7 @@ test("meal edits persist without changing snapshots, IDs or precise times and re
   );
 });
 
-test("editing all symptoms retains context, reports ML outages separately and can switch to symptom-free", async ({
+test("editing all symptoms retains context, refreshes local analysis and can switch to symptom-free", async ({
   page,
   request,
 }) => {
@@ -209,13 +210,6 @@ test("editing all symptoms retains context, reports ML outages separately and ca
     context_recorded: true,
     notes: "before",
   });
-  await page.route("**/api/patterns?**", (route) =>
-    route.fulfill({
-      status: 503,
-      contentType: "application/json",
-      body: JSON.stringify({ error: { message: "offline" } }),
-    }),
-  );
   await page.setViewportSize({ width: 390, height: 844 });
   await openEditor(page, check.id);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
@@ -243,20 +237,12 @@ test("editing all symptoms retains context, reports ML outages separately and ca
     occurred_at: check.occurred_at,
   });
   await expect(page.locator(".edit-analysis-status")).toContainText(
-    "Deine Änderungen bleiben erhalten",
+    "Auswertung mit den aktuellen Daten neu berechnet",
   );
   expect(
     (await diary(request)).checkins.find((c) => c.id === check.id).symptoms
       .pain,
   ).toBe(4);
-  await page.unroute("**/api/patterns?**");
-  await page
-    .getByRole("button", { name: "Auswertung erneut versuchen" })
-    .click();
-  await expect(page.locator(".edit-analysis-status")).toContainText(
-    "Auswertung mit den aktuellen Daten neu berechnet",
-    { timeout: 30_000 },
-  );
   await openEditor(page, check.id);
   await page.getByRole("button", { name: "Gut", exact: true }).click();
   const good = await saveEditor(page, "checkins", check.id);
@@ -341,15 +327,16 @@ test("failed writes retain the draft and invalid or missing entries are not upse
   });
   await openEditor(page, check.id);
   await page.getByLabel("Notiz", { exact: true }).fill("keep my draft");
-  await page.route(`**/api/checkins/${check.id}`, (route) =>
-    route.fulfill({
+  await page.route("**/api/vault", async (route) => {
+    if (route.request().method() !== "PUT") return route.continue();
+    return route.fulfill({
       status: 503,
       contentType: "application/json",
       body: JSON.stringify({
         error: { message: "Speichern gerade nicht möglich." },
       }),
-    }),
-  );
+    });
+  });
   await page.getByRole("button", { name: "Änderungen speichern" }).click();
   await expect(page.locator(".diary-edit-form [role=alert]")).toContainText(
     "Speichern gerade nicht möglich",
@@ -357,7 +344,7 @@ test("failed writes retain the draft and invalid or missing entries are not upse
   await expect(page.getByLabel("Notiz", { exact: true })).toHaveValue(
     "keep my draft",
   );
-  await page.unroute(`**/api/checkins/${check.id}`);
+  await page.unroute("**/api/vault");
   await saveEditor(page, "checkins", check.id);
   expect(
     (

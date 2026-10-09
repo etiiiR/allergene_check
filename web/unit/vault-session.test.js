@@ -4,13 +4,16 @@ import { createEncryptedVault } from "../src/privacy/vault-crypto.js";
 import {
   commitPreparedVault,
   acceptServerVault,
+  commitVaultCredentialRotation,
   isVaultUnlocked,
   loadVaultSession,
   lockVaultSession,
   prepareVault,
+  prepareVaultCredentialRotation,
   restoreEncryptedVault,
   transactDiary,
   unlockVaultWithPassphrase,
+  unlockVaultWithRecoveryKey,
   vaultSessionState,
 } from "../src/privacy/vault-session.js";
 
@@ -25,6 +28,12 @@ function mockVaultServer() {
     calls.push({ method, body: options.body });
     if (method === "GET") {
       return new Response(JSON.stringify(server.vault), { status: 200 });
+    }
+    if (server.failPuts) {
+      return new Response(
+        JSON.stringify({ error: { code: "write_unavailable", message: "write unavailable" } }),
+        { status: 503 },
+      );
     }
     const request = JSON.parse(options.body);
     if (request.expected_revision !== server.vault.revision) {
@@ -69,6 +78,31 @@ test("initial encrypted page props select setup or locked mode without plaintext
     await acceptServerVault(mock.server.vault);
     assert.equal(vaultSessionState.status, "locked");
     assert.equal(vaultSessionState.diary, null);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("a delayed older Inertia snapshot cannot relock a newly saved vault", async () => {
+  const mock = mockVaultServer();
+  try {
+    await loadVaultSession();
+    const diary = {
+      profile: { display_name: "Restored profile" },
+      recipes: [],
+      meals: [],
+      checkins: [],
+    };
+    const prepared = await prepareVault(diary, passphrase);
+    await commitPreparedVault(prepared);
+    assert.equal(vaultSessionState.revision, 1);
+    assert.equal(vaultSessionState.status, "unlocked");
+
+    await acceptServerVault({ revision: 0, envelope: null });
+
+    assert.equal(vaultSessionState.revision, 1);
+    assert.equal(vaultSessionState.status, "unlocked");
+    assert.equal(vaultSessionState.diary.profile.display_name, "Restored profile");
   } finally {
     mock.restore();
   }
@@ -217,6 +251,129 @@ test("legacy migration is sent only with the explicit first-vault confirmation",
     );
     assert.equal(createRequest.migrate_legacy, true);
     assert.equal(vaultSessionState.status, "unlocked");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("credential rotation replaces both keys and preserves encrypted diary data", async () => {
+  const mock = mockVaultServer();
+  const nextPassphrase = "Neue!Passphrase!Abendsonne";
+  try {
+    const diary = {
+      profile: { display_name: "Pseudonym bleibt privat" },
+      recipes: [{ title: "Zitronenkuchen" }],
+      checkins: [{ notes: "Bauchweh nach dem Essen" }],
+    };
+    await loadVaultSession();
+    const first = await prepareVault(diary, passphrase);
+    const previousRecoveryKey = first.recoveryKey;
+    await commitPreparedVault(first);
+    const previousEnvelope = mock.server.vault.envelope;
+
+    const prepared = await prepareVaultCredentialRotation(nextPassphrase);
+    assert.equal(mock.server.vault.revision, 1);
+    assert.deepEqual(mock.server.vault.envelope, previousEnvelope);
+    assert.deepEqual(prepared.diary, diary);
+    assert.notEqual(prepared.recoveryKey, previousRecoveryKey);
+
+    const rotated = await commitVaultCredentialRotation(prepared);
+    assert.equal(rotated.revision, 2);
+    assert.deepEqual(rotated.diary, diary);
+    assert.equal(vaultSessionState.status, "unlocked");
+    assert.equal(vaultSessionState.revision, 2);
+
+    const writes = mock.calls
+      .filter((call) => call.method === "PUT")
+      .map((call) => call.body)
+      .join("\n");
+    for (const secret of [passphrase, nextPassphrase, previousRecoveryKey, prepared.recoveryKey]) {
+      assert.ok(!writes.includes(secret));
+    }
+    assert.ok(!writes.includes("Pseudonym bleibt privat"));
+    assert.ok(!writes.includes("Bauchweh nach dem Essen"));
+
+    lockVaultSession();
+    await assert.rejects(
+      unlockVaultWithPassphrase(passphrase),
+      /ungültig/u,
+    );
+    await unlockVaultWithPassphrase(nextPassphrase);
+    assert.deepEqual(vaultSessionState.diary, diary);
+    lockVaultSession();
+    await assert.rejects(
+      unlockVaultWithRecoveryKey(previousRecoveryKey),
+      /ungültig/u,
+    );
+    await unlockVaultWithRecoveryKey(prepared.recoveryKey);
+    assert.deepEqual(vaultSessionState.diary, diary);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("failed credential save leaves the existing vault and unlocked diary usable", async () => {
+  const mock = mockVaultServer();
+  try {
+    const diary = { profile: {}, recipes: [], checkins: [{ notes: "still here" }] };
+    await loadVaultSession();
+    await commitPreparedVault(await prepareVault(diary, passphrase));
+    const previousEnvelope = mock.server.vault.envelope;
+    const prepared = await prepareVaultCredentialRotation(
+      "Another!New!Passphrase!123",
+    );
+    mock.server.failPuts = true;
+
+    await assert.rejects(commitVaultCredentialRotation(prepared), /write unavailable/u);
+    assert.equal(vaultSessionState.status, "unlocked");
+    assert.equal(vaultSessionState.revision, 1);
+    assert.deepEqual(vaultSessionState.envelope, previousEnvelope);
+    assert.deepEqual(vaultSessionState.diary, diary);
+    assert.deepEqual(mock.server.vault.envelope, previousEnvelope);
+
+    mock.server.failPuts = false;
+    lockVaultSession();
+    await unlockVaultWithPassphrase(passphrase);
+    assert.deepEqual(vaultSessionState.diary, diary);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("credential rotation refuses to overwrite diary edits made during confirmation", async () => {
+  const mock = mockVaultServer();
+  try {
+    await loadVaultSession();
+    await commitPreparedVault(
+      await prepareVault(
+        { profile: {}, recipes: [], checkins: [] },
+        passphrase,
+      ),
+    );
+    const prepared = await prepareVaultCredentialRotation(
+      "Another!New!Passphrase!456",
+    );
+    await transactDiary((draft) => {
+      draft.checkins.push({ notes: "latest edit must survive" });
+      return { diary: draft, result: null };
+    });
+    const writesBeforeRotation = mock.calls.filter(
+      (call) => call.method === "PUT",
+    ).length;
+
+    await assert.rejects(
+      commitVaultCredentialRotation(prepared),
+      (error) => error.code === "vault_rotation_stale",
+    );
+    assert.equal(
+      mock.calls.filter((call) => call.method === "PUT").length,
+      writesBeforeRotation,
+    );
+    assert.equal(vaultSessionState.status, "unlocked");
+    assert.equal(vaultSessionState.revision, 2);
+    assert.deepEqual(vaultSessionState.diary.checkins, [
+      { notes: "latest edit must survive" },
+    ]);
   } finally {
     mock.restore();
   }

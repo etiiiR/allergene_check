@@ -7,24 +7,28 @@ import (
 
 // appConfig contains all runtime configuration for the HTTP and database layers.
 type appConfig struct {
-	port      string
-	dbURL     string
-	namespace string
-	database  string
-	username  string
-	password  string
+	port              string
+	listenHost        string
+	dbURL             string
+	namespace         string
+	database          string
+	username          string
+	password          string
+	accountSetupToken string
 }
 
 // loadConfig reads runtime settings. Database credentials intentionally have no
 // insecure development fallback; a missing credential must fail closed.
 func loadConfig() appConfig {
 	return appConfig{
-		port:      envOrDefault("PORT", "3000"),
-		dbURL:     envOrDefault("SURREALDB_URL", "ws://localhost:8000/rpc"),
-		namespace: envOrDefault("SURREALDB_NAMESPACE", "main"),
-		database:  envOrDefault("SURREALDB_DATABASE", "main"),
-		username:  os.Getenv("SURREALDB_USER"),
-		password:  os.Getenv("SURREALDB_PASS"),
+		port:              envOrDefault("PORT", "3000"),
+		listenHost:        envOrDefault("LISTEN_HOST", "127.0.0.1"),
+		dbURL:             envOrDefault("SURREALDB_URL", "ws://localhost:8000/rpc"),
+		namespace:         envOrDefault("SURREALDB_NAMESPACE", "main"),
+		database:          envOrDefault("SURREALDB_DATABASE", "main"),
+		username:          os.Getenv("SURREALDB_USER"),
+		password:          os.Getenv("SURREALDB_PASS"),
+		accountSetupToken: os.Getenv("ACCOUNT_SETUP_TOKEN"),
 	}
 }
 

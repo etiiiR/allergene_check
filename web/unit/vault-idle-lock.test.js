@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createVaultIdleLock,
   VAULT_IDLE_TIMEOUT_MS,
+  VAULT_IDLE_WARNING_MS,
 } from "../src/privacy/vault-idle-lock.js";
 
 function makeClock() {
@@ -11,6 +12,8 @@ function makeClock() {
   const timers = new Map();
   let unlocked = true;
   let lockCount = 0;
+  let warningCount = 0;
+  let activityCount = 0;
   const idleLock = createVaultIdleLock({
     isUnlocked: () => unlocked,
     lock: () => {
@@ -18,6 +21,12 @@ function makeClock() {
       unlocked = false;
     },
     timeoutMs: VAULT_IDLE_TIMEOUT_MS,
+    onWarning: () => {
+      warningCount += 1;
+    },
+    onActivity: () => {
+      activityCount += 1;
+    },
     now: () => now,
     setTimer: (callback, delay) => {
       const id = nextId++;
@@ -32,6 +41,12 @@ function makeClock() {
     get lockCount() {
       return lockCount;
     },
+    get warningCount() {
+      return warningCount;
+    },
+    get activityCount() {
+      return activityCount;
+    },
     setNow(value) {
       now = value;
     },
@@ -40,6 +55,38 @@ function makeClock() {
     },
   };
 }
+
+test("warns once before auto-lock and interaction clears the warning window", () => {
+  const clock = makeClock();
+  clock.idleLock.activity();
+  assert.equal(clock.activityCount, 1);
+  assert.equal(clock.warningCount, 0);
+  assert.equal(
+    [...clock.timers.values()][0].dueAt,
+    VAULT_IDLE_TIMEOUT_MS - VAULT_IDLE_WARNING_MS,
+  );
+
+  clock.setNow(VAULT_IDLE_TIMEOUT_MS - VAULT_IDLE_WARNING_MS);
+  const [warningTimerID, warningTimer] = [...clock.timers.entries()][0];
+  clock.timers.delete(warningTimerID);
+  warningTimer.callback();
+  assert.equal(clock.warningCount, 1);
+  assert.equal([...clock.timers.values()][0].dueAt, VAULT_IDLE_TIMEOUT_MS);
+
+  clock.setNow(VAULT_IDLE_TIMEOUT_MS - 10_000);
+  clock.idleLock.recheck();
+  assert.equal(clock.warningCount, 1);
+
+  clock.setNow(VAULT_IDLE_TIMEOUT_MS - 9_000);
+  clock.idleLock.activity();
+  assert.equal(clock.warningCount, 1);
+  assert.equal(clock.activityCount, 2);
+  assert.equal(
+    [...clock.timers.values()][0].dueAt,
+    2 * VAULT_IDLE_TIMEOUT_MS - 9_000 - VAULT_IDLE_WARNING_MS,
+  );
+  assert.equal(clock.lockCount, 0);
+});
 
 test("background re-check uses elapsed idle time instead of granting a fresh window", () => {
   const clock = makeClock();
@@ -67,7 +114,7 @@ test("recent real interaction extends the lock deadline", () => {
   assert.equal(clock.lockCount, 0);
   assert.equal(
     [...clock.timers.values()][0].dueAt,
-    2 * VAULT_IDLE_TIMEOUT_MS - 1000,
+    2 * VAULT_IDLE_TIMEOUT_MS - 1000 - VAULT_IDLE_WARNING_MS,
   );
 });
 

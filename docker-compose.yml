@@ -32,13 +32,14 @@ services:
     environment:
       PORT: "3000"
       LISTEN_HOST: "0.0.0.0"
-      APP_URL: http://localhost:3000
+      APP_URL: ${APP_URL:-http://localhost:3000}
       ML_SERVICE_URL: http://ml-service:8000
       SURREALDB_URL: ws://surrealdb:8000/rpc
       SURREALDB_NAMESPACE: ${SURREALDB_NAMESPACE:-main}
       SURREALDB_DATABASE: ${SURREALDB_DATABASE:-main}
       SURREALDB_USER: "${SURREALDB_USER:?Run sh setup-local-env.sh to create a private database password}"
       SURREALDB_PASS: "${SURREALDB_PASS:?Run sh setup-local-env.sh to create a private database password}"
+      ACCOUNT_SETUP_TOKEN: "${ACCOUNT_SETUP_TOKEN:?Run sh setup-local-env.sh --auth to create a private one-time account setup code}"
     ports:
       - "127.0.0.1:3000:3000"
     networks:

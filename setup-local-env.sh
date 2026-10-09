@@ -14,6 +14,9 @@ fi
 if [ -e .env ] || [ -L .env ]; then
 	if grep -q '^SURREALDB_PASS=.' .env 2>/dev/null; then
 		printf '%s\n' "Keeping existing .env; no secrets were changed."
+		if ! grep -q '^ACCOUNT_SETUP_TOKEN=.' .env 2>/dev/null; then
+			printf '%s\n' "Add the one-time account setup code with: sh setup-auth-token.sh"
+		fi
 		exit 0
 	fi
 	printf '%s\n' "An .env file already exists but has no SURREALDB_PASS." >&2
@@ -27,12 +30,14 @@ if ! command -v openssl >/dev/null 2>&1; then
 fi
 
 database_password=$(openssl rand -hex 32)
+account_setup_token=$(openssl rand -hex 32)
 umask 077
 {
 	printf '%s\n' "# Generated locally; do not commit or share this file."
 	printf '%s\n' "SURREALDB_USER=root"
 	printf 'SURREALDB_PASS=%s\n' "$database_password"
+	printf 'ACCOUNT_SETUP_TOKEN=%s\n' "$account_setup_token"
 } > .env
 
-printf '%s\n' "Created .env with a random database password (file permissions are private)."
+printf '%s\n' "Created .env with random database and one-time account setup secrets (private file permissions)."
 printf '%s\n' "Start the local stack with: docker-compose up --build"

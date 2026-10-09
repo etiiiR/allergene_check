@@ -17,7 +17,9 @@ test("many ingredient rows stay compact and allergen choices fit a narrow phone"
   await page.getByRole("button", { name: "Rezept hinzufügen" }).click();
   await page.getByLabel("Rezeptname").fill("Kompaktes Testrezept");
   for (let count = 0; count < 10; count += 1) {
-    await page.getByRole("button", { name: "Zutat manuell hinzufügen" }).click();
+    await page
+      .getByRole("button", { name: "Zutat manuell hinzufügen" })
+      .click();
   }
   await expect(page.locator(".ingredient-editor")).toHaveCount(10);
   await expect(page.getByLabel("Zutat 10", { exact: true })).toBeVisible();
@@ -34,7 +36,7 @@ test("many ingredient rows stay compact and allergen choices fit a narrow phone"
   ).toBeTruthy();
 });
 
-test("HTML import fills portions and preserves preview plus all warnings if normalization is unavailable", async ({
+test("HTML import fills portions and locally normalizes the editable preview", async ({
   page,
 }) => {
   let saves = 0;
@@ -55,12 +57,6 @@ test("HTML import fills portions and preserves preview plus all warnings if norm
       },
     });
   });
-  await page.route("**/api/ingredients/analyze", (route) =>
-    route.fulfill({
-      status: 503,
-      json: { error: { message: "Nicht verfügbar" } },
-    }),
-  );
   await openImport(page);
   await page.getByRole("button", { name: "Vorschau laden" }).click();
   await expect(page.getByLabel("Rezeptname")).toHaveValue("HTML-Testrezept");
@@ -72,8 +68,8 @@ test("HTML import fills portions and preserves preview plus all warnings if norm
     "1 Prise Salz",
   );
   await expect(page.getByLabel("Zubereitung")).toHaveValue("Zutaten mischen.");
-  await expect(page.getByRole("alert")).toContainText("Zutaten-Zuordnung");
   await expect(page.getByRole("alert")).toContainText("Portionszahl prüfen");
+  await expect(page.locator(".ingredient-editor").nth(1)).toContainText("Salz");
   await page.getByLabel("Zutat 2", { exact: true }).fill("2 Prisen Salz");
   expect(saves).toBe(0);
 });

@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures.js";
+import { test, expect, createEncryptedDiaryRequest } from "./fixtures.js";
 import AxeBuilder from "@axe-core/playwright";
 
 // Exercise populated screens as well as the existing CRUD suite. Fixtures are
@@ -6,6 +6,7 @@ import AxeBuilder from "@axe-core/playwright";
 const created = [];
 const headers = { "X-Diary-Request": "1" };
 let originalIDs;
+let fixtureAPI;
 const diaryIDs = (data) =>
   Object.fromEntries(
     ["recipes", "meals", "checkins", "stress_observations"].map((key) => [
@@ -13,10 +14,11 @@ const diaryIDs = (data) =>
       (data[key] || []).map((item) => item.id).sort(),
     ]),
   );
-test.beforeAll(async ({ request }) => {
-  originalIDs = diaryIDs(await (await request.get("/api/diary")).json());
+test.beforeAll(async ({ playwright, baseURL }) => {
+  fixtureAPI = await createEncryptedDiaryRequest({ playwright, baseURL });
+  originalIDs = diaryIDs(await (await fixtureAPI.get("/api/diary")).json());
   const create = async (kind, data) => {
-    const response = await request.post(`/api/${kind}`, { headers, data });
+    const response = await fixtureAPI.post(`/api/${kind}`, { headers, data });
     expect(response.ok()).toBeTruthy();
     const item = await response.json();
     created.push([kind, item.id]);
@@ -57,14 +59,21 @@ test.beforeAll(async ({ request }) => {
     notes: "UX test fixture",
   });
 });
-test.afterAll(async ({ request }) => {
-  for (const [kind, id] of created.reverse()) {
-    const response = await request.delete(`/api/${kind}/${id}`, { headers });
-    expect(response.ok()).toBeTruthy();
+test.afterAll(async () => {
+  if (!fixtureAPI) return;
+  try {
+    for (const [kind, id] of created.reverse()) {
+      const response = await fixtureAPI.delete(`/api/${kind}/${id}`, {
+        headers,
+      });
+      expect(response.ok()).toBeTruthy();
+    }
+    expect(diaryIDs(await (await fixtureAPI.get("/api/diary")).json())).toEqual(
+      originalIDs,
+    );
+  } finally {
+    await fixtureAPI.dispose();
   }
-  expect(diaryIDs(await (await request.get("/api/diary")).json())).toEqual(
-    originalIDs,
-  );
 });
 
 const routes = [
@@ -117,6 +126,67 @@ for (const route of routes) {
   });
 }
 
+test("manual vault lock stays in the header and does not cover mobile diary content", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto("/diary");
+  const lock = page.getByRole("button", { name: "Tagebuch sperren" });
+  await expect(lock).toBeVisible();
+  await expect(page.locator(".vault-lock-button")).toHaveCount(0);
+  expect(
+    await lock.evaluate((element) => getComputedStyle(element).position),
+  ).toBe("static");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBeTruthy();
+
+  await page.evaluate(() => {
+    window.__gutfeelingDisableE2EAutoUnlock = true;
+  });
+  await lock.click();
+  await expect(
+    page.getByRole("heading", { name: "Tagebuch entsperren" }),
+  ).toBeVisible();
+});
+
+test("automatic vault lock warns first and offers a non-modal way to continue", async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.goto("/");
+
+  await page.clock.fastForward(14 * 60 * 1000);
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "wird bald aus Datenschutzgründen gesperrt" }),
+  ).toBeVisible();
+  await expect(page.locator("dialog, [aria-modal=true]")).toHaveCount(0);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBeTruthy();
+  const a11y = await new AxeBuilder({ page })
+    .include(".vault-idle-warning")
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .analyze();
+  expect(a11y.violations).toEqual([]);
+
+  await page.getByRole("button", { name: "Weiterarbeiten" }).click();
+  await expect(page.locator(".vault-idle-warning")).toHaveCount(0);
+  await page.clock.fastForward(14 * 60 * 1000);
+  await expect(page.locator(".vault-idle-warning")).toBeVisible();
+  await page.clock.fastForward(60 * 1000);
+  await expect(
+    page.getByRole("heading", { name: "Tagebuch entsperren" }),
+  ).toBeVisible();
+});
+
 test("inline editor retains failed inputs, re-enables saving, and restores focus", async ({
   page,
 }, testInfo) => {
@@ -130,7 +200,9 @@ test("inline editor retains failed inputs, re-enables saving, and restores focus
   await expect(heading).toBeFocused();
   await expect(page.locator("dialog, [aria-modal=true]")).toHaveCount(0);
   await page.getByRole("button", { name: "Blähungen", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Weiter", exact: true })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Weiter", exact: true }),
+  ).toBeDisabled();
   await page.getByRole("radio", { name: "Blähungen: Leicht" }).click();
   await page.getByRole("button", { name: "Weiter", exact: true }).click();
   await page.getByRole("button", { name: "Später 2–6 h", exact: true }).click();
@@ -138,15 +210,16 @@ test("inline editor retains failed inputs, re-enables saving, and restores focus
     .getByRole("button", { name: "Stress, Schlaf oder Notiz ergänzen" })
     .click();
   await page.getByLabel("Notiz").fill("Nur ein UI-Test, nicht speichern.");
-  await page.route("**/api/checkins", (route) =>
-    route.fulfill({
+  await page.route("**/api/vault", async (route) => {
+    if (route.request().method() !== "PUT") return route.continue();
+    await route.fulfill({
       status: 422,
       contentType: "application/json",
       body: JSON.stringify({
         error: { message: "Testfehler: Bitte erneut versuchen." },
       }),
-    }),
-  );
+    });
+  });
   await page.getByRole("button", { name: "Eintrag speichern" }).click();
   await expect(page.locator("form [role=alert]")).toContainText("Testfehler");
   await expect(page.getByLabel("Notiz")).toHaveValue(

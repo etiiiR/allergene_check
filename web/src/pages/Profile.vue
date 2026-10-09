@@ -1,13 +1,16 @@
 <script setup>
-import { computed, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, reactive, ref } from "vue";
 import { Head, Link, router } from "@inertiajs/vue3";
 import {
   CalendarDays,
   Check,
+  Copy,
   Download,
   FileJson,
   HeartPulse,
   Info,
+  KeyRound,
+  LogOut,
   Save,
   Settings,
   ShieldCheck,
@@ -19,7 +22,12 @@ import { api } from "../lib";
 import { notify } from "../ui/feedback";
 import { nativeHealthAvailable, syncAppleHealth } from "../ui/health";
 import { generatePseudonym } from "../privacy/pseudonym";
-import { useVaultDiary, vaultSessionState } from "../privacy/vault-session.js";
+import {
+  commitVaultCredentialRotation,
+  prepareVaultCredentialRotation,
+  useVaultDiary,
+  vaultSessionState,
+} from "../privacy/vault-session.js";
 import { createEncryptedVaultBackup } from "../privacy/vault-backup.js";
 
 const diary = useVaultDiary();
@@ -38,6 +46,18 @@ const saved = ref(false);
 const backupError = ref("");
 const backupStatus = ref("");
 const tab = ref("person");
+const rotationPassphraseField = ref(null);
+const rotationConfirmPassphraseField = ref(null);
+const rotationConfirmRecoveryField = ref(null);
+const rotationStep = ref(false);
+const rotationConfirmed = ref(false);
+const rotationBusy = ref(false);
+const rotationError = ref("");
+const rotationStatus = ref("");
+const logoutBusy = ref(false);
+const logoutError = ref("");
+let preparedRotation = null;
+let rotationRecoveryKey = "";
 const healthSource = ref("apple_healthkit");
 const healthFile = ref(null);
 const healthBusy = ref(false);
@@ -161,6 +181,124 @@ function downloadEncryptedBackup() {
     backupError.value = e.message;
   }
 }
+
+const fieldValue = (field) => field.value?.value || "";
+const clearField = (field) => {
+  if (field.value) field.value.value = "";
+};
+
+async function logoutThisDevice() {
+  if (logoutBusy.value) return;
+  logoutBusy.value = true;
+  logoutError.value = "";
+  try {
+    const response = await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "X-Diary-Request": "1" },
+    });
+    if (!response.ok) {
+      throw new Error("Dieses Gerät konnte nicht abgemeldet werden.");
+    }
+    window.location.replace("/login");
+  } catch (cause) {
+    logoutError.value = cause.message;
+    logoutBusy.value = false;
+  }
+}
+
+function clearRotation() {
+  preparedRotation = null;
+  rotationRecoveryKey = "";
+  rotationStep.value = false;
+  rotationConfirmed.value = false;
+  clearField(rotationPassphraseField);
+  clearField(rotationConfirmPassphraseField);
+  clearField(rotationConfirmRecoveryField);
+}
+
+function cancelCredentialRotation() {
+  clearRotation();
+  rotationError.value = "";
+  rotationStatus.value = "";
+}
+
+async function prepareCredentialRotation() {
+  if (rotationBusy.value) return;
+  const nextPassphrase = fieldValue(rotationPassphraseField);
+  const confirmation = fieldValue(rotationConfirmPassphraseField);
+  rotationError.value = "";
+  rotationStatus.value = "";
+  if (nextPassphrase.normalize("NFKC").trim().length < 12) {
+    rotationError.value = "Verwende eine Passphrase mit mindestens 12 Zeichen.";
+    return;
+  }
+  if (nextPassphrase !== confirmation) {
+    rotationError.value = "Die Passphrasen stimmen nicht überein.";
+    return;
+  }
+  rotationBusy.value = true;
+  try {
+    preparedRotation = await prepareVaultCredentialRotation(nextPassphrase);
+    rotationRecoveryKey = preparedRotation.recoveryKey;
+    rotationStep.value = true;
+    rotationConfirmed.value = false;
+    clearField(rotationPassphraseField);
+    clearField(rotationConfirmPassphraseField);
+  } catch (cause) {
+    rotationError.value = cause.message;
+    clearField(rotationPassphraseField);
+    clearField(rotationConfirmPassphraseField);
+  } finally {
+    rotationBusy.value = false;
+  }
+}
+
+function checkRotationRecovery() {
+  rotationConfirmed.value =
+    fieldValue(rotationConfirmRecoveryField).trim() === rotationRecoveryKey;
+}
+
+async function saveCredentialRotation() {
+  if (rotationBusy.value || !preparedRotation) return;
+  rotationError.value = "";
+  rotationStatus.value = "";
+  if (!rotationConfirmed.value) {
+    rotationError.value = "Die Wiederherstellungsphrase stimmt noch nicht exakt überein.";
+    return;
+  }
+  rotationBusy.value = true;
+  try {
+    await commitVaultCredentialRotation(preparedRotation);
+    clearRotation();
+    rotationStatus.value =
+      "Der Tresor ist mit den neuen Zugangsdaten verschlüsselt. Bewahre die neue Wiederherstellungsphrase sicher auf.";
+  } catch (cause) {
+    rotationError.value = cause.message;
+    if (
+      cause.code === "vault_rotation_stale" ||
+      vaultSessionState.status === "conflict"
+    ) {
+      clearRotation();
+    }
+  } finally {
+    rotationBusy.value = false;
+  }
+}
+
+async function copyRotationRecoveryKey() {
+  try {
+    await navigator.clipboard.writeText(rotationRecoveryKey);
+    rotationStatus.value =
+      "Wiederherstellungsphrase kopiert. Bewahre sie zusätzlich sicher auf.";
+  } catch {
+    rotationStatus.value =
+      "Markiere die Wiederherstellungsphrase und speichere sie ausserhalb dieses Geräts.";
+  }
+}
+
+onBeforeUnmount(clearRotation);
 </script>
 
 <template>
@@ -181,14 +319,29 @@ function downloadEncryptedBackup() {
     </div>
 
     <div class="segmented-nav" aria-label="Profileinstellungen">
-      <UiButton :aria-pressed="tab === 'person'" @click="tab = 'person'"
+      <UiButton
+        type="button"
+        :aria-pressed="tab === 'person'"
+        @click="tab = 'person'"
         >Person</UiButton
       >
-      <UiButton :aria-pressed="tab === 'body'" @click="tab = 'body'"
+      <UiButton
+        type="button"
+        :aria-pressed="tab === 'body'"
+        @click="tab = 'body'"
         >Körper & Zyklus</UiButton
       >
-      <UiButton :aria-pressed="tab === 'health'" @click="tab = 'health'"
+      <UiButton
+        type="button"
+        :aria-pressed="tab === 'health'"
+        @click="tab = 'health'"
         >Health</UiButton
+      >
+      <UiButton
+        type="button"
+        :aria-pressed="tab === 'security'"
+        @click="tab = 'security'"
+        >Sicherheit</UiButton
       >
     </div>
     <form
@@ -445,12 +598,154 @@ function downloadEncryptedBackup() {
         </details>
       </section>
 
+      <section
+        v-if="tab === 'security'"
+        class="panel profile-card vault-credentials-card"
+        data-tone="privacy"
+      >
+        <div class="section-heading security-heading">
+          <div>
+            <h2>Tresor-Zugangsdaten</h2>
+            <small>Dein Tagebuch bleibt Ende-zu-Ende verschlüsselt.</small>
+          </div>
+          <ShieldCheck :size="19" class="muted" />
+        </div>
+        <p class="helper">
+          Neue Zugangsdaten verschlüsseln dein Tagebuch auf diesem Gerät mit
+          einem neuen Schlüssel. Der Server erhält nur verschlüsselte Daten.
+        </p>
+        <p class="helper">
+          Alte Sicherungen benötigen weiterhin die Zugangsdaten, mit denen sie
+          erstellt wurden.
+        </p>
+
+        <template v-if="!rotationStep">
+          <label class="vault-field">
+            Neue Passphrase <span>mindestens 12 Zeichen</span>
+            <input
+              class="d-input"
+              ref="rotationPassphraseField"
+              type="password"
+              autocomplete="new-password"
+              minlength="12"
+              @keydown.enter.prevent="prepareCredentialRotation"
+            />
+          </label>
+          <label class="vault-field">
+            Neue Passphrase wiederholen
+            <input
+              class="d-input"
+              ref="rotationConfirmPassphraseField"
+              type="password"
+              autocomplete="new-password"
+              minlength="12"
+              @keydown.enter.prevent="prepareCredentialRotation"
+            />
+          </label>
+          <UiButton
+            type="button"
+            class="button primary"
+            :disabled="rotationBusy"
+            :loading="rotationBusy"
+            @click="prepareCredentialRotation"
+          >
+            <KeyRound :size="16" /> Zugangsdaten vorbereiten
+          </UiButton>
+        </template>
+
+        <template v-else>
+          <div class="vault-recovery-warning" role="note">
+            <strong>Neue Wiederherstellungsphrase – nur jetzt sichtbar</strong>
+            <p>
+              Die alte Phrase öffnet den aktuellen Tresor nach dem Speichern
+              nicht mehr. Kopiere diese neue Phrase und bewahre sie sicher auf.
+            </p>
+          </div>
+          <div
+            class="vault-recovery-key"
+            aria-label="Neue Wiederherstellungsphrase"
+          >
+            {{ rotationRecoveryKey }}
+          </div>
+          <UiButton
+            type="button"
+            class="button secondary"
+            @click="copyRotationRecoveryKey"
+          >
+            <Copy :size="16" /> Phrase kopieren
+          </UiButton>
+          <label class="vault-field">
+            Wiederherstellungsphrase zur Bestätigung erneut eingeben
+            <input
+              class="d-input"
+              ref="rotationConfirmRecoveryField"
+              type="password"
+              autocomplete="off"
+              spellcheck="false"
+              @input="checkRotationRecovery"
+              @keydown.enter.prevent="saveCredentialRotation"
+            />
+          </label>
+          <UiButton
+            type="button"
+            class="button primary"
+            :disabled="rotationBusy || !rotationConfirmed"
+            :loading="rotationBusy"
+            @click="saveCredentialRotation"
+          >
+            <ShieldCheck :size="16" /> Tresor mit neuen Daten speichern
+          </UiButton>
+          <UiButton
+            type="button"
+            class="button secondary"
+            :disabled="rotationBusy"
+            @click="cancelCredentialRotation"
+          >
+            Abbrechen – bisherige Zugangsdaten behalten
+          </UiButton>
+        </template>
+
+        <p v-if="rotationError" class="alert error" role="alert">
+          {{ rotationError }}
+        </p>
+        <p v-if="rotationStatus" class="alert success" role="status">
+          {{ rotationStatus }}
+        </p>
+      </section>
+
+      <section
+        v-if="tab === 'security'"
+        class="panel profile-card account-session-card"
+        data-tone="privacy"
+      >
+        <div>
+          <h2>Gerätezugang</h2>
+          <p class="helper">
+            Melde dieses Gerät ab, wenn du es nicht mehr für das Tagebuch nutzt.
+            Das sperrt nur diese Anmeldung; andere Geräte bleiben angemeldet.
+            Ein neues Gerät braucht zusätzlich deine Tresor-Passphrase.
+          </p>
+        </div>
+        <UiButton
+          type="button"
+          class="button secondary"
+          :disabled="logoutBusy"
+          :loading="logoutBusy"
+          @click="logoutThisDevice"
+        >
+          <LogOut :size="16" /> Dieses Gerät abmelden
+        </UiButton>
+        <p v-if="logoutError" class="alert error" role="alert">
+          {{ logoutError }}
+        </p>
+      </section>
+
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <p v-if="saved" class="alert success" role="status">
         <Check :size="16" /> Profil gespeichert.
       </p>
       <UiButton
-        v-if="tab !== 'health'"
+        v-if="tab === 'person' || tab === 'body'"
         class="button primary profile-save"
         :disabled="busy"
         :loading="busy"

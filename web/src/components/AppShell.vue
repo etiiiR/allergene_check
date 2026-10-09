@@ -11,10 +11,14 @@ import {
   Settings,
   FileText,
   Activity,
+  LockKeyhole,
 } from "@lucide/vue";
 import ToastHost from "./ui/ToastHost.vue";
 import { workspace } from "../ui/workspace";
-import { useVaultDiary } from "../privacy/vault-session.js";
+import {
+  lockVaultSession,
+  useVaultDiary,
+} from "../privacy/vault-session.js";
 const page = usePage();
 const diary = useVaultDiary();
 const nav = [
@@ -67,6 +71,13 @@ const reload = () => window.location.reload();
             ><component :is="Icon" :size="18" />{{ label }}</Link
           >
         </nav>
+        <button
+          class="sidebar-lock-button"
+          type="button"
+          @click="lockVaultSession"
+        >
+          <LockKeyhole :size="16" /> Tagebuch sperren
+        </button>
         <p class="sidebar-note">Deine Beobachtungen.<br />In deinem Tempo.</p>
       </div>
     </aside>
@@ -89,6 +100,15 @@ const reload = () => window.location.reload();
             >
           </nav>
         </details>
+        <button
+          class="icon-button header-lock-button"
+          type="button"
+          aria-label="Tagebuch sperren"
+          title="Tagebuch sperren"
+          @click="lockVaultSession"
+        >
+          <LockKeyhole :size="18" />
+        </button>
         <Link
           href="/profile"
           class="icon-button header-settings"

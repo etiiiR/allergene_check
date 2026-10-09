@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -24,14 +25,25 @@ func newApp(db *surrealdb.DB) *fiber.App {
 	})
 	app.Use(localSecurityHeaders)
 	store := NewSurrealStore(db)
+	var account *accountService
 	if db != nil {
 		app.Use(localHostGuard)
+		account = newAccountService(&surrealAccountRepository{store: store}, os.Getenv("ACCOUNT_SETUP_TOKEN"), envOrDefault("APP_URL", "http://localhost:3000"))
 	}
+	app.Use(func(c *fiber.Ctx) error {
+		path := c.Path()
+		if account == nil || path == "/health" || path == "/api/status" || path == "/login" ||
+			strings.HasPrefix(path, "/assets/") || path == "/api/auth/status" || path == "/api/auth/login" || path == "/api/auth/register" || path == "/api/auth/logout" {
+			return c.Next()
+		}
+		return account.authenticateRequest(c)
+	})
 
 	app.Get("/api/status", rootHandler)
+	registerAccountRoutes(app, account)
 	repo := &DiaryRepository{store: store}
 	registerDiaryAPI(app, repo, newAnalysisClient())
-	registerWeb(app, repo)
+	registerWeb(app, repo, account)
 	app.Get("/health", healthHandler(store, db != nil))
 	registerLiveQueryRoutes(app, store, db != nil)
 

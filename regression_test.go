@@ -80,6 +80,7 @@ func TestAppErrorHandlerContract(t *testing.T) {
 func TestLoadConfigDefaults(t *testing.T) {
 	for _, key := range []string{
 		"PORT",
+		"LISTEN_HOST",
 		"SURREALDB_URL",
 		"SURREALDB_NAMESPACE",
 		"SURREALDB_DATABASE",
@@ -90,7 +91,8 @@ func TestLoadConfigDefaults(t *testing.T) {
 	}
 
 	config := loadConfig()
-	if config.port != "3000" || config.dbURL != "ws://localhost:8000/rpc" ||
+	if config.port != "3000" || config.listenHost != "127.0.0.1" ||
+		config.dbURL != "ws://localhost:8000/rpc" ||
 		config.namespace != "main" || config.database != "main" ||
 		config.username != "" || config.password != "" {
 		t.Fatalf("unexpected default config: %#v", config)
@@ -102,6 +104,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 
 func TestLoadConfigFromEnvironment(t *testing.T) {
 	t.Setenv("PORT", "8080")
+	t.Setenv("LISTEN_HOST", "0.0.0.0")
 	t.Setenv("SURREALDB_URL", "wss://db.example.com/rpc")
 	t.Setenv("SURREALDB_NAMESPACE", "production")
 	t.Setenv("SURREALDB_DATABASE", "allergens")
@@ -109,7 +112,8 @@ func TestLoadConfigFromEnvironment(t *testing.T) {
 	t.Setenv("SURREALDB_PASS", "secret")
 
 	config := loadConfig()
-	if config.port != "8080" || config.dbURL != "wss://db.example.com/rpc" ||
+	if config.port != "8080" || config.listenHost != "0.0.0.0" ||
+		config.dbURL != "wss://db.example.com/rpc" ||
 		config.namespace != "production" || config.database != "allergens" ||
 		config.username != "app" || config.password != "secret" {
 		t.Fatalf("unexpected environment config: %#v", config)

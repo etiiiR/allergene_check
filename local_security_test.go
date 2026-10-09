@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
@@ -33,6 +34,13 @@ func TestLocalHostGuardSetsBrowserSecurityHeaders(t *testing.T) {
 		if got := response.Header.Get(header); got != want {
 			t.Errorf("%s = %q, want %q", header, got, want)
 		}
+	}
+	policy := response.Header.Get("Content-Security-Policy")
+	if strings.Contains(policy, "unsafe-inline") {
+		t.Fatal("Content-Security-Policy allows unsafe inline content")
+	}
+	if !strings.Contains(policy, "style-src-attr 'none'") {
+		t.Fatal("Content-Security-Policy must block inline style attributes")
 	}
 }
 

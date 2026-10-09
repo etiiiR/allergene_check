@@ -23,7 +23,7 @@ A German-language personal food diary built with Go Fiber, the [Gonertia Go adap
 
 This is a **single-person local application** with no accounts or per-person server authorization. Keep Docker Compose ports bound to `127.0.0.1`; do not expose the app publicly. Browser responses set a restrictive same-origin Content Security Policy and basic anti-framing/content-type headers, but these are defense-in-depth. The encrypted vault protects diary content at rest and during vault synchronization, not against a compromised device, a malicious app update, XSS, or access to an unlocked browser. No cloud AI service receives diary text. Recipe import sends the chosen URL to the local crawler service. Fonts are bundled locally.
 
-After setup, diary records and the personal profile (including the pseudonym) are encrypted in the browser with AES-GCM before the server stores them in the `diary_vault` table. Passphrase and recovery key are not sent to the server. While unlocked, the diary is present in browser memory; lock it when leaving the device. Keep the recovery key separately: losing both keys means permanent data loss. The profile page downloads an encrypted JSON backup containing only the ciphertext envelope; it can be restored only into an empty vault after local verification with the passphrase or recovery key. Existing plaintext records require the explicit first-run migration; after the encrypted copy is verified, the primary legacy rows are removed transactionally. Historical database snapshots and old exports are not automatically erased. The pseudonym is a display label, not anonymity or an account credential. The legacy plaintext API is disabled except for this one-time migration route. The vault uses revision checks backed by a database transaction; this prevents silent concurrent overwrite but does not add user authentication. Review retention of old database/volume backups before changing deployments.
+After setup, diary records and the personal profile (including the pseudonym) are encrypted in the browser with AES-GCM before the server stores them in the `diary_vault` table. Passphrase and recovery key are not sent to the server. While unlocked, the diary is present in browser memory; lock it when leaving the device. Keep the recovery key separately: losing both keys means permanent data loss. In Profile → Sicherheit, you can replace both credentials; the diary is re-encrypted on the device with a fresh data key, and the replacement is committed only after you confirm the new recovery phrase. Previously downloaded backups remain unchanged and continue to require the credentials that were active when each backup was made. The profile page downloads an encrypted JSON backup containing only the ciphertext envelope; it can be restored only into an empty vault after local verification with the passphrase or recovery key. Existing plaintext records require the explicit first-run migration; after the encrypted copy is verified, the primary legacy rows are removed transactionally. Historical database snapshots and old exports are not automatically erased. The pseudonym is a display label, not anonymity or an account credential. The legacy plaintext API is disabled except for this one-time migration route. The vault uses revision checks backed by a database transaction; this prevents silent concurrent overwrite but does not add user authentication. Review retention of old database/volume backups before changing deployments.
 
 ## How analysis works
 
@@ -128,7 +128,7 @@ go run .
 
 For frontend changes, run `npm --prefix web run dev` in another terminal and reload the page. This watches production assets; it is not a Vite HMR server. Set `APP_URL` alongside `PORT` if changing the browser URL, and `ML_SERVICE_URL` if using a different Python endpoint.
 
-The server connects to SurrealDB at `ws://localhost:8000/rpc` by default and listens on `http://localhost:3000`. Start SurrealDB separately before running the API locally. Database credentials are mandatory; for a new database, the setup helper creates them in `.env`. To load them into a local Go process, run `set -a; . ./.env; set +a` in that shell first. Set `PORT` to use a different port:
+The server connects to SurrealDB at `ws://localhost:8000/rpc` by default and direct Go startup binds to `127.0.0.1:3000` only. Start SurrealDB separately before running the API locally. Database credentials are mandatory; for a new database, the setup helper creates them in `.env`. To load them into a local Go process, run `set -a; . ./.env; set +a` in that shell first. Set `PORT` to use a different port. `LISTEN_HOST` defaults to loopback; only override it for a private container network or behind a verified access-controlled proxy. Compose binds the app inside its container but publishes the host port only on `127.0.0.1`:
 
 ```sh
 PORT=8080 go run .
@@ -198,13 +198,14 @@ these platforms. The normal regression suite is offline; the opt-in audit uses
 
 ### API request examples
 
-The opt-in SurrealDB integration tests can remove records from their test tables,
-so they refuse to run unless both the namespace and database have an explicit
+The opt-in SurrealDB integration tests can remove records from their test tables;
+the vault-migration test deliberately clears the legacy diary tables. They refuse
+to run unless both the namespace and database have an explicit
 `_test`, `_tests`, `-test`, or `-tests` suffix. Point them only at a disposable
 test database, never the personal `main` database:
 
 ```sh
-SURREALDB_NAMESPACE=gutfeeling_test SURREALDB_DATABASE=gutfeeling_test RUN_INTEGRATION_TESTS=1 go test ./...
+SURREALDB_NAMESPACE=gutfeeling_test SURREALDB_DATABASE=gutfeeling_test RUN_INTEGRATION_TESTS=1 go test -count=1 ./...
 ```
 
 The ordinary `go test ./...` suite does not connect to or modify a database.
@@ -367,14 +368,16 @@ PORT=3001 APP_URL=http://localhost:3001 SURREALDB_DATABASE=ux_tests go run .
 
 In another terminal run `ALLOW_E2E_VAULT_MUTATION=1 APP_TEST_URL=http://localhost:3001 npm --prefix web test`. The browser fixture uses a test-only passphrase and encrypted vault. The explicit opt-in is required because the suite updates vault contents; never set it for a patient's database.
 
+The end-to-end backup recovery test also needs a second app on port 3002 connected to a separate, fresh disposable `*_tests` namespace/database. Set `RESTORE_TEST_URL=http://localhost:3002` when running Playwright to include it. Without that variable, the recovery test is skipped; it never clears or overwrites the shared test vault.
+
 Python tests cover alias specificity, unknown ingredients, meal-before-symptom ordering, missing check-ins, duplicate-day handling, symptom filters, co-occurring allergens and ingredients, and the model's data thresholds.
 
 ```sh
 go test ./...
 ```
 
-The default suite is self-contained. To run the SurrealDB transaction/live-query regression test against the local Compose database:
+The default suite is self-contained. To run the SurrealDB transaction, live-query, revision-conflict, and legacy-migration integration tests, use a disposable test database (not the local personal `main` database):
 
 ```sh
-RUN_INTEGRATION_TESTS=1 go test ./...
+SURREALDB_NAMESPACE=gutfeeling_test SURREALDB_DATABASE=gutfeeling_test RUN_INTEGRATION_TESTS=1 go test -count=1 ./...
 ```

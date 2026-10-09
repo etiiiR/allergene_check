@@ -5,6 +5,8 @@ const KDF_ITERATIONS = 600_000;
 const SALT_BYTES = 16;
 const KEY_BYTES = 32;
 const NONCE_BYTES = 12;
+export const MAX_VAULT_CIPHERTEXT_CHARS = 16 * 1024 * 1024;
+const BASE64URL = /^[A-Za-z0-9_-]+$/u;
 const encoder = new TextEncoder();
 const AAD = {
   payload: encoder.encode("gutfeeling:vault:payload:v1"),
@@ -41,8 +43,18 @@ function encodeBase64URL(bytes) {
     .replace(/=+$/u, "");
 }
 
-function decodeBase64URL(value) {
-  if (typeof value !== "string" || !/^[A-Za-z0-9_-]+$/u.test(value)) {
+function isBase64URL(value, maxChars) {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= maxChars &&
+    value.length % 4 !== 1 &&
+    BASE64URL.test(value)
+  );
+}
+
+function decodeBase64URL(value, maxChars = MAX_VAULT_CIPHERTEXT_CHARS) {
+  if (!isBase64URL(value, maxChars)) {
     throw new Error("Verschlüsselter Tresor ist ungültig.");
   }
   const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
@@ -103,8 +115,8 @@ async function wrapDataKey(dataKey, wrappingKey, purpose) {
 }
 
 async function unwrapDataKey(wrapped, wrappingKey, purpose) {
-  const iv = decodeBase64URL(wrapped?.iv);
-  const ciphertext = decodeBase64URL(wrapped?.ciphertext);
+  const iv = decodeBase64URL(wrapped?.iv, 16);
+  const ciphertext = decodeBase64URL(wrapped?.ciphertext, 64);
   if (iv.length !== NONCE_BYTES || ciphertext.length !== KEY_BYTES + 16) {
     throw new Error("Verschlüsselter Tresor ist ungültig.");
   }
@@ -120,17 +132,37 @@ async function unwrapDataKey(wrapped, wrappingKey, purpose) {
 }
 
 function checkEnvelope(envelope) {
-  const salt = decodeBase64URL(envelope?.kdf?.salt);
+  const saltValue = envelope?.kdf?.salt;
+  const passphraseWrap = envelope?.wraps?.passphrase;
+  const recoveryWrap = envelope?.wraps?.recovery;
+  const payload = envelope?.payload;
   if (
     envelope?.version !== VAULT_VERSION ||
     envelope?.cipher !== CIPHER ||
     envelope?.kdf?.name !== KDF ||
     envelope?.kdf?.iterations !== KDF_ITERATIONS ||
-    salt.length !== SALT_BYTES ||
-    !envelope.wraps?.passphrase ||
-    !envelope.wraps?.recovery ||
-    !envelope.payload
+    !isBase64URL(saltValue, 22) ||
+    saltValue.length !== 22 ||
+    !passphraseWrap ||
+    !isBase64URL(passphraseWrap.iv, 16) ||
+    passphraseWrap.iv.length !== 16 ||
+    !isBase64URL(passphraseWrap.ciphertext, 64) ||
+    passphraseWrap.ciphertext.length !== 64 ||
+    !recoveryWrap ||
+    !isBase64URL(recoveryWrap.iv, 16) ||
+    recoveryWrap.iv.length !== 16 ||
+    !isBase64URL(recoveryWrap.ciphertext, 64) ||
+    recoveryWrap.ciphertext.length !== 64 ||
+    !payload ||
+    !isBase64URL(payload.iv, 16) ||
+    payload.iv.length !== 16 ||
+    !isBase64URL(payload.ciphertext, MAX_VAULT_CIPHERTEXT_CHARS) ||
+    payload.ciphertext.length < 22
   ) {
+    throw new Error("Diese Tresor-Version wird nicht unterstützt.");
+  }
+  const salt = decodeBase64URL(saltValue, 22);
+  if (salt.length !== SALT_BYTES) {
     throw new Error("Diese Tresor-Version wird nicht unterstützt.");
   }
   return salt;
@@ -156,8 +188,11 @@ export async function encryptVaultPayload(dataKey, diary) {
 
 export async function decryptVaultPayload(dataKey, payload) {
   try {
-    const iv = decodeBase64URL(payload?.iv);
-    const ciphertext = decodeBase64URL(payload?.ciphertext);
+    const iv = decodeBase64URL(payload?.iv, 16);
+    const ciphertext = decodeBase64URL(
+      payload?.ciphertext,
+      MAX_VAULT_CIPHERTEXT_CHARS,
+    );
     if (iv.length !== NONCE_BYTES || ciphertext.length < 16) throw new Error();
     const plaintext = await subtleCrypto().decrypt(
       { name: "AES-GCM", iv, additionalData: AAD.payload, tagLength: 128 },
@@ -256,7 +291,7 @@ export async function unlockWithPassphrase(envelope, passphrase) {
 export async function unlockWithRecoveryKey(envelope, recoveryKey) {
   let keyBytes;
   try {
-    keyBytes = decodeBase64URL(recoveryKey);
+    keyBytes = decodeBase64URL(recoveryKey, 43);
     if (keyBytes.length !== KEY_BYTES) throw new Error();
     const key = await subtleCrypto().importKey(
       "raw",

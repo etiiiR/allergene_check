@@ -77,7 +77,7 @@ func (r *surrealVaultRepository) loadVault(ctx context.Context) (EncryptedVault,
 	if row.Revision == 0 && row.Payload == "" {
 		return EncryptedVault{Envelope: json.RawMessage("null")}, nil
 	}
-	if row.Revision < 1 || !json.Valid([]byte(row.Payload)) {
+	if row.Revision < 1 || len(row.Payload) > maxVaultEnvelopeBytes || !json.Valid([]byte(row.Payload)) {
 		return EncryptedVault{}, fmt.Errorf("invalid encrypted vault record")
 	}
 	return EncryptedVault{
@@ -105,7 +105,7 @@ func (r *surrealVaultRepository) SaveVault(ctx context.Context, expected int64, 
 		if current != nil {
 			if current.Revision == 0 && current.Payload == "" {
 				currentRevision = 0
-			} else if current.Revision < 1 || !json.Valid([]byte(current.Payload)) {
+			} else if current.Revision < 1 || len(current.Payload) > maxVaultEnvelopeBytes || !json.Valid([]byte(current.Payload)) {
 				return fmt.Errorf("invalid encrypted vault record")
 			} else {
 				currentRevision = current.Revision

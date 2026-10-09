@@ -218,7 +218,7 @@ jobs:
           done
           docker logs gutfeeling-ci-surrealdb
           exit 1
-      - name: Verify transaction, live query, and vault concurrency against SurrealDB
+      - name: Verify transactions, live query, vault concurrency, and legacy migration against SurrealDB
         env:
           RUN_INTEGRATION_TESTS: "1"
         run: go test -count=1 ./...
@@ -233,16 +233,34 @@ jobs:
           done
           sed -n '1,240p' "$RUNNER_TEMP/gutfeeling-ci-app.log"
           exit 1
-      - name: Run responsive, accessibility, workflow, and encrypted-vault browser tests
+      - name: Start an empty-vault app for backup recovery tests
+        run: |
+          nohup env PORT=3002 LISTEN_HOST=127.0.0.1 APP_URL=http://localhost:3002 \
+            SURREALDB_NAMESPACE=gutfeeling_restore_tests \
+            SURREALDB_DATABASE=gutfeeling_restore_tests \
+            go run . >"$RUNNER_TEMP/gutfeeling-restore-app.log" 2>&1 </dev/null &
+          for attempt in $(seq 1 45); do
+            if curl --silent --fail http://127.0.0.1:3002/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          sed -n '1,240p' "$RUNNER_TEMP/gutfeeling-restore-app.log"
+          exit 1
+      - name: Run UX, accessibility, encrypted-vault, and backup-recovery browser tests
         working-directory: web
         env:
           ALLOW_E2E_VAULT_MUTATION: "1"
           APP_TEST_URL: http://localhost:3001
+          RESTORE_TEST_URL: http://localhost:3002
         run: npm test
       - name: Show service logs on failure
         if: failure()
         run: |
           if [ -f "$RUNNER_TEMP/gutfeeling-ci-app.log" ]; then
             sed -n '1,240p' "$RUNNER_TEMP/gutfeeling-ci-app.log"
+          fi
+          if [ -f "$RUNNER_TEMP/gutfeeling-restore-app.log" ]; then
+            sed -n '1,240p' "$RUNNER_TEMP/gutfeeling-restore-app.log"
           fi
           docker logs gutfeeling-ci-surrealdb || true

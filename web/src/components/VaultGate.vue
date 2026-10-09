@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { usePage } from "@inertiajs/vue3";
 import {
-  LockKeyhole,
   ShieldCheck,
   KeyRound,
   Copy,
@@ -28,7 +27,21 @@ import {
 import { createVaultIdleLock } from "../privacy/vault-idle-lock.js";
 
 const page = usePage();
-const pageError = computed(() => page.props.loadError || "");
+const props = defineProps({
+  initialVault: { type: Object, default: null },
+  initialLoadError: { type: String, default: "" },
+});
+// VaultGate wraps the Inertia App, so it is created before Inertia initializes
+// its module-level page object. Use the first page snapshot during that brief
+// window, then follow live props as Inertia navigates.
+const currentPageProps = computed(
+  () =>
+    page.props || {
+      vault: props.initialVault,
+      loadError: props.initialLoadError,
+    },
+);
+const pageError = computed(() => currentPageProps.value.loadError || "");
 const passphraseField = ref(null);
 const confirmPassphraseField = ref(null);
 const recoveryInputField = ref(null);
@@ -44,6 +57,7 @@ const backupName = ref("");
 const busy = ref(false);
 const error = ref("");
 const message = ref("");
+const idleWarning = ref(false);
 const unlocked = computed(() => isVaultUnlocked());
 const legacyAvailable = computed(() => vaultSessionState.legacyAvailable);
 // Keep prepared keys and imported legacy plaintext outside Vue's reactive
@@ -82,7 +96,7 @@ const blankDiary = () => ({
 });
 
 watch(
-  () => page.props.vault,
+  () => currentPageProps.value.vault,
   (vault) => {
     if (vault)
       acceptServerVault(vault).catch((cause) => (error.value = cause.message));
@@ -277,6 +291,8 @@ onMounted(() => {
   idleLock = createVaultIdleLock({
     isUnlocked: () => unlocked.value,
     lock: lockVaultSession,
+    onWarning: () => (idleWarning.value = true),
+    onActivity: () => (idleWarning.value = false),
   });
   window.addEventListener("pointerdown", recordActivity, { passive: true });
   window.addEventListener("touchstart", recordActivity, { passive: true });
@@ -304,9 +320,19 @@ onBeforeUnmount(() => {
 
 <template>
   <div v-if="unlocked" class="vault-active">
-    <button class="vault-lock-button" type="button" @click="lockVaultSession">
-      <LockKeyhole :size="15" /> Tagebuch sperren
-    </button>
+    <aside v-if="idleWarning" class="vault-idle-warning">
+      <p role="status">
+        Dein Tagebuch wird bald aus Datenschutzgründen gesperrt. Speichere
+        offene Einträge oder wähle „Weiterarbeiten“.
+      </p>
+      <button
+        class="button secondary"
+        type="button"
+        @click="idleLock?.activity()"
+      >
+        Weiterarbeiten
+      </button>
+    </aside>
     <slot />
   </div>
 
@@ -494,7 +520,7 @@ onBeforeUnmount(() => {
           <button
             class="button secondary"
             type="submit"
-            :disabled="busy || pageError"
+            :disabled="busy || Boolean(pageError)"
           >
             <Download :size="16" />
             {{
@@ -538,7 +564,7 @@ onBeforeUnmount(() => {
         <button
           class="button primary"
           type="submit"
-          :disabled="busy || pageError"
+          :disabled="busy || Boolean(pageError)"
         >
           <LoaderCircle v-if="busy" class="loading-spinner" :size="16" />
           Tagebuch entsperren
@@ -568,9 +594,9 @@ onBeforeUnmount(() => {
       </p>
       <p v-if="message" class="alert info" role="status">{{ message }}</p>
       <p class="vault-footnote">
-        Verwende ein langes, einzigartiges Passwort und bewahre die
-        Wiederherstellungsphrase separat auf. Ein Pseudonym schützt deine
-        Identität, ersetzt aber keine Verschlüsselung.
+        Verwende eine lange, einzigartige Passphrase und bewahre die
+        Wiederherstellungsphrase separat auf. Ein Pseudonym ist nur ein
+        Anzeigename und macht dich nicht anonym.
       </p>
     </section>
   </main>

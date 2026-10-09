@@ -3,15 +3,61 @@ import {
   encryptVaultPayload,
   unlockWithPassphrase,
 } from "../src/privacy/vault-crypto.js";
-import { E2E_PASSPHRASE } from "./e2e-constants.js";
+import {
+  E2E_ACCOUNT_PASSWORD,
+  E2E_ACCOUNT_USERNAME,
+  E2E_PASSPHRASE,
+} from "./e2e-constants.js";
 
 const appURL = process.env.APP_TEST_URL || "http://localhost:3001";
+let sessionCookie = "";
 
-async function jsonRequest(path, options) {
-  const response = await fetch(new URL(path, appURL), options);
+async function jsonRequest(path, options = {}, targetURL = appURL, cookie = sessionCookie) {
+  const headers = new Headers(options.headers || {});
+  if (cookie) headers.set("Cookie", cookie);
+  const response = await fetch(new URL(path, targetURL), { ...options, headers });
+  const setCookie = response.headers.get("set-cookie");
+  if (targetURL === appURL && setCookie) sessionCookie = setCookie.split(";", 1)[0];
   let body;
   try { body = await response.json(); } catch {}
   return { response, body };
+}
+
+async function establishTestAccount(targetURL) {
+  const { response: statusResponse, body: status } = await jsonRequest(
+    "/api/auth/status",
+    {},
+    targetURL,
+    "",
+  );
+  if (!statusResponse.ok) throw new Error(`Could not inspect isolated test account: ${statusResponse.status}`);
+  const setupToken = process.env.ACCOUNT_SETUP_TOKEN;
+  const action = status.configured ? "login" : "register";
+  if (!status.configured && !setupToken) {
+    throw new Error("ACCOUNT_SETUP_TOKEN must be set for the isolated browser-test app.");
+  }
+  const { response, body } = await jsonRequest(
+    `/api/auth/${action}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Diary-Request": "1" },
+      body: JSON.stringify({
+        ...(status.configured ? {} : { setup_token: setupToken }),
+        username: E2E_ACCOUNT_USERNAME,
+        password: E2E_ACCOUNT_PASSWORD,
+      }),
+    },
+    targetURL,
+    "",
+  );
+  if (!response.ok) {
+    throw new Error(`Could not ${action} the isolated browser-test account: ${response.status} ${body?.error?.message || ""}`);
+  }
+  const setCookie = response.headers.get("set-cookie");
+  const cookie = setCookie?.split(";", 1)[0];
+  if (!cookie) throw new Error("Test account sign-in did not return a session cookie.");
+  if (targetURL === appURL) sessionCookie = cookie;
+  return cookie;
 }
 
 function emptyDiary() {
@@ -39,6 +85,11 @@ export default async function globalSetup() {
     throw new Error(
       "Playwright must use an isolated app/database, never the personal app on port 3000. Set APP_TEST_URL (for example http://localhost:3001).",
     );
+  }
+
+  await establishTestAccount(appURL);
+  if (process.env.RESTORE_TEST_URL) {
+    await establishTestAccount(process.env.RESTORE_TEST_URL);
   }
 
   const { response: vaultResponse, body: vault } = await jsonRequest("/api/vault");

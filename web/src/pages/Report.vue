@@ -228,6 +228,13 @@ onMounted(load);
             Eine kompakte Zusammenfassung für dein Gespräch mit einer
             Fachperson.
           </p>
+          <p class="report-privacy-hint no-print">
+            <ShieldCheck :size="15" aria-hidden="true" />
+            <span
+              >Enthält Symptome und weitere Gesundheitsdaten. Prüfe vor dem
+              Teilen den Empfänger.</span
+            >
+          </p>
         </div>
         <div class="report-action-buttons">
           <UiButton

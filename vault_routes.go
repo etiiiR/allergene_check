@@ -22,6 +22,9 @@ func registerVaultRoutes(api fiber.Router, repository VaultRepository) {
 		if err != nil {
 			return err
 		}
+		if len(vault.Envelope) == 0 || len(vault.Envelope) > maxVaultEnvelopeBytes {
+			return NewAppError(500, "vault_record_invalid", "Der gespeicherte verschlüsselte Tresor ist ungültig.")
+		}
 		vault.LegacyAvailable, err = repository.LegacyDataAvailable(c.UserContext())
 		if err != nil {
 			return err

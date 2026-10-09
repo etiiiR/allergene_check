@@ -6,6 +6,7 @@ import {
   encryptVaultPayload,
   unlockWithPassphrase,
   unlockWithRecoveryKey,
+  MAX_VAULT_CIPHERTEXT_CHARS,
 } from "../src/privacy/vault-crypto.js";
 
 const passphrase = "Kiesel!Wolke!Abendlicht";
@@ -52,6 +53,20 @@ test("wrong passphrases and modified ciphertext cannot reveal diary data", async
   envelope.payload.ciphertext = `${first === "A" ? "B" : "A"}${ciphertext.slice(1)}`;
   await assert.rejects(
     decryptVaultPayload(key.dataKey, envelope.payload),
+    /ungültig/u,
+  );
+});
+
+test("oversized or malformed envelope fields are rejected before key derivation", async () => {
+  const { envelope } = await createEncryptedVault({ checkins: [] }, passphrase);
+  envelope.payload.ciphertext = "A".repeat(MAX_VAULT_CIPHERTEXT_CHARS + 1);
+  await assert.rejects(
+    unlockWithPassphrase(envelope, passphrase),
+    /Tresor-Version/u,
+  );
+
+  await assert.rejects(
+    unlockWithRecoveryKey(envelope, "A".repeat(1024)),
     /ungültig/u,
   );
 });

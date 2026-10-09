@@ -455,6 +455,11 @@ test("doctor report renders a printable full-data overview", async ({
     page.getByRole("button", { name: "Teilen / senden" }),
   ).toBeVisible();
   await expect(
+    page.getByText(
+      "Enthält Symptome und weitere Gesundheitsdaten. Prüfe vor dem Teilen den Empfänger.",
+    ),
+  ).toBeVisible();
+  await expect(
     page.getByRole("heading", { name: "Zutatenmuster" }),
   ).toBeVisible();
 });

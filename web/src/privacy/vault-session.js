@@ -109,13 +109,11 @@ export async function acceptServerVault(value) {
     return false;
   }
   if (incoming.revision < mutableState.revision) {
-    dataKey = null;
-    mutableState.diary = null;
-    mutableState.status = "conflict";
-    mutableState.error =
-      "Der Server-Tresor ist älter als dieser geöffnete Stand. Bitte neu laden, bevor du weiterarbeitest.";
-    sessionEpoch++;
-    return false;
+    // Initial Inertia props can arrive after a local save or restore has
+    // already accepted a newer revision. Keep the newer client state; actual
+    // writes still use server-side compare-and-swap and fail closed on a real
+    // server conflict.
+    return mutableState.status === "unlocked";
   }
   if (incoming.revision === mutableState.revision) {
     if (
@@ -240,6 +238,120 @@ export async function commitPreparedVault(prepared) {
   mutableState.error = "";
   sessionEpoch++;
   return { revision: saved.revision, diary: verifiedDiary };
+}
+
+// Build a replacement envelope with a fresh data key while keeping the current
+// vault untouched. The caller must show and confirm the returned recovery key
+// before committing this prepared rotation.
+export function prepareVaultCredentialRotation(passphrase) {
+  const operation = writeQueue.then(async () => {
+    if (mutableState.status !== "unlocked" || !dataKey || !mutableState.diary) {
+      throw new Error("Bitte entsperre zuerst dein Tagebuch.");
+    }
+    const epoch = sessionEpoch;
+    const expectedRevision = mutableState.revision;
+    const diary = structuredClone(mutableState.diary);
+    const prepared = await createEncryptedVault(diary, passphrase);
+    if (
+      epoch !== sessionEpoch ||
+      mutableState.status !== "unlocked" ||
+      mutableState.revision !== expectedRevision
+    ) {
+      throw new Error(
+        "Das Tagebuch hat sich während der Vorbereitung geändert. Bitte erneut versuchen.",
+      );
+    }
+    return { ...prepared, diary, expectedRevision, epoch };
+  });
+  writeQueue = operation.catch(() => undefined);
+  return operation;
+}
+
+// Commit only the exact revision that was encrypted and shown to the user.
+// Conflicts lock the session; recoverable request failures leave the old key,
+// envelope and diary active so the user can retry safely.
+export function commitVaultCredentialRotation(prepared) {
+  const operation = writeQueue.then(async () => {
+    if (
+      !prepared?.envelope ||
+      !prepared?.dataKey ||
+      prepared.expectedRevision !== mutableState.revision ||
+      prepared.epoch !== sessionEpoch ||
+      mutableState.status !== "unlocked" ||
+      !dataKey ||
+      !mutableState.diary
+    ) {
+      const error = new Error(
+        "Das Tagebuch hat sich geändert. Verwirf die neue Phrase und starte erneut.",
+      );
+      error.code = "vault_rotation_stale";
+      throw error;
+    }
+    let saved;
+    try {
+      saved = await requestVault("PUT", {
+        expected_revision: prepared.expectedRevision,
+        envelope: prepared.envelope,
+        migrate_legacy: false,
+      });
+    } catch (error) {
+      if (error.status === 409) {
+        dataKey = null;
+        mutableState.diary = null;
+        mutableState.status = "conflict";
+        mutableState.error =
+          "Das Tagebuch wurde in einem anderen Tab oder Gerät geändert. Bitte neu laden und erneut entsperren.";
+        sessionEpoch++;
+      }
+      throw error;
+    }
+    if (
+      saved.revision !== prepared.expectedRevision + 1 ||
+      JSON.stringify(saved.envelope) !== JSON.stringify(prepared.envelope)
+    ) {
+      installLocked(saved);
+      throw new Error(
+        "Die gespeicherte Verschlüsselung weicht vom Entwurf ab. Bitte entsperre den Tresor erneut.",
+      );
+    }
+    if (
+      prepared.epoch !== sessionEpoch ||
+      mutableState.status !== "unlocked"
+    ) {
+      installLocked(saved);
+      throw new Error(
+        "Die Zugangsdaten wurden gespeichert. Bitte entsperre den Tresor erneut.",
+      );
+    }
+    let verifiedDiary;
+    try {
+      verifiedDiary = await decryptVaultPayload(
+        prepared.dataKey,
+        saved.envelope.payload,
+      );
+    } catch {
+      installLocked(saved);
+      throw new Error(
+        "Die neue Verschlüsselung konnte nicht geprüft werden. Entsperre den Tresor mit den neuen Zugangsdaten.",
+      );
+    }
+    if (JSON.stringify(verifiedDiary) !== JSON.stringify(prepared.diary)) {
+      installLocked(saved);
+      throw new Error(
+        "Die gespeicherten Tagebuchdaten stimmen nicht mit dem Entwurf überein. Entsperre den Tresor mit den neuen Zugangsdaten.",
+      );
+    }
+    dataKey = prepared.dataKey;
+    mutableState.revision = saved.revision;
+    mutableState.envelope = saved.envelope;
+    mutableState.diary = verifiedDiary;
+    mutableState.status = "unlocked";
+    mutableState.error = "";
+    sessionEpoch++;
+    return { revision: saved.revision, diary: verifiedDiary };
+  });
+  writeQueue = operation.catch(() => undefined);
+  return operation;
 }
 
 async function unlockWith(unlocker, secret) {

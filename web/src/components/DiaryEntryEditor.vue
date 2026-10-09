@@ -1,5 +1,6 @@
 <script setup>
 import { computed, reactive, ref } from "vue";
+import { usePage } from "@inertiajs/vue3";
 import EntryPanel from "./EntryPanel.vue";
 import RecipePicker from "./RecipePicker.vue";
 import SymptomRating from "./SymptomRating.vue";
@@ -17,6 +18,7 @@ import {
 
 const props = defineProps({ entry: { type: Object, required: true } });
 const emit = defineEmits(["close", "saved"]);
+const page = usePage();
 const diary = useVaultDiary();
 const { busy, error, save } = useMutation();
 // A detached draft keeps cancel/error paths from changing the visible diary.
@@ -113,8 +115,8 @@ function submit() {
       sleep_hours: form.sleep_hours,
       context_recorded:
         contextRecorded.value &&
-        (form.stress != null && form.stress !== "" ||
-          form.sleep_hours != null && form.sleep_hours !== ""),
+        ((form.stress != null && form.stress !== "") ||
+          (form.sleep_hours != null && form.sleep_hours !== "")),
       confirm_observation: confirmObservation.value,
     };
   save(

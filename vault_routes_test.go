@@ -145,6 +145,29 @@ func TestVaultRoutesStoreOpaqueEnvelopeAndCheckRevision(t *testing.T) {
 	}
 }
 
+func TestVaultRoutesDoNotReturnOversizedStoredEnvelope(t *testing.T) {
+	repository := &memoryVaultRepository{
+		vault: EncryptedVault{
+			Revision: 1,
+			Envelope: json.RawMessage(`{"ciphertext":"` + strings.Repeat("a", maxVaultEnvelopeBytes) + `"}`),
+		},
+	}
+	response, err := newVaultTestApp(repository).Test(httptest.NewRequest("GET", "/api/vault", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != 500 {
+		t.Fatalf("oversized stored envelope status=%d, want 500", response.StatusCode)
+	}
+	var payload ErrorResponse
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Error.Code != "vault_record_invalid" {
+		t.Fatalf("unexpected error response: %#v", payload.Error)
+	}
+}
+
 func TestVaultRoutesRejectInvalidAndUnconfirmedRequests(t *testing.T) {
 	app := newVaultTestApp(&memoryVaultRepository{vault: EncryptedVault{Envelope: json.RawMessage("null")}})
 	for _, body := range []string{

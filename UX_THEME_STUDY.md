@@ -112,6 +112,10 @@ beim Zurückkehren erhält der auslösende Control den Fokus zurück.
 Diese Editoren sind lokale Seitenzustände und keine eigenen URLs. Neuladen beendet einen
 ungespeicherten Editor. Deep Links und dauerhafte Entwürfe sind eine spätere Erweiterung.
 
+Die manuelle Tresorsperre sitzt im mobilen App-Header und auf Desktop in der Seitenleiste.
+Sie bleibt schnell erreichbar, liegt aber nicht als schwebender Knopf über Eingabefeldern
+oder dem unteren Navigationsbereich.
+
 ## 6. Nutzerabläufe
 
 ### Heute
@@ -209,6 +213,8 @@ ausdrücklich dokumentierter Werte.
 Profil bündelt Körperkontext und Datenquellen. Upload und Speichern geben konkretes Feedback.
 FODMAP bleibt eine durchsuchbare Referenztabelle mit eigener horizontaler Scrollfläche.
 Der Bericht verwendet die vorhandenen Daten und eine separate Druckansicht ohne Navigation oder Toasts.
+Vor Teilen oder Drucken erinnert ein sichtbarer Hinweis daran, dass der Bericht Symptome und
+weitere Gesundheitsdaten enthält; er bleibt im normalen Lesefluss und öffnet kein Dialogfenster.
 
 ## 7. Feedback und Bewegung
 
@@ -220,6 +226,7 @@ Der Bericht verwendet die vorhandenen Daten und eine separate Druckansicht ohne 
 - Reduced Motion deaktiviert die nicht notwendigen Animationen und Übergänge.
 - Erfolge bleiben einige Sekunden sichtbar; Fehler bleiben bis zum Schliessen.
 - Benachrichtigungen werden über Live-Regionen angekündigt.
+- Eine Minute vor der automatischen Tresorsperre erscheint ein ruhiger, nicht-modaler Hinweis mit „Weiterarbeiten“. Jede echte Interaktion setzt den Timer zurück; bleibt das Gerät unbeaufsichtigt, wird der Tresor weiterhin automatisch gesperrt.
 - Während Speichern werden doppelte Requests verhindert.
 - Fehlgeschlagene Requests erhalten Formularwerte und zeigen den Serverfehler.
 - Ein erfolgreicher API-Write wird als gespeichert bestätigt; ein Refresh-Problem wird separat benannt.
@@ -278,7 +285,7 @@ mit Print-Media und visuell geprüft; ein physischer Drucktest wurde nicht durch
 Automatisierte Checks ersetzen keine vollständige Accessibility-Prüfung mit Assistenztechnik.
 
 Die Routen werden inzwischen dynamisch geladen, sodass nicht alle Seiten und deren Symbole beim
-Start geladen werden. Produktionsbuild am 08.10.2026: `app.js` 310.45 kB raw / 108.24 kB gzip
+Start geladen werden. Produktionsbuild am 08.10.2026: `app.js` 310.74 kB raw / 108.34 kB gzip
 (vorher 504.89 kB raw / 164.98 kB gzip). Die Startseite lädt zusätzlich gemeinsame Komponenten;
 der gesamte statische JavaScript-Ladepfad beträgt 413.55 kB raw / 142.95 kB gzip. Vite meldet
 keinen Chunk-Size-Warnhinweis mehr. CI begrenzt diesen vollständigen Startpfad. Echte
@@ -286,13 +293,9 @@ Geräte-/Netzwerk-Labormessungen bleiben offen.
 
 ## 10. Spätere Validierung
 
-Nachtrag zur Vereinfachung: Frontend-Build, Go-Tests und alle 23 Browser-Tests für kompakte
-Ansichten, Onboarding und Profilpersistenz bestanden. Der Profiltest prüft auch einen neuen
-Browserkontext, Namensänderung, Fehler/Retry und unveränderte Tagebuch-Einträge. Die spätere
-Zutaten-Normalisierung hat eigene Go-/Python-Tests. Für den anschliessenden Mahlzeit-Ablauf und
-die native Health-Anbindung wurden weitere Regressionstests ergänzt; diese neuesten Browsertests
-konnten wegen des Freigabelimits noch nicht ausgeführt werden. Der Container-Rebuild
-ist aus demselben Grund noch ausstehend.
+Historischer Zwischenstand: In einer früheren Iteration bestanden 23 Browser-Tests. Danach kamen
+Mahlzeiten-, Tagebuch-, Health- und Rezept-Suchabläufe hinzu; die damalige Meldung, diese neueren
+Tests könnten noch nicht laufen, wurde durch den aktuellen Prüfstand vom 08.10.2026 abgelöst.
 
 Diese Punkte sind keine Behauptung über bereits erreichte Nutzerergebnisse:
 
@@ -320,7 +323,9 @@ Nachtrag 24.09.2026. Ausgangspunkt: Ein Dropdown mit 200 Einträgen und die voll
 
 Offene qualitative Validierung: Personen ein selten genutztes Rezept aus 200 Einträgen sowie zwei gleichnamige Gerichte finden lassen. Suchabbrüche, Fehlwahlen und Zeit bis zur Auswahl beobachten; keine erreichte Zeitersparnis behaupten, bevor diese Tests stattfinden. Bei wesentlich größeren Beständen die aktuell lokale Suche auf serverseitige Suche umstellen.
 
-Technische Validierung: 36 Browser-Regressionsprüfungen einschließlich der 200-Rezepte-Fälle, sechs Such-Unit-Tests, Go-Tests und Frontend-Build erfolgreich. Die mobile Auswahl und Sammlung wurden zusätzlich als Screenshots geprüft. Die früher in Abschnitt 10 genannten Browser-/Container-Freigabeblocker sind inzwischen behoben; die native HealthKit-App benötigt weiterhin einen separaten Xcode-/Gerätetest.
+Technische Validierung (aktueller Lauf siehe unten): Die 200-Rezepte-Fälle, Suche, Auswahl,
+Umlautschreibweise, Paging und Bearbeitung wurden im Browser geprüft. Die native HealthKit-App
+benötigt weiterhin einen separaten Xcode-/Gerätetest.
 
 ## 12. Zurückhaltende Farbe und gleichwertige Erfassungsaktionen
 
@@ -460,11 +465,11 @@ durch reale Personen.
 
 | Prio | Arbeit | Abnahmekriterium | Status |
 | --- | --- | --- | --- |
-| P0 | Symptomstärke in Erfassen, Bearbeiten, Markierung, Tagebuch, Kalender und Bericht vereinheitlichen. | Ein auswählbarer 0–5-Sterne-Status mit sichtbarem Symptomname/Icon, klarer Textstufe, Tastatursteuerung und lesbarer Übernahme bestehender Einträge. | 0–5-Control, Legacy-Mapping, Unit-Tests und Build umgesetzt; aktueller Browser-/Axe-Retest ausstehend. |
-| P0 | Rezeptbibliothek kompakter darstellen. | 12 Einträge pro Seite; bei 320/390px eine Spalte ohne Überlauf, bei 1024px zwei und bei 1440px drei kompakte Spalten; Suche, Aktionen, lange Namen und Screenreader-Beschriftungen bleiben nutzbar. | Im Quellcode umgesetzt; mobile/desktop Layout- und vollständige Browser-/Axe-Prüfung bestanden. |
-| P0 | Gleichwertige Heute-Aktionen und reduzierte Farbpalette. | Mahlzeit, Befinden, Gutes Befinden und Weitere Beobachtungen teilen Grösse und Gestaltung; drei semantische Farbfamilien; Kontrast/Axe bestehen. | Im Quellcode umgesetzt; Computed-Style-, Farbgruppen- und vollständige Axe-Prüfungen bestanden. |
-| P0 | Erststart und erneutes Durchgehen der Profileinrichtung. | Kein vollständiges Profil führt in den dreistufigen Wizard; später fortsetzen; bestehende Profile vorausgefüllt erneut öffnen; Übergänge animiert und reduzierte Bewegung respektiert. | Im Quellcode umgesetzt; Erststart, späterer Wiedereinstieg, Profiländerung, Schritt-Fokus, reduzierte Bewegung und mobile Axe-Prüfungen bestanden. |
-| P1 | Zutateneditor verdichten und Allergenauswahl für Mobilgeräte neu ordnen. | Alle Zutatennamen bleiben in der Liste sichtbar; Zuordnung/Allergene überlappen nicht; Import- und manuelle Zutaten bleiben änderbar. | Kompakte Zeilen und aufklappbare Zuordnung/Allergen-Checkboxen umgesetzt; Unit-Test, Build und E2E-Testfall-Erkennung bestanden. Echter mobiler Browserlauf steht noch aus. |
+| P0 | Symptomstärke in Erfassen, Bearbeiten, Markierung, Tagebuch, Kalender und Bericht vereinheitlichen. | Ein auswählbarer 0–5-Sterne-Status mit sichtbarem Symptomname/Icon, klarer Textstufe, Tastatursteuerung und lesbarer Übernahme bestehender Einträge. | Implementiert; 43 Unit-Tests und vollständiger 51-Test-Browserlauf bestanden, einschliesslich Tagebuch-Bearbeitung und Axe-Prüfung der Kernseiten. |
+| P0 | Rezeptbibliothek kompakter darstellen. | 12 Einträge pro Seite; bei 320/390px eine Spalte ohne Überlauf, bei 1024px zwei und bei 1440px drei kompakte Spalten; Suche, Aktionen, lange Namen und Screenreader-Beschriftungen bleiben nutzbar. | Implementiert; Suche und Bibliothek mit 200 Rezepten, Paging, Mobil-/Desktop-Layout und Tastaturauswahl im Browser bestanden. |
+| P0 | Gleichwertige Heute-Aktionen und reduzierte Farbpalette. | Mahlzeit, Befinden, Gutes Befinden und Weitere Beobachtungen teilen Grösse und Gestaltung; drei semantische Farbfamilien; Kontrast/Axe bestehen. | Implementiert; Browser-Regressionen und Axe-Prüfungen bestanden. |
+| P0 | Erststart und erneutes Durchgehen der Profileinrichtung. | Kein vollständiges Profil führt in den dreistufigen Wizard; später fortsetzen; bestehende Profile vorausgefüllt erneut öffnen; Übergänge animiert und reduzierte Bewegung respektiert. | Implementiert; Erststart, Fortsetzen, Fokus, Reduced Motion, persistentes Pseudonym und Entsperren in einem neuen Browserkontext bestanden. |
+| P1 | Zutateneditor verdichten und Allergenauswahl für Mobilgeräte neu ordnen. | Alle Zutatennamen bleiben in der Liste sichtbar; Zuordnung/Allergene überlappen nicht; Import- und manuelle Zutaten bleiben änderbar. | Implementiert; 10 Zutaten und Allergen-Auswahl bei 320px sowie Rezeptimport im Browser bestanden. |
 | P1 | Tagebuch-Hauptschleife mit fünf moderierten Personen prüfen. | Aufgaben: wiederholtes Rezept erfassen, neues Essen protokollieren, Beschwerden mit Verzögerung eintragen, Kontext ohne Mahlzeitenbezug ergänzen, Muster vorsichtig erklären. | Studienplan vorhanden; Personen noch nicht rekrutiert/getestet. |
 | P2 | Erkenntnisse aus echten Sitzungen priorisieren und zweite Iteration prüfen. | Ergebnisse enthalten Erfolgsquote, Zeit, Fehlbedienungen, Rücksprünge, Missverständnisse, Zitat nur mit Einwilligung sowie konkrete Änderung und Retest. | Nach der ersten echten Testrunde. |
 
@@ -490,17 +495,57 @@ bestehenden internen Datenbereich abgebildet, damit keine Backend-Migration erfo
 Das ist ein Kompatibilitätsdetail, keine Zahlenskala in der Bedienoberfläche. Stresswerte aus
 manueller Eingabe oder Health-Anbietern bleiben eine getrennte Funktion.
 
-Frontend-Build, acht Unit-Tests und `go test ./...` bestanden. Alle 43 Playwright-Tests liefen gegen die isolierte
-SurrealDB-Datenbank `ux_tests` und bestanden. Die Suite prüft acht Hauptansichten bei
-320/390/768/1440px, Axe/WCAG-A, Tastatur und Fokus, Fehlererhalt, reduzierte Bewegung,
-Tagebuch-CRUD, 200 Rezepte, die Aktionsgestaltung/Rezeptdichte und das Onboarding mit fehlendem
-Profil, späterem Wiedereinstieg und Profil-Assistent. Im ersten Lauf wurden drei Testabläufe
-entdeckt, die nach Auswahl eines Symptoms keine Stärke gesetzt hatten, sowie ein widersprüchlicher
-gespeicherter Erwartungswert; die Tests wurden korrigiert und der Farbkontrast verbessert.
-Danach bestanden 42/42, mit dem ergänzten Onboarding 43/43 Playwright-Tests. Die abschliessenden
-Fokus- und Reduced-Motion-Prüfungen liefen erneut in den drei Profil-Tests und bestanden.
-`main` wurde von den Browser-Suiten nicht verwendet. Am 2026-10-05 wurde die Sterneskala auf
-Wunsch neu festgelegt: zwölf Frontend-Unit-Tests, Go-Tests und Produktionsbuild bestehen. Ein
-erster vollständiger 44-Test-Lauf hatte zwei Timeouts unter Gesamtlast; beide Tests bestanden
-einzeln, danach bestand der vollständige isolierte Lauf erneut mit 44/44 in 1,1 Minuten. Keine
-dieser technischen Prüfungen ersetzt den geplanten Test mit echten Personen.
+### Aktueller Prüfstand — 2026-10-09
+
+Im aktuellen Workspace bestanden 48 Frontend-Unit-Tests, alle 53 Playwright-Browsertests,
+`go test -race ./...`, `go vet ./...` und der Produktionsbuild. Die Browser-Suite lief gegen
+zwei frische, kurzlebige SurrealDB-3.3.0-In-Memory-Datenbanken, ausschliesslich auf localhost;
+zusätzlich liefen die Go-Integrationstests (Transaktion/Rollback, Live-Query, konkurrierende
+Tresor-Schreibvorgänge und Legacy-Migration) auf einer isolierten Datenbank. Testserver und
+Container wurden danach beendet. Die neun Kernseiten bestanden die geprüften
+Viewportbreiten 320, 390, 768 und 1440px; Axe prüfte WCAG 2.0 A/AA und 2.1 AA bei 390px. Dazu
+gehören die 200-Rezept-Suche, Check-in-Bearbeitung, Pseudonym-/Tresor-Persistenz in einem neuen
+Browserkontext, Download einer verschlüsselten Sicherung, Rezeptimport und die manuelle Sperre
+ohne überlagernden Floating-Button bei 320px. Zusätzlich wurde eine Sicherung aus der UI in
+einen frischen Tresor wiederhergestellt; falsche Passphrase liess den Zieltresor leer, mit der
+richtigen Phrase waren die pseudonymisierten Daten wieder lesbar und serverseitig blieb nur
+Ciphertext. Die Screenshots der
+Responsive-Prüfung liegen in `web/test-results/`. Das ist ein automatisierter technischer Check,
+keine Prüfung mit echten Nutzenden; ein vollständiger manueller Assistenztechnik- und Gerätetest
+steht weiterhin aus. Frühere 43-/44-Teststände sind historisch.
+
+Die Profileinstellung „Sicherheit“ wurde zusätzlich bei 320px auf horizontalen Überlauf und mit
+Axe geprüft. Die Rotation von Passphrase und Wiederherstellungsphrase erstellt einen neuen
+Datenschlüssel; die Browserregression prüft beide neuen Zugänge, verwirft die alten für den
+aktuellen Tresor und bewahrt den alten Stand bei einem fehlgeschlagenen Speichern oder einer
+zwischenzeitlichen Tagebuchänderung.
+
+Der reale Nutzertest mit mindestens fünf Personen ist ebenfalls offen. Keine technische oder
+simulierte Prüfung ersetzt diese Beobachtung.
+
+Die manuelle Tresorsperre sitzt nun im App-Header (Desktop: Seitenleiste), nicht mehr als
+schwebender Knopf über dem Rezeptformular. Der 320px-Regressionscheck und die vollständige
+53-Test-Browser-Suite bestanden anschliessend gegen isolierte Testdatenbanken.
+
+## 14. Datenschutz und Erhalt angefangener Eingaben
+
+Nachtrag 9. Oktober 2026. Der verschlüsselte Tagebuchbereich sperrt sich nach 15 Minuten ohne
+Interaktion. Ohne Vorwarnung konnte diese Sperre einen noch offenen Editor ausblenden. Jetzt
+erscheint eine Minute vorher ein kurzer Statushinweis mit einer ausdrücklichen Aktion zum
+Weiterarbeiten. Der Hinweis ist kein Dialog und verdeckt weder Navigation noch Formular. Jede
+Interaktion setzt die Frist zurück; bei ausbleibender Interaktion bleibt die automatische Sperre
+bestehen. Die Frist wird nicht durch blosses Sichtbarwerden oder passive Wiederherstellung
+verlängert. Timer, Warnung, Rücksetzung und anschliessende Sperre sind automatisiert geprüft.
+
+Das ist bewusst keine lokale Entwurfs-Speicherung: Gesundheitsnotizen werden nicht zusätzlich
+in Local Storage oder Klartext-Cache abgelegt. Wenn Nutzertests zeigen, dass Personen trotzdem
+Eingaben durch die Sperre verlieren, ist als nächster Schritt eine klar begrenzte, mit dem
+Tresorschlüssel verschlüsselte Entwurfsablage zu untersuchen – nicht eine Verlängerung der
+Sicherheitsfrist ohne Nutzersignal.
+
+**Prüfung am 9. Oktober:** 45 Frontend-Unit-Tests und alle 52 Playwright-Tests bestanden.
+Der vollständige Browserlauf nutzte zwei getrennte, kurzlebige Datenbanken und Apps; der
+Backup-Restore-Test verifizierte auch die leere Zielinstanz. Der neue Warnhinweis wurde bei
+320px mit Axe auf die Komponente, ohne horizontales Scrollen, mit „Weiterarbeiten“ und
+anschliessender automatischer Sperre geprüft. Die Seitenscans der übrigen Responsivitätsprüfungen
+liefen ebenfalls weiter.

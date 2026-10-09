@@ -1,4 +1,9 @@
-import { test, expect, E2E_PASSPHRASE } from "./fixtures.js";
+import {
+  test,
+  expect,
+  E2E_PASSPHRASE,
+  signInBrowserContext,
+} from "./fixtures.js";
 import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
 const headers = { "X-Diary-Request": "1" };
@@ -106,12 +111,12 @@ test("profile explains the encrypted vault and its local-only limits", async ({
   await expect(
     page
       .getByLabel("Datenschutzinformationen")
-      .getByText("Pseudonym und verschlüsseltes Tagebuch"),
+      .getByText("Pseudonym und Ende-zu-Ende-Verschlüsselung"),
   ).toBeVisible();
   await expect(
     page
       .getByLabel("Datenschutzinformationen")
-      .getByText(/verschlüsselten Tresor/u),
+      .getByText(/der verschlüsselte Tresor/u),
   ).toBeVisible();
   await page
     .getByLabel("Datenschutzinformationen")
@@ -130,6 +135,43 @@ test("profile explains the encrypted vault and its local-only limits", async ({
   await expect(
     page.getByText(/Änderungen werden verschlüsselt im Tresor/u),
   ).toBeVisible();
+});
+
+test("credential settings stay readable and fit a narrow phone screen", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto("/profile");
+  await page.getByRole("button", { name: "Sicherheit" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Tresor-Zugangsdaten" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Profil speichern" }),
+  ).toHaveCount(0);
+  const firstPasswordField = await page
+    .getByRole("textbox", { name: "Neue Passphrase mindestens 12 Zeichen" })
+    .boundingBox();
+  const mobileNavigation = await page
+    .getByRole("navigation", { name: "Hauptnavigation", exact: true })
+    .boundingBox();
+  expect(firstPasswordField.y + firstPasswordField.height).toBeLessThan(
+    mobileNavigation.y,
+  );
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBeTruthy();
+  const a11y = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .analyze();
+  expect(a11y.violations).toEqual([]);
+  await page.screenshot({
+    path: testInfo.outputPath("profile-security-320.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
 });
 
 test("profile downloads a generic encrypted backup without diary text", async ({
@@ -180,7 +222,7 @@ test("onboarding explains pseudonym and encryption without interrupting setup", 
   const privacy = page.getByLabel("Datenschutzinformationen");
   await expect(privacy).toBeVisible();
   await expect(
-    privacy.getByText(/Anzeigename und deine Einträge/u),
+    privacy.getByText(/verschlüsselt Pseudonym und Tagebuch/u),
   ).toBeVisible();
   await expect(
     privacy.getByText("Was das schützt – und was nicht"),
@@ -289,13 +331,21 @@ test("guided setup persists a named person, preserves diary records and survives
       expect(saved[key]).toEqual(original[key]);
     const context = await browser.newContext();
     try {
+      await signInBrowserContext(context, new URL(page.url()).origin);
       const freshPage = await context.newPage();
+      const outgoingBodies = [];
+      freshPage.on("request", (request) => {
+        const body = request.postData();
+        if (body) outgoingBodies.push(body);
+      });
       await freshPage.goto(new URL("/profile", page.url()).href);
       await freshPage.getByLabel("Passphrase").fill(E2E_PASSPHRASE);
       await freshPage
         .getByRole("button", { name: "Tagebuch entsperren" })
         .click();
-      await expect(freshPage.locator(".vault-lock-button")).toBeVisible();
+      await expect(
+        freshPage.getByRole("button", { name: "Tagebuch sperren" }),
+      ).toBeVisible();
       await expect(freshPage.getByLabel("Pseudonym")).toHaveValue(
         "Testperson Léa",
       );
@@ -304,12 +354,17 @@ test("guided setup persists a named person, preserves diary records and survives
       await expect(
         freshPage.locator(".profile-settings [role=status]"),
       ).toContainText("Profil gespeichert");
+      const transmitted = outgoingBodies.join("\n");
+      expect(transmitted).not.toContain("Testperson Alex");
+      expect(transmitted).not.toContain(E2E_PASSPHRASE);
       await freshPage.reload();
       await freshPage.getByLabel("Passphrase").fill(E2E_PASSPHRASE);
       await freshPage
         .getByRole("button", { name: "Tagebuch entsperren" })
         .click();
-      await expect(freshPage.locator(".vault-lock-button")).toBeVisible();
+      await expect(
+        freshPage.getByRole("button", { name: "Tagebuch sperren" }),
+      ).toBeVisible();
       await expect(freshPage.getByLabel("Pseudonym")).toHaveValue(
         "Testperson Alex",
       );
@@ -318,7 +373,9 @@ test("guided setup persists a named person, preserves diary records and survives
       await freshPage
         .getByRole("button", { name: "Tagebuch entsperren" })
         .click();
-      await expect(freshPage.locator(".vault-lock-button")).toBeVisible();
+      await expect(
+        freshPage.getByRole("button", { name: "Tagebuch sperren" }),
+      ).toBeVisible();
       await freshPage
         .getByRole("link", { name: "Profil-Assistent öffnen" })
         .click();
@@ -331,7 +388,9 @@ test("guided setup persists a named person, preserves diary records and survives
       await freshPage
         .getByRole("button", { name: "Tagebuch entsperren" })
         .click();
-      await expect(freshPage.locator(".vault-lock-button")).toBeVisible();
+      await expect(
+        freshPage.getByRole("button", { name: "Tagebuch sperren" }),
+      ).toBeVisible();
       await expect(freshPage.locator("#patient-report")).toContainText(
         "Testperson Alex",
       );

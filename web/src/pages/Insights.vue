@@ -38,6 +38,8 @@ const healthMetricLabels = {
 };
 const healthSourceLabel = (source) => healthSourceLabels[source] || source;
 const healthMetricLabel = (metric) => healthMetricLabels[metric] || metric;
+const percent = (value) =>
+  Math.max(0, Math.min(100, (Number(value) || 0) * 100));
 async function load() {
   loading.value = true;
   error.value = "";
@@ -214,9 +216,12 @@ const rows = computed(() =>
                 >{{ a.symptomatic_exposed }} / {{ a.exposed }} Momente</small
               ></span
             >
-            <div class="compare-track">
-              <i :style="{ width: a.rate_exposed * 100 + '%' }" />
-            </div>
+            <progress
+              class="compare-track"
+              :value="percent(a.rate_exposed)"
+              max="100"
+              aria-hidden="true"
+            ></progress>
             <b>{{ Math.round(a.rate_exposed * 100) }} %</b>
           </div>
           <div>
@@ -227,9 +232,12 @@ const rows = computed(() =>
                 {{ a.unexposed }} Momente</small
               ></span
             >
-            <div class="compare-track baseline">
-              <i :style="{ width: (a.rate_unexposed || 0) * 100 + '%' }" />
-            </div>
+            <progress
+              class="compare-track baseline"
+              :value="percent(a.rate_unexposed)"
+              max="100"
+              aria-hidden="true"
+            ></progress>
             <b>{{
               a.rate_unexposed === null
                 ? "–"
@@ -421,9 +429,12 @@ const rows = computed(() =>
                 >{{ item.symptomatic_moments }} / {{ item.moments }} mit
                 Beschwerden</span
               >
-              <div class="cycle-bar">
-                <i :style="{ width: (item.rate || 0) * 100 + '%' }" />
-              </div>
+              <progress
+                class="cycle-bar"
+                :value="percent(item.rate)"
+                max="100"
+                aria-hidden="true"
+              ></progress>
             </div>
           </div>
           <p class="helper">

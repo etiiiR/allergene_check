@@ -6,6 +6,12 @@ function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+// Vue may expose the envelope through a reactive proxy; structuredClone rejects
+// proxies even though the envelope itself is plain JSON data.
+function cloneJSON(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 // A backup contains only the opaque vault envelope. Never add the diary,
 // passphrase, recovery key, or an unlocked data key to this file.
 export function createEncryptedVaultBackup(envelope, createdAt = new Date()) {
@@ -20,7 +26,7 @@ export function createEncryptedVaultBackup(envelope, createdAt = new Date()) {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
     created_at: created.toISOString(),
-    envelope: structuredClone(envelope),
+    envelope: cloneJSON(envelope),
   };
 }
 
@@ -49,7 +55,7 @@ export function parseEncryptedVaultBackup(contents) {
   if (JSON.stringify(backup.envelope).length > MAX_BACKUP_BYTES) {
     throw new Error("Der verschlüsselte Tresor ist grösser als 16 MB.");
   }
-  return structuredClone(backup);
+  return cloneJSON(backup);
 }
 
 export const MAX_ENCRYPTED_BACKUP_BYTES = MAX_BACKUP_BYTES;
