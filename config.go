@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -35,6 +37,19 @@ func loadConfig() appConfig {
 func (c appConfig) validate() error {
 	if strings.TrimSpace(c.username) == "" || strings.TrimSpace(c.password) == "" {
 		return NewAppError(500, ErrorCodeStartup, "SURREALDB_USER and SURREALDB_PASS must be configured before starting the app.")
+	}
+	return nil
+}
+
+func validatePublicAppURL(value string) error {
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Hostname() == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return NewAppError(500, ErrorCodeStartup, "APP_URL must be a valid absolute HTTP or HTTPS URL.")
+	}
+	host := strings.ToLower(parsed.Hostname())
+	local := host == "localhost" || net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback()
+	if !local && parsed.Scheme != "https" {
+		return NewAppError(500, ErrorCodeStartup, "Remote account access requires APP_URL to use HTTPS.")
 	}
 	return nil
 }

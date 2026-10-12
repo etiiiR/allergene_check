@@ -290,6 +290,17 @@ func (s *accountService) authenticateRequest(c *fiber.Ctx) error {
 	return c.Next()
 }
 
+func accountGateMiddleware(service *accountService) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		path := c.Path()
+		if service == nil || path == "/health" || path == "/api/status" || path == "/login" ||
+			strings.HasPrefix(path, "/assets/") || path == "/api/auth/status" || path == "/api/auth/login" || path == "/api/auth/register" || path == "/api/auth/logout" {
+			return c.Next()
+		}
+		return service.authenticateRequest(c)
+	}
+}
+
 // constantTimeTokenEqual is kept small and explicit for bootstrap tests.
 func constantTimeTokenEqual(got, want string) bool {
 	return len(got) == len(want) && hmac.Equal([]byte(got), []byte(want))

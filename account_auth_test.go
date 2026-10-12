@@ -120,10 +120,12 @@ func TestAccountRoutesIssueHttpOnlySameSiteCookieAndProtectPrivateData(t *testin
 	repository := newMemoryAccountRepository()
 	service := newAccountService(repository, "one-time-local-bootstrap-token", "https://gut.example")
 	app := fiber.New(fiber.Config{ErrorHandler: AppErrorHandler})
+	app.Use(accountGateMiddleware(service))
 	registerAccountRoutes(app, service)
-	app.Get("/private", service.authenticateRequest, func(c *fiber.Ctx) error {
+	app.Get("/private", func(c *fiber.Ctx) error {
 		return c.SendString("private")
 	})
+	app.Get("/api/private", func(c *fiber.Ctx) error { return c.SendString("private") })
 
 	unauthenticated, err := app.Test(httptest.NewRequest("GET", "/private", nil))
 	if err != nil {
@@ -132,12 +134,16 @@ func TestAccountRoutesIssueHttpOnlySameSiteCookieAndProtectPrivateData(t *testin
 	if unauthenticated.StatusCode != fiber.StatusSeeOther || unauthenticated.Header.Get("Location") != "/login" {
 		t.Fatalf("private page did not redirect to sign in: status=%d location=%q", unauthenticated.StatusCode, unauthenticated.Header.Get("Location"))
 	}
+	privateAPI, err := app.Test(httptest.NewRequest("GET", "/api/private", nil))
+	if err != nil || privateAPI.StatusCode != fiber.StatusUnauthorized {
+		t.Fatalf("private API did not reject an anonymous request: response=%v err=%v", privateAPI, err)
+	}
 
 	body := `{"setup_token":"one-time-local-bootstrap-token","username":"gut-user","password":"a separate account password 123"}`
 	register := httptest.NewRequest("POST", "/api/auth/register", strings.NewReader(body))
 	register.Header.Set("Content-Type", "application/json")
 	register.Header.Set("X-Diary-Request", "1")
-	response, err := app.Test(register)
+	response, err := app.Test(register, 10_000)
 	if err != nil {
 		t.Fatal(err)
 	}

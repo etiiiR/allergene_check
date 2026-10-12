@@ -17,6 +17,8 @@ __pycache__/
 .recipe-audit-cache/
 web/test-results/
 web/playwright-report/
+/test-results/
+/playwright-report/
 mobile/ios/*.xcodeproj/
 mobile/ios/build/
 mobile/ios/DerivedData/

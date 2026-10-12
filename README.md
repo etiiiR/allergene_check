@@ -80,16 +80,16 @@ a real-device test; it has not been built or installed here.
 
 ## Run the stack with Docker Compose
 
-Docker Compose builds the Vue assets and starts Fiber, persistent SurrealDB, and the Python ML service. For a **new, empty database volume**, generate a private database password; the helper writes it to the ignored `.env` file with owner-only permissions and never replaces an existing file:
+Docker Compose builds the Vue assets and starts Fiber, persistent SurrealDB, and the Python ML service. For a **new, empty database volume**, create private database and one-time account setup secrets; the helper writes them to the ignored `.env` file with owner-only permissions and never replaces an existing file:
 
 ```sh
 sh setup-local-env.sh --new
 docker-compose up --build
 ```
 
-If you already have a SurrealDB volume, do **not** use `--new`: its database password is stored inside that volume and is not changed by Compose. Create `.env` from `.env.example`, set the existing database credentials (older local setups used `root` / `root`), and set permissions with `chmod 600 .env` before starting. Using the wrong credentials will keep the app from connecting, but will not delete the existing data.
+If you already have a SurrealDB volume, do **not** use `--new`: its database password is stored inside that volume and is not changed by Compose. Keep your existing database credentials, then run `sh setup-auth-token.sh` to add the one-time account setup code without replacing `.env`. For a manually created `.env`, set the existing database credentials and `chmod 600 .env` before starting. Using the wrong credentials will keep the app from connecting, but will not delete the existing data.
 
-Open the app at `http://localhost:3000`. SurrealDB is at `http://localhost:8000`, and Python API docs are at `http://localhost:8001/docs`.
+Open the app at `http://localhost:3000`. On first visit, create the one account for this installation with the setup code from `.env`, then choose a pseudonymous username and a separate account password. Every new device signs in with those account credentials and then unlocks the encrypted diary with its own copy of the vault passphrase or recovery phrase. SurrealDB is at `http://localhost:8000`, and Python API docs are at `http://localhost:8001/docs`.
 SurrealDB `v3.3.0` is pinned rather than following the moving `latest` tag. Data is stored in the named `surrealdb-data` volume. Before changing the database version, take a backup and verify restore plus the integration tests against that version.
 
 The app and ML container base images also use explicit runtime and OS versions (Node `24.21.0`, Go `1.27.1`, Python `3.12.15`, Alpine `3.24.2`, and Debian Bookworm). Refresh these pins deliberately, then rebuild and run the full test suite; a version tag still needs regular security updates.
@@ -111,7 +111,7 @@ Stop the stack with:
 docker-compose down
 ```
 
-Compose refuses to start if `SURREALDB_USER` or `SURREALDB_PASS` is missing; there is no `root` / `root` fallback. `.env.example` documents the available variables, but its password is intentionally blank. The local setup helper generates a random password only for a new database. Do not commit `.env` or expose this single-person, unauthenticated app to a public network.
+Compose refuses to start if database credentials or `ACCOUNT_SETUP_TOKEN` are missing; there is no `root` / `root` fallback. `.env.example` documents the variables, but its secrets are intentionally blank. The setup code can create only the first account. Keep `.env` private and do not publish the application port directly. Remote multi-device access is an MVP: put an HTTPS reverse proxy in front of the loopback-bound app, set `APP_URL` to the exact `https://` origin, and forward the original `Host` header. The server refuses a non-local `APP_URL` without HTTPS and issues `HttpOnly`, `SameSite=Strict`, `Secure` cookies for HTTPS. Sessions expire after 30 days; Profile → Sicherheit can revoke the current device only. There is no email/password recovery or screen to revoke other devices yet; do not treat this MVP as a production security review.
 
 ## Run
 
@@ -128,7 +128,7 @@ go run .
 
 For frontend changes, run `npm --prefix web run dev` in another terminal and reload the page. This watches production assets; it is not a Vite HMR server. Set `APP_URL` alongside `PORT` if changing the browser URL, and `ML_SERVICE_URL` if using a different Python endpoint.
 
-The server connects to SurrealDB at `ws://localhost:8000/rpc` by default and direct Go startup binds to `127.0.0.1:3000` only. Start SurrealDB separately before running the API locally. Database credentials are mandatory; for a new database, the setup helper creates them in `.env`. To load them into a local Go process, run `set -a; . ./.env; set +a` in that shell first. Set `PORT` to use a different port. `LISTEN_HOST` defaults to loopback; only override it for a private container network or behind a verified access-controlled proxy. Compose binds the app inside its container but publishes the host port only on `127.0.0.1`:
+The server connects to SurrealDB at `ws://localhost:8000/rpc` by default and direct Go startup binds to `127.0.0.1:3000` only. Start SurrealDB separately before running the API locally. Database credentials and a 32-character one-time account setup secret are required; helpers create them in the ignored `.env`. To load them into a local Go process, run `set -a; . ./.env; set +a` in that shell first. Set `PORT` to use a different port. `LISTEN_HOST` defaults to loopback; only override it for a private container network or behind a verified HTTPS proxy. Compose binds the app inside its container but publishes the host port only on `127.0.0.1`:
 
 ```sh
 PORT=8080 go run .

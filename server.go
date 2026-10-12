@@ -4,10 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
-	"net"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 )
 
@@ -18,14 +15,8 @@ func runServer() error {
 	if len(config.accountSetupToken) < 32 {
 		return NewAppError(500, ErrorCodeStartup, "ACCOUNT_SETUP_TOKEN must contain at least 32 characters. Create it with sh setup-local-env.sh --auth.")
 	}
-	publicURL, parseErr := url.Parse(envOrDefault("APP_URL", "http://localhost:3000"))
-	if parseErr != nil || publicURL.Hostname() == "" {
-		return NewAppError(500, ErrorCodeStartup, "APP_URL must be a valid absolute URL.")
-	}
-	host := strings.ToLower(publicURL.Hostname())
-	local := host == "localhost" || net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback()
-	if !local && publicURL.Scheme != "https" {
-		return NewAppError(500, ErrorCodeStartup, "Remote account access requires APP_URL to use HTTPS.")
+	if err := validatePublicAppURL(envOrDefault("APP_URL", "http://localhost:3000")); err != nil {
+		return err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

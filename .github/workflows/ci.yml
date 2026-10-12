@@ -118,6 +118,7 @@ jobs:
       SURREALDB_DATABASE: gutfeeling_ci_tests
       SURREALDB_USER: root
       SURREALDB_PASS: root
+      ACCOUNT_SETUP_TOKEN: gutfeeling-ci-bootstrap-token-32-char-minimum
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -155,9 +156,13 @@ jobs:
             echo "The recipe crawler can connect to SurrealDB by IP."
             exit 1
           fi
-          curl --silent --show-error --fail http://127.0.0.1:3000/api/vault \
+          curl --silent --show-error --fail --cookie-jar "$RUNNER_TEMP/gutfeeling-ci-cookie" \
+            http://127.0.0.1:3000/api/auth/register \
+            -H 'Content-Type: application/json' -H 'X-Diary-Request: 1' \
+            --data "{\"setup_token\":\"$ACCOUNT_SETUP_TOKEN\",\"username\":\"gutfeeling-ci\",\"password\":\"Isolated-Test-Account-2026!\"}"
+          curl --silent --show-error --fail --cookie "$RUNNER_TEMP/gutfeeling-ci-cookie" http://127.0.0.1:3000/api/vault \
             | python3 -c 'import json,sys; v=json.load(sys.stdin); assert v["revision"] == 0 and v["envelope"] is None and not v["legacy_available"]'
-          legacy_status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3000/api/diary)
+          legacy_status=$(curl --silent --output /dev/null --write-out '%{http_code}' --cookie "$RUNNER_TEMP/gutfeeling-ci-cookie" http://127.0.0.1:3000/api/diary)
           test "$legacy_status" = "423"
           curl --silent --show-error --fail http://127.0.0.1:8001/health \
             | python3 -c 'import json,sys; v=json.load(sys.stdin); assert v["bert_device"] == "cpu" and v["bert_local_files_only"] is True'
@@ -185,6 +190,7 @@ jobs:
       SURREALDB_DATABASE: gutfeeling_ci_tests
       SURREALDB_USER: root
       SURREALDB_PASS: root
+      ACCOUNT_SETUP_TOKEN: gutfeeling-ci-bootstrap-token-32-char-minimum
       ML_SERVICE_URL: http://127.0.0.1:8001
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

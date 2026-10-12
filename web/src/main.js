@@ -55,5 +55,7 @@ createInertiaApp({
       .component("UiSkeleton", UiSkeleton)
       .mount(el);
   },
-  progress: { color: "#4338ca" },
+  // Inertia injects an inline <style> element by default. Keep its progress
+  // feedback, but use our bundled CSS so the strict style-src CSP stays closed.
+  progress: { color: "#4338ca", includeCSS: false },
 });

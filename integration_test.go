@@ -251,6 +251,56 @@ func TestSurrealVaultMigrationCommitsCiphertextAndRemovesLegacyRows(t *testing.T
 	}
 }
 
+func TestAccountAndHashedDeviceSessionsPersistInSurrealDB(t *testing.T) {
+	if os.Getenv("RUN_INTEGRATION_TESTS") != "1" {
+		t.Skip("set RUN_INTEGRATION_TESTS=1 to run against SurrealDB")
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	db, err := connectDatabase(ctx, requireIsolatedIntegrationConfig(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close(context.Background())
+	store := NewSurrealStore(db)
+	if err := (&DiaryRepository{store: store}).initialize(ctx); err != nil {
+		t.Fatalf("initialize auth schema: %v", err)
+	}
+	repository := &surrealAccountRepository{store: store}
+	accountID := models.NewRecordID("diary_account", accountRecordKey)
+	if _, err := Delete[any](ctx, store, accountID); err != nil {
+		t.Fatalf("clear only the test account record: %v", err)
+	}
+	defer Delete[any](context.Background(), store, accountID)
+	if err := repository.CreateAccount(ctx, accountRecord{
+		Username: "isolated-test", Salt: "dGVzdHNhbHQ=", PasswordHash: "dGVzdGhhc2g=",
+	}); err != nil {
+		t.Fatalf("create account record: %v", err)
+	}
+	loaded, err := repository.Account(ctx)
+	if err != nil || loaded == nil || loaded.Username != "isolated-test" {
+		t.Fatalf("load account record: %#v err=%v", loaded, err)
+	}
+	if err := repository.CreateAccount(ctx, accountRecord{Username: "second"}); !errors.Is(err, ErrAccountExists) {
+		t.Fatalf("fixed owner record allowed a second account: %v", err)
+	}
+	sessionID := "integration-" + uuid.NewString()
+	expiry := time.Now().Add(time.Hour).Unix()
+	if err := repository.CreateSession(ctx, sessionID, expiry); err != nil {
+		t.Fatalf("create device session: %v", err)
+	}
+	defer repository.DeleteSession(context.Background(), sessionID)
+	if got, err := repository.SessionExpiry(ctx, sessionID); err != nil || got != expiry {
+		t.Fatalf("load device session expiry: got=%d want=%d err=%v", got, expiry, err)
+	}
+	if err := repository.DeleteSession(ctx, sessionID); err != nil {
+		t.Fatalf("revoke device session: %v", err)
+	}
+	if got, err := repository.SessionExpiry(ctx, sessionID); err != nil || got != 0 {
+		t.Fatalf("revoked session still exists: got=%d err=%v", got, err)
+	}
+}
+
 // requireIsolatedIntegrationConfig prevents opt-in tests from modifying a
 // normal development or production database. The integration suite can remove
 // a test table and the migration suite may clear legacy tables, so both names

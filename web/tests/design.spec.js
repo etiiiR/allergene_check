@@ -90,8 +90,27 @@ const routes = [
 for (const route of routes) {
   test(`responsive and accessible: ${route}`, async ({ page }, testInfo) => {
     const errors = [];
+    const cspErrors = [];
+    await page.addInitScript(() => {
+      window.__cspViolationDetails = [];
+      document.addEventListener("securitypolicyviolation", (event) => {
+        window.__cspViolationDetails.push({
+          blockedURI: event.blockedURI,
+          directive: event.violatedDirective,
+          sourceFile: event.sourceFile,
+          line: event.lineNumber,
+          sample: event.sample,
+        });
+      });
+    });
     page.on("pageerror", (error) => errors.push(error.message));
-    await page.goto(route);
+    page.on("console", (message) => {
+      if (/Content Security Policy|Refused to apply inline style/i.test(message.text())) {
+        cspErrors.push({ text: message.text(), location: message.location() });
+      }
+    });
+    const response = await page.goto(route);
+    expect(response?.headers()["content-security-policy"]).toContain("style-src-attr 'none'");
     await expect(page.locator("main h1").first()).toBeVisible();
     if (route === "/insights" || route === "/report") {
       await expect(page.locator(".skeleton-panel")).toHaveCount(0);
@@ -123,6 +142,8 @@ for (const route of routes) {
       .analyze();
     expect(a11y.violations).toEqual([]);
     expect(errors).toEqual([]);
+    expect(cspErrors).toEqual([]);
+    expect(await page.evaluate(() => window.__cspViolationDetails)).toEqual([]);
   });
 }
 

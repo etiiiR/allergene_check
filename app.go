@@ -30,14 +30,7 @@ func newApp(db *surrealdb.DB) *fiber.App {
 		app.Use(localHostGuard)
 		account = newAccountService(&surrealAccountRepository{store: store}, os.Getenv("ACCOUNT_SETUP_TOKEN"), envOrDefault("APP_URL", "http://localhost:3000"))
 	}
-	app.Use(func(c *fiber.Ctx) error {
-		path := c.Path()
-		if account == nil || path == "/health" || path == "/api/status" || path == "/login" ||
-			strings.HasPrefix(path, "/assets/") || path == "/api/auth/status" || path == "/api/auth/login" || path == "/api/auth/register" || path == "/api/auth/logout" {
-			return c.Next()
-		}
-		return account.authenticateRequest(c)
-	})
+	app.Use(accountGateMiddleware(account))
 
 	app.Get("/api/status", rootHandler)
 	registerAccountRoutes(app, account)

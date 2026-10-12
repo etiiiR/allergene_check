@@ -86,6 +86,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 		"SURREALDB_DATABASE",
 		"SURREALDB_USER",
 		"SURREALDB_PASS",
+		"ACCOUNT_SETUP_TOKEN",
 	} {
 		t.Setenv(key, "")
 	}
@@ -94,7 +95,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 	if config.port != "3000" || config.listenHost != "127.0.0.1" ||
 		config.dbURL != "ws://localhost:8000/rpc" ||
 		config.namespace != "main" || config.database != "main" ||
-		config.username != "" || config.password != "" {
+		config.username != "" || config.password != "" || config.accountSetupToken != "" {
 		t.Fatalf("unexpected default config: %#v", config)
 	}
 	if err := config.validate(); err == nil {
@@ -128,6 +129,27 @@ func TestConfigRejectsWhitespaceDatabaseCredentials(t *testing.T) {
 	t.Setenv("SURREALDB_PASS", "\t")
 	if err := loadConfig().validate(); err == nil {
 		t.Fatal("whitespace-only credentials should fail closed")
+	}
+}
+
+func TestRemoteAccountOriginsRequireHTTPS(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		url  string
+		want bool
+	}{
+		{name: "local development over HTTP", url: "http://localhost:3000", want: true},
+		{name: "loopback IP over HTTP", url: "http://127.0.0.1:3000", want: true},
+		{name: "remote HTTPS", url: "https://gut.example", want: true},
+		{name: "remote HTTP", url: "http://gut.example", want: false},
+		{name: "missing scheme", url: "gut.example", want: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := validatePublicAppURL(test.url)
+			if (err == nil) != test.want {
+				t.Fatalf("validatePublicAppURL(%q) error=%v; want success=%v", test.url, err, test.want)
+			}
+		})
 	}
 }
 

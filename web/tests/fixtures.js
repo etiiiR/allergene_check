@@ -11,9 +11,37 @@ import {
 } from "./e2e-constants.js";
 
 export { expect };
+export { E2E_ACCOUNT_PASSWORD, E2E_ACCOUNT_USERNAME };
 export { E2E_PASSPHRASE };
+const testSessionCookies = new Map();
+const resolvedTestURL = (value) =>
+  value || process.env.APP_TEST_URL || "http://localhost:3001";
 
-async function signInRequestContext(raw) {
+function readSessionCookie(value, baseURL) {
+  const [pair] = (value || "").split(";", 1);
+  const separator = pair?.indexOf("=") ?? -1;
+  if (separator < 1) return null;
+  return {
+    name: pair.slice(0, separator),
+    value: pair.slice(separator + 1),
+    domain: new URL(resolvedTestURL(baseURL)).hostname,
+    path: "/",
+    httpOnly: true,
+    secure: new URL(resolvedTestURL(baseURL)).protocol === "https:",
+    sameSite: "Strict",
+    // Playwright requires an explicit numeric expiry for cookies restored
+    // through storageState; -1 keeps the account session cookie non-persistent.
+    expires: -1,
+  };
+}
+
+async function signInRequestContext(raw, baseURL) {
+  const origin = new URL(baseURL).origin;
+  const cached = testSessionCookies.get(origin);
+  if (cached) {
+    await raw.dispose();
+    return null;
+  }
   const response = await raw.post("/api/auth/login", {
     headers: { "X-Diary-Request": "1" },
     data: {
@@ -24,9 +52,19 @@ async function signInRequestContext(raw) {
   if (!response.ok()) {
     throw new Error(`Could not sign in to the isolated test app: ${response.status()}`);
   }
+  const cookie = readSessionCookie(response.headers()["set-cookie"], baseURL);
+  if (!cookie) throw new Error("The isolated test app did not issue a session cookie.");
+  testSessionCookies.set(origin, cookie);
+  return cookie;
 }
 
 export async function signInBrowserContext(context, baseURL) {
+  baseURL = resolvedTestURL(baseURL);
+  const cached = testSessionCookies.get(new URL(baseURL).origin);
+  if (cached) {
+    await context.addCookies([cached]);
+    return;
+  }
   const response = await context.request.post(
     new URL("/api/auth/login", baseURL).href,
     {
@@ -40,12 +78,24 @@ export async function signInBrowserContext(context, baseURL) {
   if (!response.ok()) {
     throw new Error(`Could not sign in to the isolated browser context: ${response.status()}`);
   }
+  const cookie = readSessionCookie(response.headers()["set-cookie"], baseURL);
+  if (!cookie) throw new Error("The isolated browser app did not issue a session cookie.");
+  testSessionCookies.set(new URL(baseURL).origin, cookie);
 }
 
 export async function createAccountRequestContext({ playwright, baseURL }) {
+  baseURL = resolvedTestURL(baseURL);
+  const origin = new URL(baseURL).origin;
+  const cached = testSessionCookies.get(origin);
+  if (cached) {
+    return playwright.request.newContext({
+      baseURL,
+      storageState: { cookies: [cached], origins: [] },
+    });
+  }
   const raw = await playwright.request.newContext({ baseURL });
   try {
-    await signInRequestContext(raw);
+    await signInRequestContext(raw, baseURL);
     return raw;
   } catch (error) {
     await raw.dispose();
@@ -67,19 +117,7 @@ function localResponse(url, method, result, status = 200) {
 
 export const test = base.extend({
   page: async ({ page, baseURL }, use) => {
-    const signIn = await page.context().request.post(
-      new URL("/api/auth/login", baseURL).href,
-      {
-        headers: { "X-Diary-Request": "1" },
-        data: {
-          username: E2E_ACCOUNT_USERNAME,
-          password: E2E_ACCOUNT_PASSWORD,
-        },
-      },
-    );
-    if (!signIn.ok()) {
-      throw new Error(`Could not sign in to the isolated browser: ${signIn.status()}`);
-    }
+    await signInBrowserContext(page.context(), baseURL);
     const waiters = [];
     const queued = [];
     const notify = (detail) => {
