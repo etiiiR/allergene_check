@@ -1721,6 +1721,12 @@ textarea:focus-visible {
   text-align: right;
   font-size: 13px;
 }
+.comparison-bars b.small-sample-rate {
+  width: auto;
+  flex: 1;
+  color: var(--muted);
+  font-size: 12px;
+}
 .methodology summary {
   font-weight: 600;
 }

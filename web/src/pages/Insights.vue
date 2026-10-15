@@ -224,7 +224,9 @@ const rows = computed(() =>
               max="100"
               aria-hidden="true"
             ></progress>
-            <b>{{ a.presentation.exposedRate }}</b>
+            <b :class="{ 'small-sample-rate': !a.presentation.enoughData }">{{
+              a.presentation.exposedRate
+            }}</b>
           </div>
           <div>
             <span
@@ -241,7 +243,9 @@ const rows = computed(() =>
               max="100"
               aria-hidden="true"
             ></progress>
-            <b>{{ a.presentation.unexposedRate }}</b>
+            <b :class="{ 'small-sample-rate': !a.presentation.enoughData }">{{
+              a.presentation.unexposedRate
+            }}</b>
           </div>
         </div>
         <p v-if="!a.presentation.enoughData" class="helper">
