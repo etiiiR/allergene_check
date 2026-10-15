@@ -1,0 +1,378 @@
+[
+  {
+    "platform": "Chefkoch",
+    "url": "https://www.chefkoch.de/rezepte/4270791701544182/Pfannkuchen.html",
+    "expected": {
+      "status": "parsed",
+      "title": "Pfannkuchen von Hebscher",
+      "ingredient_count": 11,
+      "instruction_count": 3,
+      "servings": 4
+    }
+  },
+  {
+    "platform": "FOOBY",
+    "url": "https://fooby.ch/de/rezepte/28498/kaiserschmarrn-mit-mirabellen",
+    "expected": {
+      "status": "parsed",
+      "title": "Kaiserschmarrn mit Mirabellen",
+      "ingredient_count": 14,
+      "instruction_count": 4,
+      "servings": 4
+    }
+  },
+  {
+    "platform": "Betty Bossi",
+    "url": "https://www.bettybossi.ch/de/rezepte/rezept/spaghetti-carbonara-10009942/",
+    "expected": {
+      "status": "parsed",
+      "title": "Spaghetti Carbonara",
+      "ingredient_count": 9,
+      "instruction_count": 3,
+      "servings": 4
+    }
+  },
+  {
+    "platform": "Migusto",
+    "url": "https://migusto.migros.ch/de/rezepte/schnittlauch-kaiserschmarrn",
+    "expected": {
+      "status": "parsed",
+      "title": "Schnittlauch-Kaiserschmarrn",
+      "ingredient_count": 13,
+      "instruction_count": 4,
+      "servings": 4
+    }
+  },
+  {
+    "platform": "Essen und Trinken",
+    "url": "https://www.essen-und-trinken.de/rezepte/einfache-kartoffelsuppe-rezept-13967730.html",
+    "expected": {
+      "status": "parsed",
+      "title": "Einfache Kartoffelsuppe Rezept",
+      "ingredient_count": 9,
+      "instruction_count": 2,
+      "servings": 4
+    }
+  },
+  {
+    "platform": "LECKER",
+    "url": "https://www.lecker.de/kartoffelsuppe-wie-von-oma-das-klassische-rezept-82249.html",
+    "expected": {
+      "status": "parsed",
+      "title": "Kartoffelsuppe wie von Oma - das klassische Rezept Rezept",
+      "ingredient_count": 12,
+      "instruction_count": 3,
+      "servings": 4
+    }
+  },
+  {
+    "platform": "EAT SMARTER",
+    "url": "https://eatsmarter.de/rezepte/kartoffelsuppe-smarter",
+    "expected": {
+      "status": "parsed",
+      "title": "Kartoffelsuppe – smarter",
+      "ingredient_count": 12,
+      "instruction_count": 8,
+      "servings": 4
+    }
+  },
+  {
+    "platform": "GuteKueche.at",
+    "url": "https://www.gutekueche.at/kaiserschmarrn-rezept-180",
+    "expected": {
+      "status": "parsed",
+      "title": "Kaiserschmarrn",
+      "ingredient_count": 10,
+      "instruction_count": 5,
+      "servings": 2
+    }
+  },
+  {
+    "platform": "Kitchen Stories",
+    "url": "https://www.kitchenstories.com/de/rezepte/klassische-pfannkuchen",
+    "expected": {
+      "status": "parsed",
+      "title": "Pfannkuchen",
+      "ingredient_count": 9,
+      "instruction_count": 3,
+      "servings": null
+    }
+  },
+  {
+    "platform": "Einfach Backen",
+    "url": "https://www.einfachbacken.de/rezepte/pfannkuchen-das-schnelle-grundrezept",
+    "expected": {
+      "status": "parsed",
+      "title": "Pfannkuchen - Das schnelle Grundrezept",
+      "ingredient_count": 7,
+      "instruction_count": 2,
+      "servings": null
+    }
+  },
+  {
+    "platform": "Emmi kocht einfach",
+    "url": "https://emmikochteinfach.de/pfannkuchen-rezept-einfaches-grundrezept/",
+    "expected": {
+      "status": "parsed",
+      "title": "Pfannkuchen – einfaches Grundrezept",
+      "ingredient_count": 6,
+      "instruction_count": 8,
+      "servings": 5
+    }
+  },
+  {
+    "platform": "Gaumenfreundin",
+    "url": "https://www.gaumenfreundin.de/ganz-einfache-kartoffelsuppe-mit-wuerstchen-und-suppengemuese/",
+    "expected": {
+      "status": "parsed",
+      "title": "Omas Kartoffelsuppe mit Würstchen",
+      "ingredient_count": 10,
+      "instruction_count": 3,
+      "servings": 4
+    }
+  },
+  {
+    "platform": "Kochkarussell",
+    "url": "https://kochkarussell.com/omas-kartoffelsuppe-wuerstchen/",
+    "expected": {
+      "status": "parsed",
+      "title": "Omas Kartoffelsuppe mit Würstchen",
+      "ingredient_count": 10,
+      "instruction_count": 3,
+      "servings": 4
+    }
+  },
+  {
+    "platform": "Maltes Kitchen",
+    "url": "https://www.malteskitchen.de/pfannkuchen-rezept-einfach-fluffig-schnell/",
+    "expected": {
+      "status": "parsed",
+      "title": "Pfannkuchen Grundrezept | einfach, schnell & gelingt immer",
+      "ingredient_count": 9,
+      "instruction_count": 4,
+      "servings": null
+    }
+  },
+  {
+    "platform": "Zucker und Jagdwurst",
+    "url": "https://www.zuckerjagdwurst.com/de/rezepte/vegane-lasagne-mit-bechamelsosse",
+    "expected": {
+      "status": "parsed",
+      "title": "Vegane Lasagne mit Béchamelsoße",
+      "ingredient_count": 28,
+      "instruction_count": 6,
+      "servings": 4
+    }
+  },
+  {
+    "platform": "Bianca Zapatka",
+    "url": "https://biancazapatka.com/en/best-vegan-pancakes/",
+    "expected": {
+      "status": "parsed",
+      "title": "Vegan Pancakes",
+      "ingredient_count": 12,
+      "instruction_count": 6,
+      "servings": null
+    }
+  },
+  {
+    "platform": "Food Network",
+    "url": "https://www.foodnetwork.com/recipes/alton-brown/pancake-cake-with-avocado-frosting-recipe-1957043",
+    "expected": {
+      "status": "parsed",
+      "title": "Pancake Cake with Avocado Frosting",
+      "ingredient_count": 14,
+      "instruction_count": 7,
+      "servings": 4
+    }
+  },
+  {
+    "platform": "Marmiton",
+    "url": "https://www.marmiton.org/recettes/recette_crepes-faciles_15899.aspx",
+    "expected": {
+      "status": "parsed",
+      "title": "Crêpes faciles : la meilleure recette",
+      "ingredient_count": 4,
+      "instruction_count": 4,
+      "servings": 2
+    }
+  },
+  {
+    "platform": "750g",
+    "url": "https://www.750g.com/crepes-r38216.htm",
+    "expected": {
+      "status": "parsed",
+      "title": "Crêpes classiques",
+      "ingredient_count": 5,
+      "instruction_count": 2,
+      "servings": 6
+    }
+  },
+  {
+    "platform": "Taste.com.au",
+    "url": "https://www.taste.com.au/recipes/basic-pancakes/2480dad2-f1d5-49a0-9e01-2251470dcc86",
+    "expected": {
+      "status": "download_failed",
+      "http_status": 403
+    }
+  },
+  {
+    "platform": "Budget Bytes",
+    "url": "https://www.budgetbytes.com/coconut-curry-chickpeas/",
+    "expected": {
+      "status": "parsed",
+      "title": "Chickpea Curry",
+      "ingredient_count": 10,
+      "instruction_count": 6,
+      "servings": 4
+    }
+  },
+  {
+    "platform": "Cookie and Kate",
+    "url": "https://cookieandkate.com/best-lentil-soup-recipe/",
+    "expected": {
+      "status": "parsed",
+      "title": "Best Lentil Soup",
+      "ingredient_count": 16,
+      "instruction_count": 7,
+      "servings": 4
+    }
+  },
+  {
+    "platform": "RecipeTin Eats",
+    "url": "https://www.recipetineats.com/pancake-recipe/",
+    "expected": {
+      "status": "parsed",
+      "title": "Simple, Fluffy Pancakes",
+      "ingredient_count": 8,
+      "instruction_count": 7,
+      "servings": null
+    }
+  },
+  {
+    "platform": "Minimalist Baker",
+    "url": "https://minimalistbaker.com/instant-pot-red-lentils-tender-fast-no-soaking/",
+    "expected": {
+      "status": "parsed",
+      "title": "Instant Pot Red Lentils (Tender, Fast, No Soaking!)",
+      "ingredient_count": 2,
+      "instruction_count": 3,
+      "servings": 4
+    }
+  },
+  {
+    "platform": "REWE",
+    "url": "https://www.rewe.de/rezepte/pfannkuchen-klassisch/",
+    "expected": {
+      "status": "download_failed",
+      "http_status": 403
+    }
+  },
+  {
+    "platform": "EDEKA",
+    "url": "https://www.edeka.de/rezeptwelt/rezepte/suesse-pfannkuchen/",
+    "expected": {
+      "status": "download_failed",
+      "http_status": 403
+    }
+  },
+  {
+    "platform": "LIDL Kochen",
+    "url": "https://www.lidl-kochen.de/rezeptwelt/pfannkuchen-grundrezept-150859",
+    "expected": {
+      "status": "parsed",
+      "title": "Pfannkuchen Grundrezept",
+      "ingredient_count": 5,
+      "instruction_count": 3,
+      "servings": 4
+    }
+  },
+  {
+    "platform": "Alnatura",
+    "url": "https://www.alnatura.de/de-de/rezepte/suche/klassische-kartoffelsuppe-105645/",
+    "expected": {
+      "status": "parsed",
+      "title": "Klassische Kartoffelsuppe",
+      "ingredient_count": 9,
+      "instruction_count": 3,
+      "servings": 4
+    }
+  },
+  {
+    "platform": "Dr. Oetker",
+    "url": "https://www.oetker.de/rezepte/r/pfannkuchen-eierkuchen",
+    "expected": {
+      "status": "parsed",
+      "title": "Pfannkuchen (Eierkuchen)",
+      "ingredient_count": 7,
+      "instruction_count": 2,
+      "servings": null
+    }
+  },
+  {
+    "platform": "Springlane",
+    "url": "https://springlane.de/blogs/rezepte/perfekte-pfannkuchen",
+    "expected": {
+      "status": "parsed",
+      "title": "Perfekte Pfannkuchen: Ein Grundrezept für Genießer und Experimentierfreudige",
+      "ingredient_count": 7,
+      "instruction_count": 4,
+      "servings": null
+    }
+  },
+  {
+    "platform": "Allrecipes",
+    "url": "https://www.allrecipes.com/recipe/21014/good-old-fashioned-pancakes/",
+    "expected": {
+      "status": "parsed",
+      "title": "Good Old-Fashioned Pancakes",
+      "ingredient_count": 7,
+      "instruction_count": 5,
+      "servings": 8
+    }
+  },
+  {
+    "platform": "Simply Recipes",
+    "url": "https://www.simplyrecipes.com/recipes/banana_bread/",
+    "expected": {
+      "status": "parsed",
+      "title": "Banana Bread",
+      "ingredient_count": 8,
+      "instruction_count": 6,
+      "servings": null
+    }
+  },
+  {
+    "platform": "Serious Eats",
+    "url": "https://www.seriouseats.com/light-and-fluffy-pancakes-recipe",
+    "expected": {
+      "status": "parsed",
+      "title": "Light and Fluffy Buttermilk Pancakes",
+      "ingredient_count": 10,
+      "instruction_count": 3,
+      "servings": null
+    }
+  },
+  {
+    "platform": "BBC Good Food",
+    "url": "https://www.bbcgoodfood.com/recipes/easy-pancakes",
+    "expected": {
+      "status": "parsed",
+      "title": "Easy pancakes",
+      "ingredient_count": 6,
+      "instruction_count": 5,
+      "servings": null
+    }
+  },
+  {
+    "platform": "Swissmilk (Kontrolle)",
+    "url": "https://www.swissmilk.ch/de/rezepte-kochideen/rezepte/LM200801_75/kaiserschmarrn/",
+    "expected": {
+      "status": "parsed",
+      "title": "Kaiserschmarrn",
+      "ingredient_count": 9,
+      "instruction_count": 3,
+      "servings": 4
+    }
+  }
+]

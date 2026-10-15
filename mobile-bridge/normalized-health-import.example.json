@@ -1,0 +1,21 @@
+{
+  "source": "apple_healthkit",
+  "records": [
+    {
+      "external_id": "provider-stress-20260921-0900",
+      "metric": "stress_score",
+      "value": 72,
+      "unit": "percent",
+      "normalized_stress": 7.2,
+      "observed_at": "2026-09-21T09:00:00Z",
+      "notes": "Provider supplied score; normalized by the mobile bridge."
+    },
+    {
+      "external_id": "healthkit-hrv-20260921-0900",
+      "metric": "hrv",
+      "value": 42,
+      "unit": "ms",
+      "observed_at": "2026-09-21T09:00:00Z"
+    }
+  ]
+}

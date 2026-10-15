@@ -1,0 +1,12 @@
+.git
+.gitignore
+bin
+fiber-api
+*.log
+**/node_modules/
+**/dist/
+pitch-deck/
+web/test-results
+web/playwright-report
+ml-service/.venv
+.recipe-audit-cache

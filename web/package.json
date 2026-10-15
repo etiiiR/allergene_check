@@ -1,0 +1,29 @@
+{
+  "name": "bauchgefuehl-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "test": "playwright test",
+    "test:e2e:build": "VITE_E2E_TESTS=true npm run build",
+    "test:unit": "node --test unit/*.test.js"
+  },
+  "dependencies": {
+    "@fontsource/dm-sans": "^5.3.0",
+    "@fontsource/manrope": "^5.3.0",
+    "@inertiajs/vue3": "^2.0.0",
+    "@lucide/vue": "^1.47.0",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.55.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-vue": "^6.0.0",
+    "daisyui": "^5.7.43",
+    "prettier": "^3.9.8",
+    "tailwindcss": "^4.3.3",
+    "vite": "^7.0.0"
+  }
+}

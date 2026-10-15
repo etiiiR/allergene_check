@@ -1,0 +1,82 @@
+services:
+  surrealdb:
+    # Pin the tested stable line; upgrade deliberately after backup and integration checks.
+    image: surrealdb/surrealdb:v3.3.0
+    user: "0:0"
+    command:
+      - start
+      - --user
+      - "${SURREALDB_USER:?Run sh setup-local-env.sh to create a private database password}"
+      - --pass
+      - "${SURREALDB_PASS:?Run sh setup-local-env.sh to create a private database password}"
+      - rocksdb:/data/database.db
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - surrealdb-data:/data
+    healthcheck:
+      test: ["CMD", "/surreal", "isready", "--endpoint", "http://localhost:8000"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    networks:
+      - database
+
+  app:
+    build:
+      context: .
+    depends_on:
+      surrealdb:
+        condition: service_healthy
+    environment:
+      PORT: "3000"
+      LISTEN_HOST: "0.0.0.0"
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      ML_SERVICE_URL: http://ml-service:8000
+      SURREALDB_URL: ws://surrealdb:8000/rpc
+      SURREALDB_NAMESPACE: ${SURREALDB_NAMESPACE:-main}
+      SURREALDB_DATABASE: ${SURREALDB_DATABASE:-main}
+      SURREALDB_USER: "${SURREALDB_USER:?Run sh setup-local-env.sh to create a private database password}"
+      SURREALDB_PASS: "${SURREALDB_PASS:?Run sh setup-local-env.sh to create a private database password}"
+      ACCOUNT_SETUP_TOKEN: "${ACCOUNT_SETUP_TOKEN:?Run sh setup-local-env.sh --auth to create a private one-time account setup code}"
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - database
+      - app-ml
+
+  ml-service:
+    build:
+      context: ./ml-service
+    ports:
+      - "127.0.0.1:8001:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import urllib.request;
+          urllib.request.urlopen('http://localhost:8000/health')
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - app-ml
+      - recipe-egress
+
+volumes:
+  surrealdb-data:
+
+networks:
+  # The crawler must not share a network with the private database. Fiber is
+  # the only service attached to both application networks.
+  database:
+    internal: true
+  app-ml:
+    internal: true
+  # Only the crawler gets outbound network access for explicitly requested
+  # public recipe URLs.
+  recipe-egress: {}

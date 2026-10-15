@@ -1,0 +1,278 @@
+[
+  {
+    "line": "1 Prise Salz",
+    "canonical_id": "salt",
+    "normalized_name": "Salz",
+    "needs_review": false
+  },
+  {
+    "line": "Salz",
+    "canonical_id": "salt",
+    "normalized_name": "Salz",
+    "needs_review": false
+  },
+  {
+    "line": "½ TL Salz",
+    "canonical_id": "salt",
+    "normalized_name": "Salz",
+    "needs_review": false
+  },
+  {
+    "line": "1/2 TL Salz",
+    "canonical_id": "salt",
+    "normalized_name": "Salz",
+    "needs_review": false
+  },
+  {
+    "line": "1 1/2 TL Salz",
+    "canonical_id": "salt",
+    "normalized_name": "Salz",
+    "needs_review": false
+  },
+  {
+    "line": "1–2 Prisen Salz",
+    "canonical_id": "salt",
+    "normalized_name": "Salz",
+    "needs_review": false
+  },
+  {
+    "line": "eine Prise Salz",
+    "canonical_id": "salt",
+    "normalized_name": "Salz",
+    "needs_review": false
+  },
+  {
+    "line": "Salz nach Geschmack",
+    "canonical_id": "salt",
+    "normalized_name": "Salz",
+    "needs_review": false
+  },
+  {
+    "line": "2 pinches salt",
+    "canonical_id": "salt",
+    "normalized_name": "Salz",
+    "needs_review": false
+  },
+  {
+    "line": "100g Salz",
+    "canonical_id": "salt",
+    "normalized_name": "Salz",
+    "needs_review": false
+  },
+  {
+    "line": "0,5 g Salz",
+    "canonical_id": "salt",
+    "normalized_name": "Salz",
+    "needs_review": false
+  },
+  {
+    "line": "1 tl backpulver",
+    "canonical_id": "baking-powder",
+    "normalized_name": "Backpulver",
+    "needs_review": false
+  },
+  {
+    "line": "ca. 2 gehäufte TL Backpulver",
+    "canonical_id": "baking-powder",
+    "normalized_name": "Backpulver",
+    "needs_review": false
+  },
+  {
+    "line": "100 g Puderzucker",
+    "canonical_id": "powdered-sugar",
+    "normalized_name": "Puderzucker",
+    "needs_review": false
+  },
+  {
+    "line": "Staubzucker",
+    "canonical_id": "powdered-sugar",
+    "normalized_name": "Puderzucker",
+    "needs_review": false
+  },
+  {
+    "line": "250 g butter , weich",
+    "canonical_id": "butter",
+    "normalized_name": "Butter",
+    "needs_review": false
+  },
+  {
+    "line": "250 g Butter (weich)",
+    "canonical_id": "butter",
+    "normalized_name": "Butter",
+    "needs_review": false
+  },
+  {
+    "line": "250 g mehl",
+    "canonical_id": "flour",
+    "normalized_name": "Mehl (Sorte nicht angegeben)",
+    "needs_review": false
+  },
+  {
+    "line": "250 g zucker",
+    "canonical_id": "sugar",
+    "normalized_name": "Zucker",
+    "needs_review": false
+  },
+  {
+    "line": "3 Bio-Zitronen",
+    "canonical_id": "lemon",
+    "normalized_name": "Zitrone",
+    "needs_review": false
+  },
+  {
+    "line": "4 Eier",
+    "canonical_id": "egg",
+    "normalized_name": "Egg",
+    "needs_review": false
+  },
+  {
+    "line": "200 ml almond milk",
+    "canonical_id": "almond-milk",
+    "normalized_name": "Almond milk",
+    "needs_review": false
+  },
+  {
+    "line": "200 ml lactose-free milk",
+    "canonical_id": "lactose-free-milk",
+    "normalized_name": "Lactose-free milk",
+    "needs_review": false
+  },
+  {
+    "line": "200 ml Milch",
+    "canonical_id": "milk",
+    "normalized_name": "Cow's milk",
+    "needs_review": false
+  },
+  {
+    "line": "2 EL Mandelmehl",
+    "canonical_id": "almond-flour",
+    "normalized_name": "Mandelmehl",
+    "needs_review": false
+  },
+  {
+    "line": "Weizenmehl",
+    "canonical_id": "wheat-flour",
+    "normalized_name": "Weizenmehl",
+    "needs_review": false
+  },
+  {
+    "line": "2 EL Zitronensaft",
+    "canonical_id": "lemon-juice",
+    "normalized_name": "Zitronensaft",
+    "needs_review": false
+  },
+  {
+    "line": "2 TL Kreuzkümmel",
+    "canonical_id": "cumin",
+    "normalized_name": "Kreuzkümmel",
+    "needs_review": false
+  },
+  {
+    "line": "2 TL Kümmel",
+    "canonical_id": "caraway",
+    "normalized_name": "Kümmel",
+    "needs_review": false
+  },
+  {
+    "line": "2 Möhren, gehackt",
+    "canonical_id": "carrot",
+    "normalized_name": "Carrot",
+    "needs_review": false
+  },
+  {
+    "line": "1 grosse Bio-Zitrone",
+    "canonical_id": "lemon",
+    "normalized_name": "Zitrone",
+    "needs_review": false
+  },
+  {
+    "line": "250 g Butter",
+    "canonical_id": "butter",
+    "normalized_name": "Butter",
+    "needs_review": false
+  },
+  {
+    "line": "ohne Milch",
+    "canonical_id": "",
+    "normalized_name": "ohne milch",
+    "needs_review": true
+  },
+  {
+    "line": "Salz oder Zucker",
+    "canonical_id": "",
+    "normalized_name": "salz oder zucker",
+    "needs_review": true
+  },
+  {
+    "line": "100 g glutenfreies Mehl",
+    "canonical_id": "",
+    "normalized_name": "glutenfreies mehl",
+    "needs_review": true
+  },
+  {
+    "line": "100 ml Sojamilch",
+    "canonical_id": "",
+    "normalized_name": "sojamilch",
+    "needs_review": true
+  },
+  {
+    "line": "1 Prise Kräutersalz",
+    "canonical_id": "",
+    "normalized_name": "kräutersalz",
+    "needs_review": true
+  },
+  {
+    "line": "100 g Milchschokolade",
+    "canonical_id": "",
+    "normalized_name": "milchschokolade",
+    "needs_review": true
+  },
+  {
+    "line": "250 g Mehl Type 405",
+    "canonical_id": "",
+    "normalized_name": "mehl type 405",
+    "needs_review": true
+  },
+  {
+    "line": "5-Gewürze-Pulver",
+    "canonical_id": "",
+    "normalized_name": "5-gewürze-pulver",
+    "needs_review": true
+  },
+  {
+    "line": "garlic infused oil",
+    "canonical_id": "",
+    "normalized_name": "garlic infused oil",
+    "needs_review": true
+  },
+  {
+    "line": "1 TL Salz und Pfeffer",
+    "canonical_id": "",
+    "normalized_name": "salz und pfeffer",
+    "needs_review": true
+  },
+  {
+    "line": "100 g Geheimgewürz",
+    "canonical_id": "",
+    "normalized_name": "geheimgewürz",
+    "needs_review": true
+  },
+  {
+    "line": "Geheimgewürz",
+    "canonical_id": "",
+    "normalized_name": "geheimgewürz",
+    "needs_review": true
+  },
+  {
+    "line": "Salzz",
+    "canonical_id": "",
+    "normalized_name": "salzz",
+    "needs_review": true
+  },
+  {
+    "line": "",
+    "canonical_id": "",
+    "normalized_name": "",
+    "needs_review": true
+  }
+]
