@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -204,6 +205,35 @@ func TestAccountLoginRateLimitAndSessionExpiry(t *testing.T) {
 	}
 	if !constantTimeTokenEqual(strings.Repeat("a", 64), strings.Repeat("a", 64)) || constantTimeTokenEqual("a", "b") {
 		t.Fatal("bootstrap token comparison behaved incorrectly")
+	}
+}
+
+func TestLoginRateLimiterBoundsTrackedIPsAndCleansExpiredEntries(t *testing.T) {
+	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+	service := newAccountService(nil, "", "http://localhost")
+	service.clock = func() time.Time { return now }
+
+	for i := 0; i < maxTrackedLoginIPs; i++ {
+		ip := fmt.Sprintf("test-address-%d", i)
+		if !service.allowLogin(ip) {
+			t.Fatalf("address %d unexpectedly rejected below capacity", i)
+		}
+	}
+	if service.allowLogin("new-address-at-capacity") {
+		t.Fatal("new address was accepted after limiter capacity was reached")
+	}
+	if got := len(service.attempts); got != maxTrackedLoginIPs {
+		t.Fatalf("tracked address count=%d, want hard cap %d", got, maxTrackedLoginIPs)
+	}
+
+	// Expiration cleanup runs periodically, not on every request. Once the
+	// window has elapsed, a new address can start a bucket.
+	now = now.Add(loginWindow)
+	if !service.allowLogin("after-expiration") {
+		t.Fatal("new address remained blocked after expired buckets were cleaned")
+	}
+	if got := len(service.attempts); got != 1 {
+		t.Fatalf("expired buckets were not removed: tracked=%d, want 1", got)
 	}
 }
 

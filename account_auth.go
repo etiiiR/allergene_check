@@ -30,6 +30,8 @@ const (
 	passwordSaltBytes      = 16
 	loginWindow            = 15 * time.Minute
 	loginMaxAttempts       = 8
+	loginCleanupInterval   = time.Minute
+	maxTrackedLoginIPs     = 4096
 )
 
 var (
@@ -119,6 +121,7 @@ type accountService struct {
 	clock        func() time.Time
 	mu           sync.Mutex
 	attempts     map[string]loginAttempt
+	nextCleanup  time.Time
 }
 
 type loginAttempt struct {
@@ -285,12 +288,24 @@ func (s *accountService) allowLogin(ip string) bool {
 	now := s.clock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for key, attempt := range s.attempts {
-		if now.Sub(attempt.started) >= loginWindow {
-			delete(s.attempts, key)
+	// Avoid scanning the full source-address map on every login. Cleanup is
+	// amortized, and the map has a hard cap so a flood of distinct addresses
+	// cannot grow process memory without bound.
+	if s.nextCleanup.IsZero() || !now.Before(s.nextCleanup) {
+		for key, attempt := range s.attempts {
+			if now.Sub(attempt.started) >= loginWindow {
+				delete(s.attempts, key)
+			}
 		}
+		s.nextCleanup = now.Add(loginCleanupInterval)
 	}
-	attempt := s.attempts[ip]
+	attempt, exists := s.attempts[ip]
+	if !exists && len(s.attempts) >= maxTrackedLoginIPs {
+		// Fail closed rather than evicting another address's active bucket.
+		// This can temporarily reject new addresses during saturation, but it
+		// prevents an address spray from bypassing existing attempt limits.
+		return false
+	}
 	if attempt.started.IsZero() || now.Sub(attempt.started) >= loginWindow {
 		s.attempts[ip] = loginAttempt{started: now, count: 1}
 		return true
