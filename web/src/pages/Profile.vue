@@ -56,6 +56,9 @@ const rotationError = ref("");
 const rotationStatus = ref("");
 const logoutBusy = ref(false);
 const logoutError = ref("");
+const revokeOtherBusy = ref(false);
+const revokeOtherError = ref("");
+const revokeOtherStatus = ref("");
 let preparedRotation = null;
 let rotationRecoveryKey = "";
 const healthSource = ref("apple_healthkit");
@@ -205,6 +208,38 @@ async function logoutThisDevice() {
   } catch (cause) {
     logoutError.value = cause.message;
     logoutBusy.value = false;
+  }
+}
+
+async function revokeOtherDevices() {
+  if (revokeOtherBusy.value) return;
+  revokeOtherBusy.value = true;
+  revokeOtherError.value = "";
+  revokeOtherStatus.value = "";
+  try {
+    const response = await fetch("/api/auth/sessions/others", {
+      method: "DELETE",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "X-Diary-Request": "1" },
+    });
+    let result;
+    try {
+      result = await response.json();
+    } catch {}
+    if (!response.ok) {
+      throw new Error(
+        result?.error?.message || "Andere Geräte konnten nicht abgemeldet werden.",
+      );
+    }
+    const revoked = Number(result?.revoked) || 0;
+    revokeOtherStatus.value = revoked
+      ? `${revoked} weitere Anmeldung${revoked === 1 ? "" : "en"} abgemeldet.`
+      : "Es waren keine weiteren Anmeldungen aktiv.";
+  } catch (cause) {
+    revokeOtherError.value = cause.message;
+  } finally {
+    revokeOtherBusy.value = false;
   }
 }
 
@@ -719,11 +754,36 @@ onBeforeUnmount(clearRotation);
         data-tone="privacy"
       >
         <div>
-          <h2>Gerätezugang</h2>
+          <h2>Andere Geräte</h2>
           <p class="helper">
-            Melde dieses Gerät ab, wenn du es nicht mehr für das Tagebuch nutzt.
-            Das sperrt nur diese Anmeldung; andere Geräte bleiben angemeldet.
-            Ein neues Gerät braucht zusätzlich deine Tresor-Passphrase.
+            Melde alle anderen Geräte ab, wenn du sie nicht mehr nutzt. Online
+            geöffnete Tagebücher werden spätestens bei der nächsten Prüfung in
+            etwa 30 Sekunden gesperrt. Offlinegeräte werden beim nächsten
+            Verbindungsversuch abgewiesen. Deine Daten bleiben verschlüsselt;
+            dieses Gerät bleibt angemeldet.
+          </p>
+        </div>
+        <UiButton
+          type="button"
+          class="button secondary"
+          :disabled="revokeOtherBusy"
+          :loading="revokeOtherBusy"
+          @click="revokeOtherDevices"
+        >
+          <ShieldCheck :size="16" /> Andere Geräte abmelden
+        </UiButton>
+        <p v-if="revokeOtherError" class="alert error" role="alert">
+          {{ revokeOtherError }}
+        </p>
+        <p v-if="revokeOtherStatus" class="alert success" role="status">
+          {{ revokeOtherStatus }}
+        </p>
+        <hr class="session-divider" />
+        <div>
+          <h2>Dieses Gerät</h2>
+          <p class="helper">
+            Wenn du dich hier abmeldest, brauchst du beim nächsten Besuch wieder
+            dein Kontopasswort und zum Öffnen des Tagebuchs die Tresor-Passphrase.
           </p>
         </div>
         <UiButton
