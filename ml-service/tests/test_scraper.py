@@ -170,6 +170,18 @@ def test_non_global_dns_answers_are_rejected_before_http(monkeypatch, ip):
     assert error.value.status_code == 422
 
 
+def test_mixed_public_and_private_dns_answers_are_rejected(monkeypatch):
+    monkeypatch.setattr(recipe_scraper.socket, "getaddrinfo", lambda *args, **kwargs: [
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443)),
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.8", 443)),
+    ])
+
+    with pytest.raises(HTTPException) as error:
+        recipe_scraper._validate_public_url("https://example.org/recipe")
+
+    assert error.value.status_code == 422
+
+
 def test_download_then_parse_microdata_endpoint_keeps_final_source(monkeypatch):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -196,18 +208,47 @@ def test_download_then_parse_microdata_endpoint_keeps_final_source(monkeypatch):
     assert visited == ["/robots.txt", "/old", "/robots.txt", "/recipe"]
 
 
+def test_outbound_request_is_pinned_to_checked_ip_and_keeps_https_hostname(monkeypatch):
+    requests = []
+    resolutions = []
+
+    def resolve(host, port, **kwargs):
+        resolutions.append((host, port))
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", port))]
+
+    def handler(request):
+        requests.append(request)
+        return httpx.Response(200, content=b"<html><body>recipe</body></html>")
+
+    mock_public_download(monkeypatch, handler)
+    monkeypatch.setattr(recipe_scraper.socket, "getaddrinfo", resolve)
+    recipe_scraper._download_document("https://example.org/recipe?lang=de", False)
+
+    assert len(requests) == 1
+    request = requests[0]
+    assert request.url.host == "93.184.216.34"
+    assert request.url.path == "/recipe"
+    assert request.url.query == b"lang=de"
+    assert request.headers["host"] == "example.org"
+    assert request.extensions["sni_hostname"] == "example.org"
+    assert resolutions == [("example.org", 443)]
+
+
 def test_redirect_to_local_address_is_rejected_before_fetching(monkeypatch):
     visited = []
+    received_hosts = []
 
     def handler(request):
         visited.append(str(request.url))
+        received_hosts.append(request.headers["host"])
         return httpx.Response(302, headers={"location": "http://localhost:8000/private"})
 
     mock_public_download(monkeypatch, handler)
     with pytest.raises(HTTPException) as error:
         recipe_scraper._download_document("https://example.org/recipe", False)
     assert error.value.status_code == 422
-    assert visited == ["https://example.org/recipe"]
+    assert visited == ["https://93.184.216.34/recipe"]
+    assert received_hosts == ["example.org"]
 
 
 def test_robots_denial_prevents_recipe_download(monkeypatch):
@@ -222,6 +263,15 @@ def test_robots_denial_prevents_recipe_download(monkeypatch):
         recipe_scraper._download_document("https://example.org/recipe", True)
     assert error.value.status_code == 403
     assert visited == ["/robots.txt"]
+
+
+def test_oversized_robots_file_is_bounded_and_reported_as_unverified(monkeypatch):
+    def handler(request):
+        return httpx.Response(200, content=b"x" * (recipe_scraper.MAX_ROBOTS_BYTES + 1))
+
+    mock_public_download(monkeypatch, handler)
+    warning = recipe_scraper._robots_warning("https://example.org/recipe")
+    assert warning == "robots.txt ist zu groß und konnte nicht geprüft werden; Import bitte manuell verifizieren."
 
 
 @pytest.mark.parametrize("headers,body,code", [

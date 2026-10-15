@@ -24,6 +24,7 @@ from app.recipe_sites import site_recipes, refine_same_recipe
 
 USER_AGENT = "BauchgefuehlRecipeImporter/0.1 (+local diary; contact site owner before use)"
 MAX_HTML_BYTES = 2 * 1024 * 1024
+MAX_ROBOTS_BYTES = 128 * 1024
 MAX_REDIRECTS = 3
 
 router = APIRouter(prefix="/diary", tags=["Recipe import"])
@@ -51,30 +52,73 @@ class ScrapeResponse(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
-def _validate_public_url(value: str) -> str:
-    """Allow public HTTP(S) hosts and reject local/private SSRF destinations."""
-
+def _public_destination(value: str) -> tuple[str, str, str]:
+    """Validate and resolve a URL to one public IP for a pinned connection."""
     parsed = urlsplit(value)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
         raise HTTPException(status_code=422, detail="Nur öffentliche HTTP- oder HTTPS-Adressen sind erlaubt.")
 
-    host = parsed.hostname.rstrip(".").lower()
+    raw_host = parsed.hostname.rstrip(".").lower()
+    try:
+        literal_ip = ipaddress.ip_address(raw_host)
+        host = str(literal_ip)
+    except ValueError:
+        try:
+            host = raw_host.encode("idna").decode("ascii")
+        except UnicodeError:
+            raise HTTPException(status_code=422, detail="Die Rezept-Adresse konnte nicht aufgelöst werden.")
     if host == "localhost" or host.endswith((".localhost", ".local", ".internal")):
         raise HTTPException(status_code=422, detail="Lokale oder interne Adressen sind nicht erlaubt.")
 
     try:
-        addresses = socket.getaddrinfo(host, parsed.port or (443 if parsed.scheme == "https" else 80), type=socket.SOCK_STREAM)
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        addresses = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+        ips = [ipaddress.ip_address(address[4][0]) for address in addresses]
     except (OSError, ValueError):
         raise HTTPException(status_code=422, detail="Die Rezept-Adresse konnte nicht aufgelöst werden.")
 
-    for address in addresses:
-        ip = ipaddress.ip_address(address[4][0])
-        # `is_private` alone is not sufficient: shared address space such as
-        # 100.64.0.0/10 is neither private nor globally routable. Require every
-        # resolved address to be public before making an outbound request.
-        if not ip.is_global:
-            raise HTTPException(status_code=422, detail="Lokale oder interne Adressen sind nicht erlaubt.")
-    return value
+    # `is_private` alone is not sufficient: shared address space such as
+    # 100.64.0.0/10 is neither private nor globally routable. Reject mixed
+    # public/private answers, then connect to the checked address itself so
+    # the HTTP library cannot perform a second, rebinding DNS lookup.
+    if not ips or any(not ip.is_global for ip in ips):
+        raise HTTPException(status_code=422, detail="Lokale oder interne Adressen sind nicht erlaubt.")
+    return value, host, str(ips[0])
+
+
+def _validate_public_url(value: str) -> str:
+    """Allow public HTTP(S) hosts and reject local/private SSRF destinations."""
+
+    return _public_destination(value)[0]
+
+
+def _pinned_request(value: str) -> tuple[str, dict[str, str], dict[str, str]]:
+    """Build an IP-pinned request while retaining HTTP Host and TLS hostname."""
+
+    _, host, address = _public_destination(value)
+    parsed = urlsplit(value)
+    ip = ipaddress.ip_address(address)
+    pinned_host = f"[{address}]" if ip.version == 6 else address
+    port = parsed.port
+    pinned_netloc = f"{pinned_host}:{port}" if port is not None else pinned_host
+    request_url = parsed._replace(netloc=pinned_netloc, fragment="").geturl()
+
+    host_header = f"[{host}]" if ":" in host else host
+    if port is not None:
+        host_header = f"{host_header}:{port}"
+    request_extensions = {"sni_hostname": host} if parsed.scheme == "https" else {}
+    return request_url, {"Host": host_header}, request_extensions
+
+
+def _new_recipe_client() -> httpx.Client:
+    # Do not honor ambient proxy variables: a proxy would resolve/route the
+    # target outside the IP-pinning checks performed by this importer.
+    return httpx.Client(
+        timeout=8.0,
+        follow_redirects=False,
+        headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml"},
+        trust_env=False,
+    )
 
 
 def _first_string(value: Any) -> str | None:
@@ -185,20 +229,37 @@ def parse_recipe_document(document: str, source_url: str, warnings: list[str] | 
     )
 
 
-def _robots_warning(client: httpx.Client, target: str) -> str | None:
+def _robots_warning(target: str) -> str | None:
     """Return a warning when robots.txt cannot be checked; explicit denial is fatal."""
 
     parsed = urlsplit(target)
     robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
     try:
-        response = client.get(robots_url)
-        if response.status_code == 404:
-            return None
-        if response.status_code >= 400:
-            return "robots.txt konnte nicht geprüft werden; Import bitte manuell verifizieren."
+        request_url, headers, extensions = _pinned_request(robots_url)
+        with _new_recipe_client() as client:
+            with client.stream("GET", request_url, headers=headers, extensions=extensions) as response:
+                if response.status_code == 404:
+                    return None
+                if response.status_code >= 400:
+                    return "robots.txt konnte nicht geprüft werden; Import bitte manuell verifizieren."
+                content_length = response.headers.get("content-length")
+                if content_length:
+                    try:
+                        if int(content_length) > MAX_ROBOTS_BYTES:
+                            return "robots.txt ist zu groß und konnte nicht geprüft werden; Import bitte manuell verifizieren."
+                    except ValueError:
+                        return "robots.txt konnte nicht geprüft werden; Import bitte manuell verifizieren."
+                chunks: list[bytes] = []
+                size = 0
+                for chunk in response.iter_bytes():
+                    size += len(chunk)
+                    if size > MAX_ROBOTS_BYTES:
+                        return "robots.txt ist zu groß und konnte nicht geprüft werden; Import bitte manuell verifizieren."
+                    chunks.append(chunk)
+                body = b"".join(chunks).decode(response.encoding or "utf-8", errors="replace")
         parser = RobotFileParser()
         parser.set_url(robots_url)
-        parser.parse(response.text.splitlines())
+        parser.parse(body.splitlines())
         if not parser.can_fetch(USER_AGENT, target):
             raise HTTPException(status_code=403, detail="Die Zielseite erlaubt diesen Import laut robots.txt nicht.")
     except HTTPException:
@@ -210,25 +271,25 @@ def _robots_warning(client: httpx.Client, target: str) -> str | None:
 
 def _download_document(target: str, respect_robots: bool) -> tuple[str, str, list[str]]:
     warnings: list[str] = []
-    current = _validate_public_url(target)
-    headers = {"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml"}
+    current = target
 
-    with httpx.Client(timeout=8.0, follow_redirects=False, headers=headers) as client:
-        if respect_robots:
-            warning = _robots_warning(client, current)
-            if warning:
-                warnings.append(warning)
+    if respect_robots:
+        warning = _robots_warning(current)
+        if warning:
+            warnings.append(warning)
 
-        for _ in range(MAX_REDIRECTS + 1):
+    for _ in range(MAX_REDIRECTS + 1):
+        request_url, headers, extensions = _pinned_request(current)
+        with _new_recipe_client() as client:
             try:
-                with client.stream("GET", current) as response:
+                with client.stream("GET", request_url, headers=headers, extensions=extensions) as response:
                     if response.status_code in {301, 302, 303, 307, 308}:
                         location = response.headers.get("location")
                         if not location:
                             raise HTTPException(status_code=502, detail="Die Rezeptseite liefert eine ungültige Weiterleitung.")
-                        current = _validate_public_url(urljoin(current, location))
+                        current = urljoin(current, location)
                         if respect_robots:
-                            warning = _robots_warning(client, current)
+                            warning = _robots_warning(current)
                             if warning:
                                 warnings.append(warning)
                         continue
@@ -253,7 +314,7 @@ def _download_document(target: str, respect_robots: bool) -> tuple[str, str, lis
                     return b"".join(chunks).decode(encoding, errors="replace"), current, warnings
             except httpx.HTTPError as exc:
                 raise HTTPException(status_code=502, detail="Die Rezeptseite konnte nicht geladen werden.") from exc
-        raise HTTPException(status_code=502, detail="Zu viele Weiterleitungen von der Rezeptseite.")
+    raise HTTPException(status_code=502, detail="Zu viele Weiterleitungen von der Rezeptseite.")
 
 
 @router.post("/scrape", response_model=ScrapeResponse)

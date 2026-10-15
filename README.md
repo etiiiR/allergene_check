@@ -96,7 +96,7 @@ SurrealDB `v3.3.0` is pinned rather than following the moving `latest` tag. Data
 
 The app and ML container base images also use explicit runtime and OS versions (Node `24.21.0`, Go `1.27.1`, Python `3.12.15`, Alpine `3.24.2`, and Debian Bookworm). Refresh these pins deliberately, then rebuild and run the full test suite; a version tag still needs regular security updates.
 
-The Python container runs as an unprivileged UID and forces Hugging Face model access offline after the pinned tiny-BERT files are included in the image. Docker places SurrealDB on an isolated internal network; only Fiber connects both to that database and the Python service. The crawler has outbound access for explicitly requested public recipe URLs but cannot resolve or reach the database network. Recipe URL importing remains an explicit network operation; diary analysis does not send personal diary data to that service.
+The Python container runs as an unprivileged UID and forces Hugging Face model access offline after the pinned tiny-BERT files are included in the image. Docker places SurrealDB on an isolated internal network; only Fiber connects both to that database and the Python service. The crawler has outbound access for explicitly requested public recipe URLs but cannot resolve or reach the database network. It pins each fetch to a validated public IP, retains the original TLS hostname, checks redirects, disables ambient proxies, and caps response sizes. Recipe URL importing remains an explicit network operation; diary analysis does not send personal diary data to that service.
 
 For a quick manual test:
 
