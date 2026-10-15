@@ -22,3 +22,14 @@ web/playwright-report/
 mobile/ios/*.xcodeproj/
 mobile/ios/build/
 mobile/ios/DerivedData/
+
+# LaTeX compiler intermediates for the pitch deck (keep the .tex and PDF).
+docs/GutFeeling_Pitch_Deck.aux
+docs/GutFeeling_Pitch_Deck.fdb_latexmk
+docs/GutFeeling_Pitch_Deck.fls
+docs/GutFeeling_Pitch_Deck.log
+docs/GutFeeling_Pitch_Deck.nav
+docs/GutFeeling_Pitch_Deck.out
+docs/GutFeeling_Pitch_Deck.snm
+docs/GutFeeling_Pitch_Deck.synctex.gz
+docs/GutFeeling_Pitch_Deck.toc
