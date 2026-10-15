@@ -134,8 +134,10 @@ Ein guter Eintrag von gestern darf die heutige Zusammenfassung nicht positiv ein
 
 ### Geführte Einträge und persönlicher Start
 
-Beschwerden verwenden zwei Schritte: zuerst Befinden und Stärke, dann zeitliche Einordnung
-und Speichern. Zurück erhält die Auswahl; es wird erst beim endgültigen Speichern geschrieben.
+Beschwerden verwenden zwei Schritte: zuerst alle zutreffenden Symptome einzeln auswählen und
+mit Sternen bewerten, dann zeitliche Einordnung und Speichern. Die Onset-Zeit gilt für die
+ausgewählten Symptome gemeinsam; bei unterschiedlichen Startzeiten werden getrennte Einträge
+empfohlen. Zurück erhält die Auswahl; es wird erst beim endgültigen Speichern geschrieben.
 Ein guter Moment und eine Mahlzeit bleiben kurze Ein-Schritt-Abläufe. Zusätzliche Angaben
 wie Portionen, Stress, Schlaf, Mahlzeitenbezug, Zyklus und Notizen sind bewusst aufklappbar.
 Die Uhrzeit ist vor dem Speichern sichtbar. Es gibt keine Dialoge oder versteckten Overlays.
@@ -426,6 +428,15 @@ Walkthrough prüft diese Änderung bei 320px, 390px und Desktop, mit Tastatur un
 Wenn Begriffe, Rückwege oder Datenstatus unklar bleiben, wird der Ablauf vor dem echten Test
 erneut angepasst. Diese Simulation belegt keine Zeitersparnis und keine erfolgreiche Nutzung
 durch reale Personen.
+
+**Iteration 15.10.2026 – mehrere Symptome in einem Check-in:** Der erste Schritt erlaubt nun,
+mehrere gleichzeitig auftretende Beschwerden auszuwählen. Jede bekommt eine eigene 0–5-
+Sternebewertung; ein Check-in kann nicht weitergehen, solange eine ausgewählte Beschwerde noch
+unbewertet ist. Der zweite Schritt zeigt die ganze Auswahl zur Prüfung. Weil das Datenmodell eine
+gemeinsame Zeitangabe speichert, erklärt die Oberfläche sichtbar, dass die Zeit für alle gilt und
+unterschiedliche Symptombeginne getrennt erfasst werden sollen. Der Browser-Regressionsfall ist
+ergänzt, aber mangels lokaler Compose-Konfiguration noch nicht ausgeführt; Produktionsbuild und
+54 Frontend-Unit-Tests bestehen. Reale Verständlichkeit und Bedienbarkeit bleiben zu testen.
 
 ### UX-Regeln: tun und vermeiden
 

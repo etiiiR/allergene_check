@@ -46,6 +46,7 @@ type Checkin struct {
 	SymptomFree     bool           `json:"symptom_free"`
 	Symptoms        map[string]int `json:"symptoms"`
 	TimingBucket    string         `json:"timing_bucket,omitempty"`
+	FoodRelation    string         `json:"food_relation,omitempty"`
 	ReferenceMealID string         `json:"reference_meal_id,omitempty"`
 	CyclePhase      string         `json:"cycle_phase,omitempty"`
 	CycleDay        int            `json:"cycle_day,omitempty"`
@@ -195,6 +196,12 @@ func (c *Checkin) validate() error {
 		c.TimingBucket = ""
 		c.ReferenceMealID = ""
 	} else {
+		if c.FoodRelation == "" {
+			c.FoodRelation = "timed_window"
+		}
+		if c.FoodRelation != "timed_window" && c.FoodRelation != "none" {
+			return invalid("Bitte einen gültigen Essensbezug wählen.")
+		}
 		if c.TimingBucket == "" {
 			c.TimingBucket = "unknown"
 		}

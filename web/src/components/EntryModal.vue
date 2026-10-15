@@ -9,6 +9,10 @@ import SymptomRating from "./SymptomRating.vue";
 import UiSteps from "./ui/UiSteps.vue";
 import { useVaultDiary } from "../privacy/vault-session.js";
 import {
+  allSelectedSymptomsRated,
+  toggleSelectedSymptom,
+} from "../symptom-selection.js";
+import {
   localTime,
   symptomScoreFromIntensity,
   symptomIntensityLabels,
@@ -60,8 +64,9 @@ async function moveStep(value) {
   window.scrollTo({ top: 0, behavior: "instant" });
 }
 const showAllSymptoms = ref(false);
-const selectedSymptom = ref(props.initialSymptom || "");
-const selectedLevel = ref(0);
+const selectedSymptoms = ref(
+  props.initialSymptom ? [props.initialSymptom] : [],
+);
 const portionChoices = [0.5, 1, 1.5, 2];
 const timingChoices = [
   { value: "immediate", label: "Direkt", hint: "0–30 min" },
@@ -116,8 +121,14 @@ const form = reactive({
   sleep_hours: null,
 });
 
-const selectedSymptomName = computed(
-  () => symptoms.value[selectedSymptom.value] || "Beschwerden",
+const ratedSymptoms = computed(() =>
+  selectedSymptoms.value
+    .filter((key) => form.symptoms[key] > 0)
+    .map((key) => ({
+      key,
+      name: symptoms.value[key] || "Beschwerden",
+      level: symptomIntensityFromScore(form.symptoms[key]),
+    })),
 );
 const recentMeals = computed(() =>
   [...(diary.value.meals || [])]
@@ -128,7 +139,7 @@ const canSubmit = computed(() =>
   meal.value
     ? Boolean(form.recipe_id)
     : form.symptom_free ||
-      Boolean(selectedSymptom.value && selectedLevel.value),
+      allSelectedSymptomsRated(selectedSymptoms.value, form.symptoms),
 );
 
 function clearSymptoms() {
@@ -137,31 +148,29 @@ function clearSymptoms() {
 
 function chooseFree() {
   form.symptom_free = true;
-  selectedSymptom.value = "";
-  selectedLevel.value = 0;
+  selectedSymptoms.value = [];
   form.timing_bucket = "unknown";
   form.reference_meal_id = "";
   clearSymptoms();
 }
 
 function chooseSymptom(key) {
-  form.symptom_free = false;
-  selectedSymptom.value = key;
-  selectedLevel.value = 0;
-  clearSymptoms();
+  const isSelected = selectedSymptoms.value.includes(key);
+  selectedSymptoms.value = toggleSelectedSymptom(selectedSymptoms.value, key);
+  if (isSelected) {
+    form.symptoms[key] = 0;
+  } else {
+    form.symptom_free = false;
+  }
 }
 
 function chooseTiming(bucket) {
   form.timing_bucket = bucket;
 }
 
-function chooseLevel(level) {
+function chooseLevel(key, level) {
   form.symptom_free = false;
-  selectedLevel.value = level;
-  if (selectedSymptom.value) {
-    clearSymptoms();
-    form.symptoms[selectedSymptom.value] = symptomScoreFromIntensity(level);
-  }
+  form.symptoms[key] = symptomScoreFromIntensity(level);
 }
 
 function submit() {
@@ -299,14 +308,17 @@ function submit() {
           >Stattdessen Beschwerden festhalten</UiButton
         >
         <template v-else>
+          <p class="symptom-selection-hint">
+            Wähle alles aus, was gerade zutrifft.
+          </p>
           <div class="symptom-choice-grid">
             <UiButton
               v-for="key in showAllSymptoms ? symptomKeys : commonSymptoms"
               :key="key"
               type="button"
               class="symptom-choice"
-              :class="{ selected: selectedSymptom === key }"
-              :aria-pressed="selectedSymptom === key"
+              :class="{ selected: selectedSymptoms.includes(key) }"
+              :aria-pressed="selectedSymptoms.includes(key)"
               @click="chooseSymptom(key)"
               >{{ symptoms[key] }}</UiButton
             >
@@ -320,27 +332,41 @@ function submit() {
               showAllSymptoms ? "Weniger anzeigen" : "Weitere Beschwerden"
             }}</UiButton
           >
-          <div v-if="selectedSymptom" class="level-picker">
+          <div v-if="selectedSymptoms.length" class="level-picker">
             <div class="picker-label">
-              <span>Wie stark sind die Beschwerden?</span>
+              <span>Wie stark ist jedes Symptom?</span>
             </div>
-            <SymptomRating
-              :model-value="selectedLevel"
-              :symptom-key="selectedSymptom"
-              :symptom-label="selectedSymptomName"
-              @update:model-value="chooseLevel"
-            />
+            <div class="symptom-ratings-list">
+              <SymptomRating
+                v-for="key in selectedSymptoms"
+                :key="key"
+                :model-value="symptomIntensityFromScore(form.symptoms[key])"
+                :symptom-key="key"
+                :symptom-label="symptoms[key]"
+                @update:model-value="(level) => chooseLevel(key, level)"
+              />
+            </div>
           </div>
         </template>
       </template>
       <template v-else>
         <p class="entry-recap">
-          {{ selectedSymptomName }} ·
-          {{ symptomIntensityLabels[selectedLevel] }}
+          {{
+            ratedSymptoms
+              .map(
+                ({ name, level }) =>
+                  `${name} · ${symptomIntensityLabels[level]}`,
+              )
+              .join("  /  ")
+          }}
           <UiButton type="button" class="text-button" @click="moveStep(0)"
             >Ändern</UiButton
           >
         </p>
+        <small class="timing-shared-note"
+          >Die Zeitangabe gilt für alle ausgewählten Symptome. Haben sie zu
+          verschiedenen Zeiten begonnen, erfasse sie bitte getrennt.</small
+        >
         <div class="timing-choice-grid">
           <UiButton
             v-for="choice in timingChoices"
@@ -409,7 +435,10 @@ function submit() {
                   v-model.number="form.sleep_hours"
               /></label>
             </div>
-            <small>Leer lassen, wenn du Stress oder Schlaf nicht eintragen möchtest.</small>
+            <small
+              >Leer lassen, wenn du Stress oder Schlaf nicht eintragen
+              möchtest.</small
+            >
             <label v-if="!form.symptom_free && recentMeals.length"
               >Mögliche Mahlzeit (optional)<select
                 class="d-select"

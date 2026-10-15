@@ -181,8 +181,22 @@ test("symptom check-in records its timing window", async ({
   await expect(
     page.getByRole("radio", { name: "Blähungen: Keine" }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Übelkeit", exact: true }).click();
+  await expect(
+    page.getByRole("radiogroup", { name: "Stärke bei Übelkeit" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Weiter", exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("radio", { name: "Übelkeit: Mittel" }).click();
+  await expect(
+    page.getByRole("button", { name: "Weiter", exact: true }),
+  ).toBeEnabled();
   await page.getByRole("radio", { name: "Blähungen: Sehr stark" }).click();
   await page.getByRole("button", { name: "Weiter", exact: true }).click();
+  await expect(page.locator(".entry-recap")).toContainText("Blähungen");
+  await expect(page.locator(".entry-recap")).toContainText("Übelkeit");
+  await expect(page.locator(".timing-shared-note")).toBeVisible();
   await page.getByRole("button", { name: /Später/ }).click();
 
   const responsePromise = page.waitForResponse(
@@ -196,6 +210,7 @@ test("symptom check-in records its timing window", async ({
   const checkin = await response.json();
   expect(checkin.timing_bucket).toBe("mid");
   expect(checkin.symptoms.bloating).toBe(10);
+  expect(checkin.symptoms.nausea).toBe(7);
   expect(checkin.stress).toBeNull();
   expect(checkin.sleep_hours).toBeNull();
   expect(checkin.context_recorded).toBe(false);

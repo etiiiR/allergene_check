@@ -25,6 +25,7 @@ const allergens = new Set([
   "sulphites",
 ]);
 const timingBuckets = new Set(["immediate", "early", "mid", "late", "unknown"]);
+const foodRelations = new Set(["timed_window", "none"]);
 const cyclePhases = new Set([
   "menstruation",
   "follicular",
@@ -220,6 +221,10 @@ function validateCheckin(check, now) {
     check.timing_bucket = "";
     check.reference_meal_id = "";
   } else {
+    check.food_relation ||= "timed_window";
+    if (!foodRelations.has(check.food_relation)) {
+      throw invalid("Bitte einen gültigen Essensbezug wählen.");
+    }
     check.timing_bucket ||= "unknown";
     if (!timingBuckets.has(check.timing_bucket)) {
       throw invalid("Bitte ein gültiges Beschwerde-Zeitfenster wählen.");

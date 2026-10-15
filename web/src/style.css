@@ -2574,6 +2574,24 @@ td strong {
 .guided-entry .level-picker {
   margin: 0;
 }
+.symptom-selection-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.symptom-ratings-list {
+  display: grid;
+  gap: 12px;
+}
+.symptom-ratings-list > .symptom-rating-control + .symptom-rating-control {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.timing-shared-note {
+  display: block;
+  color: var(--muted);
+  line-height: 1.45;
+}
 .guided-entry .level-choice {
   min-height: 44px;
   padding: 8px;

@@ -333,7 +333,7 @@ export function analyseDiaryPatterns(diary, {
     const upper = bucket === "unknown" ? hours : defaultUpper;
     const checkAt = isoTime(check.occurred_at);
     const exposures = new Set();
-    for (const meal of meals) {
+    for (const meal of check.food_relation === "none" ? [] : meals) {
       if (check.reference_meal_id && meal.id !== check.reference_meal_id) continue;
       const elapsed = (checkAt - isoTime(meal.occurred_at)) / 3600000;
       if (elapsed >= lower && elapsed <= upper) meal.ingredient_ids.forEach((item) => exposures.add(item));
