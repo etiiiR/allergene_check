@@ -218,13 +218,13 @@ const rows = computed(() =>
               ></span
             >
             <progress
-              v-if="a.presentation.enoughData"
+              v-if="a.presentation.showRates"
               class="compare-track"
               :value="percent(a.rate_exposed)"
               max="100"
               aria-hidden="true"
             ></progress>
-            <b :class="{ 'small-sample-rate': !a.presentation.enoughData }">{{
+            <b :class="{ 'small-sample-rate': !a.presentation.showRates }">{{
               a.presentation.exposedRate
             }}</b>
           </div>
@@ -237,20 +237,21 @@ const rows = computed(() =>
               ></span
             >
             <progress
-              v-if="a.presentation.enoughData"
+              v-if="a.presentation.showRates"
               class="compare-track baseline"
               :value="percent(a.rate_unexposed)"
               max="100"
               aria-hidden="true"
             ></progress>
-            <b :class="{ 'small-sample-rate': !a.presentation.enoughData }">{{
+            <b :class="{ 'small-sample-rate': !a.presentation.showRates }">{{
               a.presentation.unexposedRate
             }}</b>
           </div>
         </div>
-        <p v-if="!a.presentation.enoughData" class="helper">
+        <p v-if="!a.presentation.showRates" class="helper">
           Prozentwerte erscheinen erst ab fünf Momenten mit und fünf ohne diese
-          Zutat. Die Zahlen oben zeigen deine bisherigen Einträge.
+          Zutat. Auch dann sind sie nur beschreibende Anteile und beweisen keine
+          Ursache. Die Zahlen oben zeigen deine bisherigen Einträge.
         </p>
         <p v-if="a.co_occurring.length" class="helper">
           Gemeinsames Auftreten:

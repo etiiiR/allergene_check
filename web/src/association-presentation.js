@@ -3,13 +3,13 @@
 export const MIN_COMPARISON_MOMENTS = 5;
 
 export function associationPresentation(association) {
-  const enoughData =
+  const showRates =
     Number(association?.exposed) >= MIN_COMPARISON_MOMENTS &&
     Number(association?.unexposed) >= MIN_COMPARISON_MOMENTS;
 
-  if (!enoughData) {
+  if (!showRates) {
     return {
-      enoughData: false,
+      showRates: false,
       label: "Noch wenig Daten",
       tone: "neutral",
       exposedRate: "Zu wenige Daten",
@@ -25,7 +25,7 @@ export function associationPresentation(association) {
     !Number.isFinite(Number(association.difference))
   ) {
     return {
-      enoughData: false,
+      showRates: false,
       label: "Noch wenig Daten",
       tone: "neutral",
       exposedRate: "Zu wenige Daten",
@@ -42,7 +42,7 @@ export function associationPresentation(association) {
         : "Ähnlich in deinen Einträgen";
 
   return {
-    enoughData: true,
+    showRates: true,
     label,
     tone: difference >= 0.25 ? "high" : "neutral",
     exposedRate: formatRate(association.rate_exposed),

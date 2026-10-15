@@ -14,7 +14,7 @@ test("a single 1/1 moment shows counts without an alarming 100%", () => {
     difference: null,
   });
 
-  assert.equal(shown.enoughData, false);
+  assert.equal(shown.showRates, false);
   assert.equal(shown.label, "Noch wenig Daten");
   assert.equal(shown.exposedRate, "Zu wenige Daten");
   assert.equal(shown.unexposedRate, "Keine Vergleichsmomente");
@@ -29,7 +29,7 @@ test("small comparison groups never show rates or directional language", () => {
     difference: 0.9,
   });
 
-  assert.equal(shown.enoughData, false);
+  assert.equal(shown.showRates, false);
   assert.equal(shown.label, "Noch wenig Daten");
   assert.equal(shown.exposedRate, "Zu wenige Daten");
   assert.equal(shown.unexposedRate, "Zu wenige Daten");
@@ -44,7 +44,7 @@ test("rates appear only when both groups meet the minimum and use personal wordi
     difference: 0.6,
   });
 
-  assert.equal(shown.enoughData, true);
+  assert.equal(shown.showRates, true);
   assert.equal(shown.label, "Häufiger in deinen Einträgen");
   assert.equal(shown.exposedRate, "80 %");
   assert.equal(shown.unexposedRate, "20 %");
