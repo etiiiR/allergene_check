@@ -299,6 +299,26 @@ func TestAccountAndHashedDeviceSessionsPersistInSurrealDB(t *testing.T) {
 	if got, err := repository.SessionExpiry(ctx, sessionID); err != nil || got != 0 {
 		t.Fatalf("revoked session still exists: got=%d err=%v", got, err)
 	}
+	currentID := "current-" + uuid.NewString()
+	otherID := "other-" + uuid.NewString()
+	if err := repository.CreateSession(ctx, currentID, expiry); err != nil {
+		t.Fatalf("create current-device session: %v", err)
+	}
+	if err := repository.CreateSession(ctx, otherID, expiry); err != nil {
+		t.Fatalf("create other-device session: %v", err)
+	}
+	defer repository.DeleteSession(context.Background(), currentID)
+	defer repository.DeleteSession(context.Background(), otherID)
+	deleted, err := repository.DeleteOtherSessions(ctx, currentID)
+	if err != nil || deleted != 1 {
+		t.Fatalf("revoke sessions other than current: deleted=%d err=%v", deleted, err)
+	}
+	if got, err := repository.SessionExpiry(ctx, currentID); err != nil || got != expiry {
+		t.Fatalf("current-device session was removed: got=%d want=%d err=%v", got, expiry, err)
+	}
+	if got, err := repository.SessionExpiry(ctx, otherID); err != nil || got != 0 {
+		t.Fatalf("other-device session remains: got=%d err=%v", got, err)
+	}
 }
 
 // requireIsolatedIntegrationConfig prevents opt-in tests from modifying a

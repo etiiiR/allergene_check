@@ -37,10 +37,20 @@ func localSecurityHeaders(c *fiber.Ctx) error {
 }
 
 func sameOrigin(c *fiber.Ctx) bool {
-	if origin := c.Get("Origin"); origin != "" {
-		u, err := url.Parse(origin)
-		requestHost := string(c.Context().URI().Host())
-		return err == nil && u.Host == requestHost && (u.Scheme == "http" || u.Scheme == "https")
+	origin := c.Get("Origin")
+	if origin == "" {
+		return true
 	}
-	return true
+	u, err := url.Parse(origin)
+	if err != nil || u.User != nil || u.Host == "" || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return false
+	}
+	configured, err := url.Parse(envOrDefault("APP_URL", "http://localhost:3000"))
+	if err != nil || configured.Host == "" {
+		return false
+	}
+	requestHost := string(c.Context().URI().Host())
+	return strings.EqualFold(u.Scheme, configured.Scheme) &&
+		strings.EqualFold(u.Host, configured.Host) &&
+		strings.EqualFold(u.Host, requestHost)
 }

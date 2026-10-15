@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -82,6 +83,34 @@ func registerAccountRoutes(app *fiber.App, service *accountService) {
 			}
 			service.clearSessionCookie(c)
 		}
+		c.Set("Cache-Control", "no-store")
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	app.Delete("/api/auth/sessions/others", func(c *fiber.Ctx) error {
+		if service == nil {
+			return ErrDatabaseNotConfigured
+		}
+		if !sameOrigin(c) || c.Get("X-Diary-Request") != "1" {
+			return NewAppError(403, "request_rejected", "Die Anfrage konnte nicht bestätigt werden.")
+		}
+		ctx, cancel := context.WithTimeout(c.UserContext(), 5*time.Second)
+		defer cancel()
+		count, err := service.RevokeOtherSessions(ctx, c.Cookies(accountSessionCookie))
+		if err != nil {
+			var appErr *AppError
+			if errors.As(err, &appErr) {
+				return err
+			}
+			return WrapAppError(503, "account_sessions_unavailable", "Andere Geräte konnten nicht abgemeldet werden.", err)
+		}
+		c.Set("Cache-Control", "no-store")
+		return c.JSON(fiber.Map{"revoked": count})
+	})
+
+	// Active browsers poll this endpoint while visible. A revoked device locks
+	// its in-memory vault on its next poll, rather than merely failing on save.
+	app.Get("/api/auth/session", func(c *fiber.Ctx) error {
 		c.Set("Cache-Control", "no-store")
 		return c.SendStatus(fiber.StatusNoContent)
 	})

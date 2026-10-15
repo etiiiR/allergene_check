@@ -65,6 +65,19 @@ func (r *memoryAccountRepository) DeleteSession(_ context.Context, id string) er
 	return nil
 }
 
+func (r *memoryAccountRepository) DeleteOtherSessions(_ context.Context, currentID string) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	deleted := 0
+	for id := range r.sessions {
+		if id != currentID {
+			delete(r.sessions, id)
+			deleted++
+		}
+	}
+	return deleted, nil
+}
+
 func TestAccountSetupPasswordAndSessionAreIndependent(t *testing.T) {
 	repository := newMemoryAccountRepository()
 	service := newAccountService(repository, "setup-code-that-is-not-the-vault-key", "https://gut.example")
@@ -191,5 +204,39 @@ func TestAccountLoginRateLimitAndSessionExpiry(t *testing.T) {
 	}
 	if !constantTimeTokenEqual(strings.Repeat("a", 64), strings.Repeat("a", 64)) || constantTimeTokenEqual("a", "b") {
 		t.Fatal("bootstrap token comparison behaved incorrectly")
+	}
+}
+
+func TestRevokeOtherSessionsKeepsCurrentDeviceSignedIn(t *testing.T) {
+	repository := newMemoryAccountRepository()
+	service := newAccountService(repository, strings.Repeat("s", 32), "https://gut.example")
+	ctx := context.Background()
+	if err := service.Register(ctx, strings.Repeat("s", 32), "gut-user", "a long account password"); err != nil {
+		t.Fatalf("register account: %v", err)
+	}
+	current, err := service.Login(ctx, "192.0.2.1", "gut-user", "a long account password")
+	if err != nil {
+		t.Fatalf("create current session: %v", err)
+	}
+	otherOne, err := service.Login(ctx, "192.0.2.2", "gut-user", "a long account password")
+	if err != nil {
+		t.Fatalf("create other session: %v", err)
+	}
+	otherTwo, err := service.Login(ctx, "192.0.2.3", "gut-user", "a long account password")
+	if err != nil {
+		t.Fatalf("create second other session: %v", err)
+	}
+
+	deleted, err := service.RevokeOtherSessions(ctx, current)
+	if err != nil || deleted != 2 {
+		t.Fatalf("revoke other sessions: deleted=%d err=%v", deleted, err)
+	}
+	if valid, err := service.ValidSession(ctx, current); err != nil || !valid {
+		t.Fatalf("current device was revoked: valid=%v err=%v", valid, err)
+	}
+	for _, token := range []string{otherOne, otherTwo} {
+		if valid, err := service.ValidSession(ctx, token); err != nil || valid {
+			t.Fatalf("other device remained signed in: valid=%v err=%v", valid, err)
+		}
 	}
 }

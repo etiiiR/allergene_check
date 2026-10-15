@@ -27,8 +27,8 @@ defineProps({
       <summary>Was das schützt – und was nicht</summary>
       <ul>
         <li>
-          Deine Schlüssel werden nicht hochgeladen. Ohne Passphrase und
-          Wiederherstellungsphrase lässt sich der Tresor nicht öffnen.
+          Deine Passphrase und Wiederherstellungsphrase werden nicht gesendet.
+          Ohne eine davon lässt sich der Tresor nicht öffnen.
         </li>
         <li>Ein Pseudonym ist keine Anonymität. Nutze keinen echten Namen.</li>
         <li>
@@ -40,8 +40,14 @@ defineProps({
           Browsers. Sperre es, wenn du das Gerät verlässt.
         </li>
         <li>
-          Die App hat keine Konto-Anmeldung. Halte den Server privat und nicht
-          öffentlich erreichbar.
+          Ein pseudonymes Konto schützt den Zugriff auf den verschlüsselten
+          Tresor, kann ihn aber nicht öffnen. Auf jedem neuen Gerät brauchst du
+          zusätzlich die Tresor-Passphrase oder Wiederherstellungsphrase.
+        </li>
+        <li>
+          Nutze den Fernzugriff nur über eine HTTPS-Verbindung. Das Konto macht
+          dich nicht anonym und kann eine vergessene Tresor-Passphrase nicht
+          zurücksetzen.
         </li>
         <li>
           Alte Datenbank-Sicherungen oder Exporte können noch unverschlüsselte

@@ -45,6 +45,7 @@ func TestLocalHostGuardSetsBrowserSecurityHeaders(t *testing.T) {
 }
 
 func TestSameOriginUsesParsedRequestAuthority(t *testing.T) {
+	t.Setenv("APP_URL", "http://localhost:3000")
 	app := fiber.New()
 	app.Get("/same-origin", func(c *fiber.Ctx) error {
 		if !sameOrigin(c) {
@@ -81,6 +82,41 @@ func TestSameOriginUsesParsedRequestAuthority(t *testing.T) {
 	response.Body.Close()
 	if response.StatusCode != fiber.StatusForbidden {
 		t.Fatalf("cross-origin request accepted: %d", response.StatusCode)
+	}
+}
+
+func TestSameOriginRejectsDifferentSchemeButAllowsConfiguredHTTPSProxyOrigin(t *testing.T) {
+	t.Setenv("APP_URL", "https://journal.example")
+	app := fiber.New()
+	app.Post("/same-origin", func(c *fiber.Ctx) error {
+		if !sameOrigin(c) {
+			return c.SendStatus(fiber.StatusForbidden)
+		}
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	request := httptest.NewRequest("POST", "http://journal.example/same-origin", nil)
+	request.Host = "journal.example"
+	request.Header.Set("Origin", "http://journal.example")
+	response, err := app.Test(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != fiber.StatusForbidden {
+		t.Fatalf("cross-scheme origin accepted: %d", response.StatusCode)
+	}
+
+	request = httptest.NewRequest("POST", "http://journal.example/same-origin", nil)
+	request.Host = "journal.example"
+	request.Header.Set("Origin", "https://journal.example")
+	response, err = app.Test(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != fiber.StatusNoContent {
+		t.Fatalf("configured HTTPS origin behind a proxy rejected: %d", response.StatusCode)
 	}
 }
 

@@ -56,6 +56,7 @@ type AccountRepository interface {
 	CreateSession(context.Context, string, int64) error
 	SessionExpiry(context.Context, string) (int64, error)
 	DeleteSession(context.Context, string) error
+	DeleteOtherSessions(context.Context, string) (int, error)
 }
 
 type surrealAccountRepository struct{ store *SurrealStore }
@@ -91,6 +92,24 @@ func (r *surrealAccountRepository) SessionExpiry(ctx context.Context, id string)
 func (r *surrealAccountRepository) DeleteSession(ctx context.Context, id string) error {
 	_, err := Delete[any](ctx, r.store, models.NewRecordID("diary_account_sessions", id))
 	return err
+}
+
+func (r *surrealAccountRepository) DeleteOtherSessions(ctx context.Context, currentID string) (int, error) {
+	results, err := Query[[]accountSessionRecord](ctx, r.store,
+		`DELETE FROM diary_account_sessions WHERE id != $current RETURN BEFORE;`,
+		map[string]any{"current": models.NewRecordID("diary_account_sessions", currentID)},
+	)
+	if err != nil {
+		return 0, err
+	}
+	deleted := 0
+	for _, result := range *results {
+		if result.Error != nil {
+			return deleted, result.Error
+		}
+		deleted += len(result.Result)
+	}
+	return deleted, nil
 }
 
 type accountService struct {
@@ -233,6 +252,19 @@ func (s *accountService) Logout(ctx context.Context, token string) error {
 		return nil
 	}
 	return s.repository.DeleteSession(ctx, hashSessionToken(token))
+}
+
+// RevokeOtherSessions removes every account session except the caller's current
+// session. The opaque session hash is used as a record ID, never the cookie.
+func (s *accountService) RevokeOtherSessions(ctx context.Context, token string) (int, error) {
+	valid, err := s.ValidSession(ctx, token)
+	if err != nil {
+		return 0, err
+	}
+	if !valid {
+		return 0, NewAppError(fiber.StatusUnauthorized, "account_sign_in_required", "Bitte melde dich erneut an.")
+	}
+	return s.repository.DeleteOtherSessions(ctx, hashSessionToken(token))
 }
 
 func (s *accountService) setSessionCookie(c *fiber.Ctx, token string) {

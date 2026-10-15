@@ -1,7 +1,8 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { usePage } from "@inertiajs/vue3";
 import { KeyRound, ShieldCheck } from "@lucide/vue";
+import { lockVaultSession } from "../privacy/vault-session.js";
 
 const props = defineProps({
   initialAuthenticated: { type: Boolean, default: true },
@@ -19,6 +20,44 @@ const password = ref(null);
 const setupToken = ref(null);
 const busy = ref(false);
 const error = ref("");
+let sessionTimer = 0;
+let checkingSession = false;
+
+async function checkAccountSession() {
+  if (!authenticated.value || checkingSession) return;
+  checkingSession = true;
+  try {
+    const response = await fetch("/api/auth/session", {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+    if (response.status === 401) {
+      lockVaultSession();
+      window.location.replace("/login");
+    }
+  } catch {
+    // A temporary network failure is not proof of revocation. The local idle
+    // lock still protects a disconnected device until it can check again.
+  } finally {
+    checkingSession = false;
+  }
+}
+
+function checkWhenVisible() {
+  if (document.visibilityState === "visible") void checkAccountSession();
+}
+
+onMounted(() => {
+  sessionTimer = window.setInterval(() => void checkAccountSession(), 30_000);
+  document.addEventListener("visibilitychange", checkWhenVisible);
+  window.addEventListener("focus", checkWhenVisible);
+});
+
+onBeforeUnmount(() => {
+  window.clearInterval(sessionTimer);
+  document.removeEventListener("visibilitychange", checkWhenVisible);
+  window.removeEventListener("focus", checkWhenVisible);
+});
 
 function clearCredentials() {
   if (password.value) password.value.value = "";

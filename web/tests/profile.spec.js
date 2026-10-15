@@ -104,7 +104,7 @@ test("setup suggests an editable pseudonym without requiring a real name", async
   }
 });
 
-test("profile explains the encrypted vault and its local-only limits", async ({
+test("profile explains the encrypted vault and its account/device limits", async ({
   page,
 }) => {
   await page.goto("/profile");
@@ -125,7 +125,17 @@ test("profile explains the encrypted vault and its local-only limits", async ({
   await expect(
     page
       .getByLabel("Datenschutzinformationen")
-      .getByText(/keine Konto-Anmeldung/u),
+      .getByText(/pseudonymes Konto schützt den Zugriff/u),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Datenschutzinformationen")
+      .getByText(/Passphrase und Wiederherstellungsphrase werden nicht gesendet/u),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Datenschutzinformationen")
+      .getByText(/kann ihn aber nicht öffnen/u),
   ).toBeVisible();
   await expect(
     page
