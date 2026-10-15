@@ -11,6 +11,7 @@ import {
   HeartPulse,
 } from "@lucide/vue";
 import AppShell from "../components/AppShell.vue";
+import { associationPresentation } from "../association-presentation.js";
 import { api, foodName } from "../lib";
 const props = defineProps({ foods: Array, symptoms: Object });
 const result = ref(null),
@@ -67,7 +68,11 @@ const rows = computed(() =>
       sort.value === "count"
         ? b.exposed - a.exposed
         : (b.difference ?? -2) - (a.difference ?? -2),
-    ),
+    )
+    .map((association) => ({
+      ...association,
+      presentation: associationPresentation(association),
+    })),
 );
 </script>
 <template>
@@ -200,12 +205,8 @@ const rows = computed(() =>
             }}</span>
             <h2>{{ foodName(a.ingredient_id, foods) }}</h2>
           </div>
-          <span class="pill" :class="a.difference > 0 ? 'high' : 'neutral'">{{
-            a.difference === null
-              ? "Noch wenig Daten"
-              : a.difference > 0
-                ? "Häufiger Beschwerden"
-                : "Kein erhöhter Zusammenhang"
+          <span class="pill" :class="a.presentation.tone">{{
+            a.presentation.label
           }}</span>
         </div>
         <div class="comparison-bars">
@@ -217,12 +218,13 @@ const rows = computed(() =>
               ></span
             >
             <progress
+              v-if="a.presentation.enoughData"
               class="compare-track"
               :value="percent(a.rate_exposed)"
               max="100"
               aria-hidden="true"
             ></progress>
-            <b>{{ Math.round(a.rate_exposed * 100) }} %</b>
+            <b>{{ a.presentation.exposedRate }}</b>
           </div>
           <div>
             <span
@@ -233,18 +235,19 @@ const rows = computed(() =>
               ></span
             >
             <progress
+              v-if="a.presentation.enoughData"
               class="compare-track baseline"
               :value="percent(a.rate_unexposed)"
               max="100"
               aria-hidden="true"
             ></progress>
-            <b>{{
-              a.rate_unexposed === null
-                ? "–"
-                : Math.round(a.rate_unexposed * 100) + " %"
-            }}</b>
+            <b>{{ a.presentation.unexposedRate }}</b>
           </div>
         </div>
+        <p v-if="!a.presentation.enoughData" class="helper">
+          Prozentwerte erscheinen erst ab fünf Momenten mit und fünf ohne diese
+          Zutat. Die Zahlen oben zeigen deine bisherigen Einträge.
+        </p>
         <p v-if="a.co_occurring.length" class="helper">
           Gemeinsames Auftreten:
           {{ a.co_occurring.map((id) => foodName(id, foods)).join(", ") }}.
