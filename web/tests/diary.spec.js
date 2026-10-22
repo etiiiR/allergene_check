@@ -221,6 +221,70 @@ test("symptom check-in records its timing window", async ({
   expect(cleanup.ok()).toBeTruthy();
 });
 
+test("a check-in can stay outside the food comparison despite a nearby meal", async ({
+  page,
+  request,
+}) => {
+  const created = [];
+  const recipeResponse = await request.post("/api/recipes", {
+    headers: { "X-Diary-Request": "1" },
+    data: {
+      title: "No-food-link UI test",
+      servings: 1,
+      ingredients: [{ text: "Zwiebel", food_ids: ["onion"], allergens: [] }],
+    },
+  });
+  expect(recipeResponse.ok()).toBeTruthy();
+  const recipe = await recipeResponse.json();
+  created.push(["recipes", recipe.id]);
+
+  try {
+    const mealResponse = await request.post("/api/meals", {
+      headers: { "X-Diary-Request": "1" },
+      data: {
+        recipe_id: recipe.id,
+        occurred_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+        portions: 1,
+      },
+    });
+    expect(mealResponse.ok()).toBeTruthy();
+    const meal = await mealResponse.json();
+    created.push(["meals", meal.id]);
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "Befinden", exact: true }).click();
+    await page.getByRole("button", { name: "Blähungen", exact: true }).click();
+    await page.getByRole("radio", { name: "Blähungen: Mittel" }).click();
+    await page.getByRole("button", { name: "Weiter", exact: true }).click();
+    await page.getByRole("button", { name: "Keine Mahlzeit zuordnen" }).click();
+    await expect(page.locator(".timing-choice-grid")).toHaveCount(0);
+    await expect(page.locator(".food-relation-note")).toContainText(
+      "keine Mahlzeiten oder Zutaten verglichen",
+    );
+
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/checkins") &&
+        response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Eintrag speichern" }).click();
+    const checkinResponse = await responsePromise;
+    expect(checkinResponse.ok()).toBeTruthy();
+    const checkin = await checkinResponse.json();
+    created.push(["checkins", checkin.id]);
+    expect(checkin.food_relation).toBe("none");
+    expect(checkin.timing_bucket).toBe("unknown");
+    expect(checkin.reference_meal_id).toBe("");
+  } finally {
+    for (const [kind, id] of created.reverse()) {
+      const response = await request.delete(`/api/${kind}/${id}`, {
+        headers: { "X-Diary-Request": "1" },
+      });
+      expect(response.ok()).toBeTruthy();
+    }
+  }
+});
+
 test("profile keeps cycle tracking in its separate context", async ({
   page,
   request,

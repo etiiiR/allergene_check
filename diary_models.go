@@ -192,15 +192,19 @@ func (c *Checkin) validate() error {
 	if !c.SymptomFree && total == 0 {
 		return invalid("Bitte Beschwerden eintragen oder ausdrücklich symptomfrei wählen.")
 	}
+	if c.FoodRelation == "" {
+		c.FoodRelation = "timed_window"
+	}
+	if c.FoodRelation != "timed_window" && c.FoodRelation != "none" {
+		return invalid("Bitte einen gültigen Essensbezug wählen.")
+	}
 	if c.SymptomFree {
 		c.TimingBucket = ""
 		c.ReferenceMealID = ""
 	} else {
-		if c.FoodRelation == "" {
-			c.FoodRelation = "timed_window"
-		}
-		if c.FoodRelation != "timed_window" && c.FoodRelation != "none" {
-			return invalid("Bitte einen gültigen Essensbezug wählen.")
+		if c.FoodRelation == "none" {
+			c.TimingBucket = "unknown"
+			c.ReferenceMealID = ""
 		}
 		if c.TimingBucket == "" {
 			c.TimingBucket = "unknown"

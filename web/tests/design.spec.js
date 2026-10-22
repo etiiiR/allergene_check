@@ -105,12 +105,18 @@ for (const route of routes) {
     });
     page.on("pageerror", (error) => errors.push(error.message));
     page.on("console", (message) => {
-      if (/Content Security Policy|Refused to apply inline style/i.test(message.text())) {
+      if (
+        /Content Security Policy|Refused to apply inline style/i.test(
+          message.text(),
+        )
+      ) {
         cspErrors.push({ text: message.text(), location: message.location() });
       }
     });
     const response = await page.goto(route);
-    expect(response?.headers()["content-security-policy"]).toContain("style-src-attr 'none'");
+    expect(response?.headers()["content-security-policy"]).toContain(
+      "style-src-attr 'none'",
+    );
     await expect(page.locator("main h1").first()).toBeVisible();
     if (route === "/insights" || route === "/report") {
       await expect(page.locator(".skeleton-panel")).toHaveCount(0);
@@ -317,7 +323,7 @@ test("daily overview and both symptom steps keep primary actions above mobile na
   );
   await page.getByRole("button", { name: "Weiter", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Wann ging es los?" }),
+    page.getByRole("heading", { name: "Essensbezug und Zeitpunkt?" }),
   ).toBeFocused();
   await aboveNavigation(
     page.getByRole("button", { name: "Eintrag speichern", exact: true }),

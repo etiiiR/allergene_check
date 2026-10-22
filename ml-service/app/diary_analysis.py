@@ -1,5 +1,6 @@
 """Explainable diary analysis. Associations are exploratory, never causal diagnoses."""
 from datetime import date, timedelta, timezone
+from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import numpy as np
@@ -31,6 +32,7 @@ class Checkin(BaseModel):
     occurred_at: AwareDatetime
     symptoms: dict[str, int]
     timing_bucket: str = "unknown"
+    food_relation: Literal["timed_window", "none"] = "timed_window"
     reference_meal_id: str = ""
     cycle_phase: str = "unknown"
     cycle_day: int = Field(default=0, ge=0, le=45)
@@ -311,12 +313,13 @@ def patterns(request: PatternRequest):
     timing_counts = {key: 0 for key in TIMING_WINDOWS}
     for check in sorted(request.checkins, key=lambda c: c.occurred_at):
         bucket = check.timing_bucket if check.timing_bucket in TIMING_WINDOWS else "unknown"
-        timing_counts[bucket] += 1
+        if check.food_relation != "none":
+            timing_counts[bucket] += 1
         lower, upper = TIMING_WINDOWS[bucket]
         if bucket == "unknown":
             upper = request.window_hours
         exposures = set()
-        for meal in request.meals:
+        for meal in request.meals if check.food_relation != "none" else []:
             if check.reference_meal_id and meal.id != check.reference_meal_id:
                 continue
             elapsed = (check.occurred_at - meal.occurred_at).total_seconds() / 3600

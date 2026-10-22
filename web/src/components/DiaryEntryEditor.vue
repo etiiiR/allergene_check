@@ -75,7 +75,13 @@ if (kind === "checkins") {
   form.symptoms ||= {};
   for (const key of Object.keys(symptoms.value)) form.symptoms[key] ??= 0;
   form.timing_bucket ||= "unknown";
+  form.food_relation ||= "timed_window";
   form.cycle_phase ||= "unknown";
+}
+
+function updateFoodRelation() {
+  form.timing_bucket = "unknown";
+  if (form.food_relation === "none") form.reference_meal_id = "";
 }
 
 function submit() {
@@ -108,6 +114,7 @@ function submit() {
       symptom_free: form.symptom_free,
       symptoms: form.symptom_free ? {} : form.symptoms,
       timing_bucket: form.timing_bucket,
+      food_relation: form.food_relation || "timed_window",
       reference_meal_id: form.reference_meal_id,
       cycle_phase: form.cycle_phase,
       cycle_day: form.cycle_day,
@@ -268,37 +275,62 @@ function submit() {
             required
         /></label>
         <details v-if="kind === 'checkins' && !isBaseline" class="entry-note">
-          <summary>Zeit nach dem Essen, Stress, Schlaf & Kontext</summary>
+          <summary>Essensbezug, Stress, Schlaf & Kontext</summary>
           <div class="entry-details">
             <template v-if="!form.symptom_free">
               <label
-                >Zeit nach dem Essen<select
+                >Essensbezug<select
                   class="d-select"
-                  v-model="form.timing_bucket"
+                  v-model="form.food_relation"
+                  @change="updateFoodRelation"
                 >
-                  <option
-                    v-for="(choice, key) in timingWindows"
-                    :key="key"
-                    :value="key"
+                  <option value="timed_window">
+                    Mahlzeitenfenster vergleichen
+                  </option>
+                  <option value="none">Keine Mahlzeit zuordnen</option>
+                </select></label
+              >
+              <p
+                v-if="form.food_relation === 'none'"
+                class="food-relation-note"
+              >
+                Dieser Moment bleibt für andere Einflüsse sichtbar, wird aber
+                nicht mit Zutaten verglichen.
+              </p>
+              <template v-else>
+                <label
+                  >Zeit nach dem Essen<select
+                    class="d-select"
+                    v-model="form.timing_bucket"
                   >
-                    {{ choice.label }}
-                  </option>
-                </select></label
-              >
-              <label
-                >Mögliche Mahlzeit<select
-                  class="d-select"
-                  v-model="form.reference_meal_id"
+                    <option
+                      v-for="(choice, key) in timingWindows"
+                      :key="key"
+                      :value="key"
+                    >
+                      {{ choice.label }}
+                    </option>
+                  </select></label
                 >
-                  <option value="">Nicht zuordnen</option>
-                  <option v-if="missingMeal" :value="form.reference_meal_id">
-                    Bisherige Mahlzeit (gelöscht)
-                  </option>
-                  <option v-for="meal in meals" :key="meal.id" :value="meal.id">
-                    {{ meal.title }} · {{ dateTime(meal.occurred_at) }}
-                  </option>
-                </select></label
-              >
+                <label
+                  >Mögliche Mahlzeit<select
+                    class="d-select"
+                    v-model="form.reference_meal_id"
+                  >
+                    <option value="">Alle Mahlzeiten im Zeitfenster</option>
+                    <option v-if="missingMeal" :value="form.reference_meal_id">
+                      Bisherige Mahlzeit (gelöscht)
+                    </option>
+                    <option
+                      v-for="meal in meals"
+                      :key="meal.id"
+                      :value="meal.id"
+                    >
+                      {{ meal.title }} · {{ dateTime(meal.occurred_at) }}
+                    </option>
+                  </select></label
+                >
+              </template>
             </template>
             <div class="form-row">
               <label data-tone="stress"

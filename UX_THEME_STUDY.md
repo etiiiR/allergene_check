@@ -390,7 +390,7 @@ Zusammenfassung bleibt ein Hinweis und keine Diagnose.
 | P0 | Die Rezeptbibliothek zeigt eine einspaltige, über die ganze Inhaltsbreite laufende Kartenliste. | Auf breiten Bildschirmen entstehen breite Inhaltsbänder und wenig Überblick; Personen müssen vertikal viele Karten absuchen. | Karteninhalt kompakter setzen, auf breiten Desktop-Ansichten zwei Spalten nutzen und auf Mobilgeräten bei einer lesbaren Spalte bleiben. Suche, Zutatenhinweis und primäre Aktion sichtbar halten. |
 | P1 | Der Rezepteditor kann pro Zutat Zuordnung, Vorschläge und Allergene zeigen. | Viele Zutaten vergrössern den Editor stark; native Mehrfachauswahl kann auf schmalen Geräten unleserlich werden. | Vollständige Zutatenliste mit kompakten Zeilen; seltene Detailfelder inline bei Bedarf öffnen. Allergene als umfließende, beschriftete Auswahl statt horizontal gequetschter Mehrfachauswahl. |
 | P1 | Die App bündelt Tagebuch, Rezeptcrawler, ML-Auswertung und optionale Gesundheitskontexte. | Neue Personen können nicht sofort erkennen, was sie täglich tun müssen und was nur Zusatz ist. | Pro Seite eine nächste Hauptaktion, übrige Funktionen klar nachgeordnet; optionale Kontexte nicht als Pflicht oder Voraussetzung formulieren. |
-| P1 | Zeit, Mahlzeitenbezug und Kontext beeinflussen die spätere Analyse. | Personen können einen späteren Beschwerdebeginn fälschlich dem zuletzt gegessenen Essen zuschreiben. | Symptombeginn/Timing und konkrete Mahlzeit getrennt erfassen; „nicht zuordnen“ gleichwertig anbieten. |
+| P1 | Ohne konkrete Mahlzeitenwahl verglich die Analyse automatisch alle Mahlzeiten im Zeitfenster; „Nicht zuordnen“ war nur optisch eindeutig, fachlich aber nicht. | Ein zufällig zeitnahes Essen konnte als mögliche Zutatsexposition erscheinen und die Vermutung eines Essensauslösers verstärken. | Zwischen Zeitfenstervergleich und „Keine Mahlzeit zuordnen“ wählen lassen; die zweite Auswahl schliesst Essen aus der Zutatenanalyse aus, behält den Moment aber für andere Einflüsse. |
 | P1 | Ein Muster kann bei nur einem Treffer „100 %“ anzeigen. | Kleine Stichproben wirken wie ein starkes oder belastbares Ergebnis, auch wenn die Warnung „Noch wenig Daten“ danebensteht. | Fallzahlen sichtbar lassen, Prozentwerte und Vergleichsbalken erst bei mindestens fünf Momenten je Gruppe anzeigen und Ergebnisse persönlich/deskriptiv benennen. |
 
 ### Simulierte Aufgaben – drei Überarbeitungsrunden
@@ -436,7 +436,19 @@ unbewertet ist. Der zweite Schritt zeigt die ganze Auswahl zur Prüfung. Weil da
 gemeinsame Zeitangabe speichert, erklärt die Oberfläche sichtbar, dass die Zeit für alle gilt und
 unterschiedliche Symptombeginne getrennt erfasst werden sollen. Der Browser-Regressionsfall ist
 ergänzt, aber mangels lokaler Compose-Konfiguration noch nicht ausgeführt; Produktionsbuild und
-54 Frontend-Unit-Tests bestehen. Reale Verständlichkeit und Bedienbarkeit bleiben zu testen.
+56 Frontend-Unit-Tests bestehen. Reale Verständlichkeit und Bedienbarkeit bleiben zu testen.
+
+**Iteration 15.10.2026 – Essensbezug ohne automatische Zuschreibung:** Bisher bedeutete ein
+leeres Mahlzeitenfeld nicht „kein Essensbezug“, sondern „alle protokollierten Mahlzeiten im
+Zeitfenster vergleichen“. Das konnte zufällige Nähe wie eine gewählte Zuordnung wirken lassen.
+Der Beschwerde-Wizard bietet nun gleich sichtbar „Mahlzeiten vergleichen“ und „Keine Mahlzeit
+zuordnen“. Die zweite Option speichert den Moment weiterhin für Stress-/Kontextmuster,
+setzt aber kein Zutatenfenster; im Tagebuch wird der Ausschluss beschriftet. Alte Einträge ohne
+dieses Feld behalten aus Kompatibilitätsgründen ihr bisheriges Zeitfensterverhalten. Go-, lokale
+Analyse-, Python- und Client-API-Regressionen decken die neue Semantik ab; automatisierte
+Frontend-Unit- und Go-Tests bestehen. Der Python-Testlauf konnte in dieser Umgebung nicht
+starten, da NumPy fehlt. Der Browser-Regressionsfall ist ergänzt, aber mangels Docker-Zugriff
+nicht lokal ausgeführt.
 
 ### UX-Regeln: tun und vermeiden
 

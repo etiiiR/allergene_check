@@ -54,6 +54,23 @@ func TestCheckinTimingAndMealReferenceValidation(t *testing.T) {
 	if err := c.validate(); err != nil {
 		t.Fatal(err)
 	}
+	if c.FoodRelation != "timed_window" {
+		t.Fatalf("legacy check-in should retain timed-window behavior, got %q", c.FoodRelation)
+	}
+
+	c.FoodRelation = "unexpected"
+	if c.validate() == nil {
+		t.Fatal("invalid food relation accepted")
+	}
+	c.FoodRelation = "none"
+	if err := c.validate(); err != nil {
+		t.Fatalf("explicit no-meal relation should be valid: %v", err)
+	}
+	if c.TimingBucket != "unknown" || c.ReferenceMealID != "" {
+		t.Fatalf("no-meal relation should clear food inference fields: %+v", c)
+	}
+
+	c.FoodRelation = "timed_window"
 
 	c.TimingBucket = "not-a-window"
 	if c.validate() == nil {

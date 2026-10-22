@@ -47,11 +47,16 @@ test("local API creates recipe, snapshots meal ingredients and records its optio
   assert.equal(savedMeal.result.checkin.reference_meal_id, savedMeal.result.id);
   assert.deepEqual(savedMeal.result.ingredients, recipe.result.ingredients);
 
-  const editedRecipe = apply(savedMeal.diary, `/recipes/${recipe.result.id}`, "PUT", {
-    ...recipe.result,
-    title: "Neue Rezeptversion",
-    ingredients: [{ text: "Zucker", food_ids: ["sugar"], allergens: [] }],
-  });
+  const editedRecipe = apply(
+    savedMeal.diary,
+    `/recipes/${recipe.result.id}`,
+    "PUT",
+    {
+      ...recipe.result,
+      title: "Neue Rezeptversion",
+      ingredients: [{ text: "Zucker", food_ids: ["sugar"], allergens: [] }],
+    },
+  );
   const historicalMeal = editedRecipe.diary.meals[0];
   assert.equal(historicalMeal.title, "Haferbrei");
   assert.equal(historicalMeal.ingredients[0].text, "1 Prise Salz");
@@ -79,6 +84,32 @@ test("check-ins keep unentered stress and sleep unknown", () => {
   assert.equal(edited.result.stress, 4);
   assert.equal(edited.result.sleep_hours, null);
   assert.equal(edited.result.context_recorded, true);
+});
+
+test("no-meal check-ins cannot retain a meal reference or a food timing window", () => {
+  const recipe = apply(emptyDiary(), "/recipes", "POST", {
+    title: "Testgericht",
+    servings: 1,
+    ingredients: [{ text: "Zwiebel", food_ids: ["onion"], allergens: [] }],
+  });
+  const meal = apply(recipe.diary, "/meals", "POST", {
+    recipe_id: recipe.result.id,
+    occurred_at: "2026-10-05T10:00:00.000Z",
+    portions: 1,
+  });
+
+  const checkin = apply(meal.diary, "/checkins", "POST", {
+    occurred_at: "2026-10-05T11:00:00.000Z",
+    symptom_free: false,
+    symptoms: { pain: 7 },
+    food_relation: "none",
+    timing_bucket: "early",
+    reference_meal_id: meal.result.id,
+  });
+
+  assert.equal(checkin.result.food_relation, "none");
+  assert.equal(checkin.result.timing_bucket, "unknown");
+  assert.equal(checkin.result.reference_meal_id, "");
 });
 
 test("editing older context keeps the saved values but does not silently confirm them", () => {
@@ -147,22 +178,29 @@ test("local API preserves diary edit invariants and refuses forged historical sn
   assert.equal(editedMeal.result.title, "Alt");
   assert.equal(editedMeal.result.ingredients[0].text, "Salz");
 
-  const editedBaseline = apply(editedMeal.diary, `/checkins/${checkinId}`, "PUT", {
-    notes: "Tippfehler korrigiert",
-    meal_baseline: false,
-  });
+  const editedBaseline = apply(
+    editedMeal.diary,
+    `/checkins/${checkinId}`,
+    "PUT",
+    {
+      notes: "Tippfehler korrigiert",
+      meal_baseline: false,
+    },
+  );
   assert.equal(editedBaseline.result.meal_baseline, true);
   assert.equal(editedBaseline.result.reference_meal_id, mealId);
 
   assert.throws(
-    () => apply(editedBaseline.diary, `/checkins/${checkinId}`, "PUT", {
-      symptom_free: true,
-      symptoms: { pain: 3 },
-    }),
+    () =>
+      apply(editedBaseline.diary, `/checkins/${checkinId}`, "PUT", {
+        symptom_free: true,
+        symptoms: { pain: 3 },
+      }),
     /Symptomfrei und Beschwerden/u,
   );
   assert.throws(
-    () => apply(editedBaseline.diary, `/meals/${mealId}`, "PUT", { portions: 0 }),
+    () =>
+      apply(editedBaseline.diary, `/meals/${mealId}`, "PUT", { portions: 0 }),
     /Portionen/u,
   );
 });
@@ -225,7 +263,8 @@ test("Health imports upsert by provider ID; imported measurements remain immutab
   assert.equal(imported.result.updated, 1);
   assert.equal(imported.diary.stress_observations[0].notes, "reviewed");
   assert.throws(
-    () => apply(imported.diary, `/stress/${observation.id}`, "PUT", { value: 9 }),
+    () =>
+      apply(imported.diary, `/stress/${observation.id}`, "PUT", { value: 9 }),
     /nur die Notiz/u,
   );
 });
@@ -234,11 +273,14 @@ test("failed local validation leaves the input diary unchanged", () => {
   const diary = emptyDiary();
   const before = structuredClone(diary);
   assert.throws(
-    () => apply(diary, "/recipes", "POST", {
-      title: "Incomplete",
-      servings: 1,
-      ingredients: [{ text: "Salz", food_ids: ["not-a-food"], allergens: [] }],
-    }),
+    () =>
+      apply(diary, "/recipes", "POST", {
+        title: "Incomplete",
+        servings: 1,
+        ingredients: [
+          { text: "Salz", food_ids: ["not-a-food"], allergens: [] },
+        ],
+      }),
     /Unbekannte Lebensmittel/u,
   );
   assert.deepEqual(diary, before);

@@ -75,6 +75,18 @@ const timingChoices = [
   { value: "late", label: "Sehr spät", hint: "6–24 h" },
   { value: "unknown", label: "Unsicher", hint: "weiß ich nicht" },
 ];
+const foodRelationChoices = [
+  {
+    value: "timed_window",
+    label: "Mahlzeiten vergleichen",
+    hint: "Zeitfenster",
+  },
+  {
+    value: "none",
+    label: "Keine Mahlzeit zuordnen",
+    hint: "Nicht im Zutatenmuster",
+  },
+];
 const cycleChoices = [
   { value: "unknown", label: "Unsicher" },
   { value: "menstruation", label: "Menstruation" },
@@ -114,6 +126,7 @@ const form = reactive({
   symptom_free: props.type === "free",
   symptoms: Object.fromEntries(symptomKeys.value.map((key) => [key, 0])),
   timing_bucket: "unknown",
+  food_relation: "timed_window",
   reference_meal_id: "",
   cycle_phase: initialCycle.phase,
   cycle_day: initialCycle.day,
@@ -150,6 +163,7 @@ function chooseFree() {
   form.symptom_free = true;
   selectedSymptoms.value = [];
   form.timing_bucket = "unknown";
+  form.food_relation = "timed_window";
   form.reference_meal_id = "";
   clearSymptoms();
 }
@@ -166,6 +180,12 @@ function chooseSymptom(key) {
 
 function chooseTiming(bucket) {
   form.timing_bucket = bucket;
+}
+
+function chooseFoodRelation(value) {
+  form.food_relation = value;
+  form.timing_bucket = "unknown";
+  if (value === "none") form.reference_meal_id = "";
 }
 
 function chooseLevel(key, level) {
@@ -229,7 +249,7 @@ function submit() {
       </p>
       <UiSteps
         v-if="!meal && !form.symptom_free"
-        :labels="['Befinden', 'Zeit & Speichern']"
+        :labels="['Befinden', 'Bezug & Zeit']"
         :current="step"
       />
       <h2 ref="stepHeading" tabindex="-1" class="guided-question">
@@ -238,7 +258,7 @@ function submit() {
             ? "Was hast du gegessen?"
             : step === 0
               ? "Was spürst du gerade?"
-              : "Wann ging es los?"
+              : "Essensbezug und Zeitpunkt?"
         }}
       </h2>
       <template v-if="meal">
@@ -363,24 +383,50 @@ function submit() {
             >Ändern</UiButton
           >
         </p>
-        <small class="timing-shared-note"
-          >Die Zeitangabe gilt für alle ausgewählten Symptome. Haben sie zu
-          verschiedenen Zeiten begonnen, erfasse sie bitte getrennt.</small
-        >
-        <div class="timing-choice-grid">
-          <UiButton
-            v-for="choice in timingChoices"
-            :key="choice.value"
-            type="button"
-            class="timing-choice"
-            :class="{ selected: form.timing_bucket === choice.value }"
-            :aria-pressed="form.timing_bucket === choice.value"
-            @click="chooseTiming(choice.value)"
-            ><strong>{{ choice.label }}</strong
-            ><small>{{ choice.hint }}</small></UiButton
+        <fieldset class="food-relation-picker">
+          <legend>Wie soll der Essensbezug behandelt werden?</legend>
+          <div class="food-relation-options">
+            <UiButton
+              v-for="choice in foodRelationChoices"
+              :key="choice.value"
+              type="button"
+              class="food-relation-option"
+              :aria-pressed="form.food_relation === choice.value"
+              :class="{ selected: form.food_relation === choice.value }"
+              @click="chooseFoodRelation(choice.value)"
+              ><strong>{{ choice.label }}</strong
+              ><small>{{ choice.hint }}</small></UiButton
+            >
+          </div>
+        </fieldset>
+        <template v-if="form.food_relation === 'timed_window'">
+          <p class="helper">
+            Ein Zeitfenster zeigt Nähe, keinen Auslöser. Die Zeit gilt für alle
+            ausgewählten Symptome; bei unterschiedlichem Beginn bitte getrennt
+            erfassen.
+          </p>
+          <div class="timing-choice-grid">
+            <UiButton
+              v-for="choice in timingChoices"
+              :key="choice.value"
+              type="button"
+              class="timing-choice"
+              :class="{ selected: form.timing_bucket === choice.value }"
+              :aria-pressed="form.timing_bucket === choice.value"
+              @click="chooseTiming(choice.value)"
+              ><strong>{{ choice.label }}</strong
+              ><small>{{ choice.hint }}</small></UiButton
+            >
+          </div>
+          <small
+            >Zeit seit einer Mahlzeit; „Unsicher“ ist auch eine Antwort.</small
           >
-        </div>
-        <small>Zeit nach dem Essen; „Unsicher“ ist auch eine Antwort.</small>
+        </template>
+        <p v-else class="food-relation-note">
+          Der genaue Beobachtungszeitpunkt bleibt gespeichert. Für diesen Moment
+          werden keine Mahlzeiten oder Zutaten verglichen; Stress und andere
+          dokumentierte Einflüsse bleiben auswertbar.
+        </p>
       </template>
       <template v-if="meal || step === 1 || form.symptom_free">
         <label class="entry-date" data-tone="time"
@@ -439,12 +485,17 @@ function submit() {
               >Leer lassen, wenn du Stress oder Schlaf nicht eintragen
               möchtest.</small
             >
-            <label v-if="!form.symptom_free && recentMeals.length"
-              >Mögliche Mahlzeit (optional)<select
+            <label
+              v-if="
+                !form.symptom_free &&
+                form.food_relation === 'timed_window' &&
+                recentMeals.length
+              "
+              >Eine Mahlzeit fest zuordnen (optional)<select
                 class="d-select"
                 v-model="form.reference_meal_id"
               >
-                <option value="">Nicht zuordnen</option>
+                <option value="">Alle Mahlzeiten im Zeitfenster</option>
                 <option
                   v-for="item in recentMeals"
                   :key="item.id"

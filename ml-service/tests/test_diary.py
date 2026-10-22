@@ -98,6 +98,23 @@ def test_timing_bucket_and_reference_meal_narrow_exposure_window():
     assert next(item for item in mid["timing_summary"] if item["bucket"] == "mid")["count"] == 1
 
 
+def test_explicit_no_meal_choice_excludes_nearby_ingredients_but_keeps_the_moment():
+    result = patterns(PatternRequest(
+        meals=[Meal(id="meal-a", occurred_at=BASE, ingredient_ids=["onion"])],
+        checkins=[Checkin(
+            occurred_at=BASE + timedelta(hours=1),
+            symptoms={"pain": 7},
+            food_relation="none",
+        )],
+    ))
+
+    assert result["documented_moments"] == 1
+    assert result["observations"] == 0
+    assert result["associations"] == []
+    assert result["non_food_assessment"]["moments_without_food_window"] == 1
+    assert next(item for item in result["timing_summary"] if item["bucket"] == "unknown")["count"] == 0
+
+
 def test_possible_non_food_signal_keeps_unmatched_moments_visible():
     result = patterns(PatternRequest(
         meals=[Meal(occurred_at=BASE, ingredient_ids=["onion"])],

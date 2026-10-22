@@ -337,8 +337,16 @@ const groups = computed(() => {
                   >
                 </div>
                 <div v-if="!item.symptom_free" class="timing-tag">
-                  <span>{{ timingLabel(item.timing_bucket) }}</span>
-                  <small>{{ timingPhase(item.timing_bucket) }}</small>
+                  <span>{{
+                    item.food_relation === "none"
+                      ? "Keine Mahlzeit zugeordnet"
+                      : timingLabel(item.timing_bucket)
+                  }}</span>
+                  <small>{{
+                    item.food_relation === "none"
+                      ? "Nicht im Zutatenvergleich"
+                      : timingPhase(item.timing_bucket)
+                  }}</small>
                 </div>
                 <div
                   v-if="item.cycle_phase && item.cycle_phase !== 'unknown'"
@@ -361,7 +369,8 @@ const groups = computed(() => {
                     >Stress {{ item.stress }}/10</template
                   ><template
                     v-if="item.stress != null && item.sleep_hours != null"
-                    > · </template
+                  >
+                    · </template
                   ><template v-if="item.sleep_hours != null"
                     >Schlaf {{ item.sleep_hours }} Stunden</template
                   >
