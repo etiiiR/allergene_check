@@ -11,6 +11,7 @@ import {
   dateTime,
   symptomIntensityFromScore,
   symptomScoreFromIntensity,
+  preserveUnchangedSymptomScores,
   stoolQualities,
   timingWindows,
   useMutation,
@@ -26,6 +27,7 @@ const form = reactive(JSON.parse(JSON.stringify(props.entry)));
 const confirmObservation = ref(false);
 const kind = props.entry.kind;
 const contextRecorded = ref(props.entry.context_recorded === true);
+const changedSymptoms = new Set();
 const hasContextValues = computed(
   () => form.stress != null || form.sleep_hours != null,
 );
@@ -84,6 +86,11 @@ function updateFoodRelation() {
   if (form.food_relation === "none") form.reference_meal_id = "";
 }
 
+function updateSymptomRating(key, intensity) {
+  changedSymptoms.add(key);
+  form.symptoms[key] = symptomScoreFromIntensity(intensity);
+}
+
 function submit() {
   // Preserve seconds, offset and sub-second precision on note-only edits.
   const timestamp =
@@ -112,7 +119,13 @@ function submit() {
       ...data,
       occurred_at: timestamp,
       symptom_free: form.symptom_free,
-      symptoms: form.symptom_free ? {} : form.symptoms,
+      symptoms: form.symptom_free
+        ? {}
+        : preserveUnchangedSymptomScores(
+            props.entry.symptoms || {},
+            form.symptoms,
+            changedSymptoms,
+          ),
       timing_bucket: form.timing_bucket,
       food_relation: form.food_relation || "timed_window",
       reference_meal_id: form.reference_meal_id,
@@ -205,9 +218,7 @@ function submit() {
                 :model-value="symptomIntensityFromScore(form.symptoms[key])"
                 :symptom-key="key"
                 :symptom-label="label"
-                @update:model-value="
-                  form.symptoms[key] = symptomScoreFromIntensity($event)
-                "
+                @update:model-value="updateSymptomRating(key, $event)"
               />
             </div>
             <small

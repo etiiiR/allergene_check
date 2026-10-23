@@ -5,6 +5,7 @@ export {
   symptomIntensityFromScore,
   symptomScoreFromIntensity,
   symptomIntensityLabels,
+  preserveUnchangedSymptomScores,
 } from "./symptom-intensity.js";
 export const allergenLabels = {
   gluten: "Glutenhaltiges Getreide",

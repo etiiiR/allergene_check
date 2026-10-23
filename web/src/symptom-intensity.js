@@ -15,6 +15,22 @@ export const symptomScoreFromIntensity = (intensity) =>
     Math.max(0, Math.min(5, Math.round(Number(intensity) || 0)))
   ];
 
+// Keep legacy precision when editing a different field. The visible six-level
+// rating groups historical 0–10 values, so only explicitly changed ratings
+// should be converted back to a representative score.
+export function preserveUnchangedSymptomScores(
+  original = {},
+  edited = {},
+  changedKeys = [],
+) {
+  const result = structuredClone(original);
+  for (const key of changedKeys) {
+    if (Object.hasOwn(edited, key)) result[key] = edited[key];
+    else delete result[key];
+  }
+  return result;
+}
+
 export const symptomIntensityLabels = [
   "Keine",
   "Sehr leicht",

@@ -4,6 +4,7 @@ import {
   symptomIntensityFromScore,
   symptomScoreFromIntensity,
   symptomIntensityLabels,
+  preserveUnchangedSymptomScores,
 } from "../src/symptom-intensity.js";
 
 test("five-star symptom levels preserve the legacy storage range", () => {
@@ -29,4 +30,23 @@ test("a newly selected mild symptom is included by the existing analysis thresho
   const mildScore = symptomScoreFromIntensity(1);
   assert.ok(mildScore >= 3);
   assert.equal(symptomIntensityFromScore(mildScore), 1);
+});
+
+test("editing one rating preserves untouched legacy symptom scores exactly", () => {
+  const original = { bloating: 1, pain: 6, nausea: 0 };
+  const edited = { bloating: 4, pain: 7, nausea: 0 };
+  const result = preserveUnchangedSymptomScores(original, edited, ["bloating"]);
+
+  assert.deepEqual(result, { bloating: 4, pain: 6, nausea: 0 });
+  assert.deepEqual(original, { bloating: 1, pain: 6, nausea: 0 });
+});
+
+test("explicitly changed ratings can add or clear a symptom", () => {
+  assert.deepEqual(
+    preserveUnchangedSymptomScores({ pain: 5 }, { pain: 0, nausea: 8 }, [
+      "pain",
+      "nausea",
+    ]),
+    { pain: 0, nausea: 8 },
+  );
 });

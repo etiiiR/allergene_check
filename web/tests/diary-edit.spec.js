@@ -203,7 +203,9 @@ test("editing all symptoms retains context, refreshes local analysis and can swi
   const check = await create(request, "checkins", {
     occurred_at: now(),
     symptom_free: false,
-    symptoms: { pain: 6, bloating: 4 },
+    // Legacy values 1 and 6 both map to rounded star levels on screen. An
+    // unrelated rating edit must not silently rewrite either stored score.
+    symptoms: { pain: 6, bloating: 1 },
     timing_bucket: "mid",
     stress: 7,
     sleep_hours: 6.5,
@@ -229,7 +231,7 @@ test("editing all symptoms retains context, refreshes local analysis and can swi
   const saved = await saveEditor(page, "checkins", check.id);
   expect(saved).toMatchObject({
     id: check.id,
-    symptoms: { pain: 4, bloating: 4 },
+    symptoms: { pain: 4, bloating: 1 },
     stress: 7,
     sleep_hours: 6.5,
     context_recorded: true,
