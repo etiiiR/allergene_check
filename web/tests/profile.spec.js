@@ -130,7 +130,9 @@ test("profile explains the encrypted vault and its account/device limits", async
   await expect(
     page
       .getByLabel("Datenschutzinformationen")
-      .getByText(/Passphrase und Wiederherstellungsphrase werden nicht gesendet/u),
+      .getByText(
+        /Passphrase und Wiederherstellungsphrase werden nicht gesendet/u,
+      ),
   ).toBeVisible();
   await expect(
     page
@@ -182,6 +184,50 @@ test("credential settings stay readable and fit a narrow phone screen", async ({
     fullPage: true,
     animations: "disabled",
   });
+});
+
+test("account password change separates account sign-in from the vault phrase", async ({
+  page,
+}) => {
+  let requestBody;
+  await page.route("**/api/auth/password", async (route) => {
+    requestBody = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ revoked_other_sessions: 1 }),
+    });
+  });
+  await page.goto("/profile");
+  await page.getByRole("button", { name: "Sicherheit" }).click();
+  await expect(
+    page.getByText(/ist nicht deine Tresor-Passphrase/u),
+  ).toBeVisible();
+
+  const current = page.getByLabel("Aktuelles Kontopasswort");
+  const next = page.getByLabel("Neues Kontopasswort", { exact: false }).first();
+  const confirm = page.getByLabel("Neues Kontopasswort wiederholen");
+  await current.fill("old account password");
+  await next.fill("replacement account password 123");
+  await confirm.fill("different replacement password 456");
+  await page.getByRole("button", { name: "Kontopasswort ändern" }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Die neuen Passwörter stimmen nicht überein",
+  );
+  expect(requestBody).toBeUndefined();
+
+  await confirm.fill("replacement account password 123");
+  await page.getByRole("button", { name: "Kontopasswort ändern" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Andere Geräte wurden abgemeldet",
+  );
+  expect(requestBody).toEqual({
+    current_password: "old account password",
+    new_password: "replacement account password 123",
+  });
+  await expect(current).toHaveValue("");
+  await expect(next).toHaveValue("");
+  await expect(confirm).toHaveValue("");
 });
 
 test("profile downloads a generic encrypted backup without diary text", async ({

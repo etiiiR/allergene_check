@@ -14,6 +14,11 @@ type accountRequest struct {
 	Password   string `json:"password"`
 }
 
+type changeAccountPasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
 func registerAccountRoutes(app *fiber.App, service *accountService) {
 	app.Get("/api/auth/status", func(c *fiber.Ctx) error {
 		c.Set("Cache-Control", "no-store")
@@ -106,6 +111,31 @@ func registerAccountRoutes(app *fiber.App, service *accountService) {
 		}
 		c.Set("Cache-Control", "no-store")
 		return c.JSON(fiber.Map{"revoked": count})
+	})
+
+	app.Put("/api/auth/password", func(c *fiber.Ctx) error {
+		if service == nil {
+			return ErrDatabaseNotConfigured
+		}
+		if !sameOrigin(c) || c.Get("X-Diary-Request") != "1" {
+			return NewAppError(403, "request_rejected", "Die Anfrage konnte nicht bestätigt werden.")
+		}
+		var request changeAccountPasswordRequest
+		if err := c.BodyParser(&request); err != nil || len(request.CurrentPassword) > 1024 || len(request.NewPassword) > 1024 {
+			return invalid("Die Passwortangaben sind ungültig.")
+		}
+		ctx, cancel := context.WithTimeout(c.UserContext(), 10*time.Second)
+		defer cancel()
+		count, err := service.ChangePassword(ctx, c.IP(), c.Cookies(accountSessionCookie), request.CurrentPassword, request.NewPassword)
+		if err != nil {
+			var appErr *AppError
+			if errors.As(err, &appErr) {
+				return err
+			}
+			return WrapAppError(503, "account_password_unavailable", "Das Kontopasswort konnte nicht sicher geändert werden. Bitte prüfe die Anmeldung und versuche es erneut.", err)
+		}
+		c.Set("Cache-Control", "no-store")
+		return c.JSON(fiber.Map{"revoked_other_sessions": count})
 	})
 
 	// Active browsers poll this endpoint while visible. A revoked device locks

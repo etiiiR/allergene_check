@@ -59,6 +59,12 @@ const logoutError = ref("");
 const revokeOtherBusy = ref(false);
 const revokeOtherError = ref("");
 const revokeOtherStatus = ref("");
+const currentAccountPasswordField = ref(null);
+const newAccountPasswordField = ref(null);
+const confirmAccountPasswordField = ref(null);
+const accountPasswordBusy = ref(false);
+const accountPasswordError = ref("");
+const accountPasswordStatus = ref("");
 let preparedRotation = null;
 let rotationRecoveryKey = "";
 const healthSource = ref("apple_healthkit");
@@ -229,7 +235,8 @@ async function revokeOtherDevices() {
     } catch {}
     if (!response.ok) {
       throw new Error(
-        result?.error?.message || "Andere Geräte konnten nicht abgemeldet werden.",
+        result?.error?.message ||
+          "Andere Geräte konnten nicht abgemeldet werden.",
       );
     }
     const revoked = Number(result?.revoked) || 0;
@@ -240,6 +247,63 @@ async function revokeOtherDevices() {
     revokeOtherError.value = cause.message;
   } finally {
     revokeOtherBusy.value = false;
+  }
+}
+
+async function changeAccountPassword() {
+  if (accountPasswordBusy.value) return;
+  accountPasswordError.value = "";
+  accountPasswordStatus.value = "";
+  const currentPassword = currentAccountPasswordField.value?.value || "";
+  const newPassword = newAccountPasswordField.value?.value || "";
+  const confirmation = confirmAccountPasswordField.value?.value || "";
+  if (newPassword.length < 12) {
+    accountPasswordError.value =
+      "Das neue Kontopasswort muss mindestens 12 Zeichen lang sein.";
+    return;
+  }
+  if (newPassword !== confirmation) {
+    accountPasswordError.value = "Die neuen Passwörter stimmen nicht überein.";
+    return;
+  }
+  accountPasswordBusy.value = true;
+  try {
+    const response = await fetch("/api/auth/password", {
+      method: "PUT",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Diary-Request": "1",
+      },
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_password: newPassword,
+      }),
+    });
+    let result;
+    try {
+      result = await response.json();
+    } catch {}
+    if (!response.ok) {
+      throw new Error(
+        result?.error?.message ||
+          "Das Kontopasswort konnte nicht geändert werden.",
+      );
+    }
+    for (const field of [
+      currentAccountPasswordField,
+      newAccountPasswordField,
+      confirmAccountPasswordField,
+    ]) {
+      if (field.value) field.value.value = "";
+    }
+    accountPasswordStatus.value =
+      "Kontopasswort geändert. Andere Geräte wurden abgemeldet; deine Tresor-Passphrase bleibt unverändert.";
+  } catch (cause) {
+    accountPasswordError.value = cause.message;
+  } finally {
+    accountPasswordBusy.value = false;
   }
 }
 
@@ -300,7 +364,8 @@ async function saveCredentialRotation() {
   rotationError.value = "";
   rotationStatus.value = "";
   if (!rotationConfirmed.value) {
-    rotationError.value = "Die Wiederherstellungsphrase stimmt noch nicht exakt überein.";
+    rotationError.value =
+      "Die Wiederherstellungsphrase stimmt noch nicht exakt überein.";
     return;
   }
   rotationBusy.value = true;
@@ -754,6 +819,69 @@ onBeforeUnmount(clearRotation);
         data-tone="privacy"
       >
         <div>
+          <h2>Kontopasswort ändern</h2>
+          <p class="helper">
+            Das schützt die Anmeldung und ist nicht deine Tresor-Passphrase.
+            Nach dem Ändern bleiben die verschlüsselten Tagebuchdaten
+            unverändert; andere Geräte müssen sich neu anmelden.
+          </p>
+        </div>
+        <form
+          class="form account-password-form"
+          @submit.prevent="changeAccountPassword"
+        >
+          <label class="vault-field">
+            Aktuelles Kontopasswort
+            <input
+              class="d-input"
+              ref="currentAccountPasswordField"
+              type="password"
+              autocomplete="current-password"
+              maxlength="1024"
+              required
+            />
+          </label>
+          <label class="vault-field">
+            Neues Kontopasswort <span>mindestens 12 Zeichen</span>
+            <input
+              class="d-input"
+              ref="newAccountPasswordField"
+              type="password"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="1024"
+              required
+            />
+          </label>
+          <label class="vault-field">
+            Neues Kontopasswort wiederholen
+            <input
+              class="d-input"
+              ref="confirmAccountPasswordField"
+              type="password"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="1024"
+              required
+            />
+          </label>
+          <UiButton
+            type="submit"
+            class="button secondary"
+            :disabled="accountPasswordBusy"
+            :loading="accountPasswordBusy"
+          >
+            Kontopasswort ändern
+          </UiButton>
+        </form>
+        <p v-if="accountPasswordError" class="alert error" role="alert">
+          {{ accountPasswordError }}
+        </p>
+        <p v-if="accountPasswordStatus" class="alert success" role="status">
+          {{ accountPasswordStatus }}
+        </p>
+        <hr class="session-divider" />
+        <div>
           <h2>Andere Geräte</h2>
           <p class="helper">
             Melde alle anderen Geräte ab, wenn du sie nicht mehr nutzt. Online
@@ -783,7 +911,8 @@ onBeforeUnmount(clearRotation);
           <h2>Dieses Gerät</h2>
           <p class="helper">
             Wenn du dich hier abmeldest, brauchst du beim nächsten Besuch wieder
-            dein Kontopasswort und zum Öffnen des Tagebuchs die Tresor-Passphrase.
+            dein Kontopasswort und zum Öffnen des Tagebuchs die
+            Tresor-Passphrase.
           </p>
         </div>
         <UiButton

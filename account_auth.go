@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	surrealdb "github.com/surrealdb/surrealdb.go"
 	"github.com/surrealdb/surrealdb.go/pkg/models"
 )
 
@@ -59,6 +60,7 @@ type AccountRepository interface {
 	SessionExpiry(context.Context, string) (int64, error)
 	DeleteSession(context.Context, string) error
 	DeleteOtherSessions(context.Context, string) (int, error)
+	UpdatePasswordAndDeleteOtherSessions(context.Context, accountRecord, string) (int, error)
 }
 
 type surrealAccountRepository struct{ store *SurrealStore }
@@ -110,6 +112,33 @@ func (r *surrealAccountRepository) DeleteOtherSessions(ctx context.Context, curr
 			return deleted, result.Error
 		}
 		deleted += len(result.Result)
+	}
+	return deleted, nil
+}
+
+func (r *surrealAccountRepository) UpdatePasswordAndDeleteOtherSessions(ctx context.Context, account accountRecord, currentID string) (int, error) {
+	deleted := 0
+	err := r.store.WithTransaction(ctx, func(tx *surrealdb.Transaction) error {
+		if _, err := surrealdb.Update[accountRecord](ctx, tx, models.NewRecordID("diary_account", accountRecordKey), account); err != nil {
+			return err
+		}
+		results, err := surrealdb.Query[[]accountSessionRecord](ctx, tx,
+			`DELETE FROM diary_account_sessions WHERE id != $current RETURN BEFORE;`,
+			map[string]any{"current": models.NewRecordID("diary_account_sessions", currentID)},
+		)
+		if err != nil {
+			return err
+		}
+		for _, result := range *results {
+			if result.Error != nil {
+				return result.Error
+			}
+			deleted += len(result.Result)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
 	}
 	return deleted, nil
 }
@@ -212,6 +241,62 @@ func (s *accountService) Login(ctx context.Context, ip, username, password strin
 		return "", NewAppError(401, "account_login_failed", "Benutzername oder Passwort stimmen nicht.")
 	}
 	return s.newSession(ctx)
+}
+
+// ChangePassword authenticates the existing session and current password,
+// replaces only account sign-in credentials, and revokes other devices in the
+// same transaction. The diary-vault passphrase and ciphertext are untouched.
+func (s *accountService) ChangePassword(ctx context.Context, ip, token, currentPassword, nextPassword string) (int, error) {
+	if len(currentPassword) > 1024 || len(nextPassword) < 12 || len(nextPassword) > 1024 {
+		return 0, invalid("Das neue Kontopasswort muss mindestens 12 Zeichen lang sein.")
+	}
+	if !s.allowLogin(ip) {
+		return 0, NewAppError(429, "login_rate_limited", "Zu viele Versuche. Bitte warte 15 Minuten.")
+	}
+	valid, err := s.ValidSession(ctx, token)
+	if err != nil {
+		return 0, err
+	}
+	if !valid {
+		return 0, NewAppError(fiber.StatusUnauthorized, "account_sign_in_required", "Bitte melde dich erneut an.")
+	}
+	account, err := s.repository.Account(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if account == nil || !accountPasswordMatches(account, currentPassword) {
+		return 0, NewAppError(fiber.StatusUnauthorized, "account_password_incorrect", "Das aktuelle Kontopasswort stimmt nicht.")
+	}
+	if subtle.ConstantTimeCompare([]byte(currentPassword), []byte(nextPassword)) == 1 {
+		return 0, invalid("Wähle ein anderes neues Kontopasswort.")
+	}
+	salt := make([]byte, passwordSaltBytes)
+	if _, err := rand.Read(salt); err != nil {
+		return 0, fmt.Errorf("generate account password salt: %w", err)
+	}
+	derived, err := deriveAccountPassword(nextPassword, salt)
+	if err != nil {
+		return 0, err
+	}
+	account.Salt = base64.RawURLEncoding.EncodeToString(salt)
+	account.PasswordHash = base64.RawURLEncoding.EncodeToString(derived)
+	return s.repository.UpdatePasswordAndDeleteOtherSessions(ctx, *account, hashSessionToken(token))
+}
+
+func accountPasswordMatches(account *accountRecord, password string) bool {
+	if account == nil || len(password) > 1024 {
+		return false
+	}
+	salt, err := base64.RawURLEncoding.DecodeString(account.Salt)
+	if err != nil || len(salt) < 8 || len(salt) > 64 {
+		return false
+	}
+	expected, err := base64.RawURLEncoding.DecodeString(account.PasswordHash)
+	if err != nil || len(expected) != passwordHashBytes {
+		return false
+	}
+	actual, err := deriveAccountPassword(password, salt)
+	return err == nil && subtle.ConstantTimeCompare(actual, expected) == 1
 }
 
 func deriveAccountPassword(password string, salt []byte) ([]byte, error) {

@@ -79,6 +79,24 @@ func (r *memoryAccountRepository) DeleteOtherSessions(_ context.Context, current
 	return deleted, nil
 }
 
+func (r *memoryAccountRepository) UpdatePasswordAndDeleteOtherSessions(_ context.Context, account accountRecord, currentID string) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.account == nil {
+		return 0, ErrNoAccount
+	}
+	updated := account
+	r.account = &updated
+	deleted := 0
+	for id := range r.sessions {
+		if id != currentID {
+			delete(r.sessions, id)
+			deleted++
+		}
+	}
+	return deleted, nil
+}
+
 func TestAccountSetupPasswordAndSessionAreIndependent(t *testing.T) {
 	repository := newMemoryAccountRepository()
 	service := newAccountService(repository, "setup-code-that-is-not-the-vault-key", "https://gut.example")
@@ -267,6 +285,104 @@ func TestRevokeOtherSessionsKeepsCurrentDeviceSignedIn(t *testing.T) {
 	for _, token := range []string{otherOne, otherTwo} {
 		if valid, err := service.ValidSession(ctx, token); err != nil || valid {
 			t.Fatalf("other device remained signed in: valid=%v err=%v", valid, err)
+		}
+	}
+}
+
+func TestChangePasswordKeepsCurrentSessionAndRevokesOtherDevices(t *testing.T) {
+	repository := newMemoryAccountRepository()
+	service := newAccountService(repository, strings.Repeat("s", 32), "https://gut.example")
+	ctx := context.Background()
+	oldPassword := "a long account password"
+	if err := service.Register(ctx, strings.Repeat("s", 32), "gut-user", oldPassword); err != nil {
+		t.Fatalf("register account: %v", err)
+	}
+	current, err := service.Login(ctx, "192.0.2.1", "gut-user", oldPassword)
+	if err != nil {
+		t.Fatalf("create current session: %v", err)
+	}
+	other, err := service.Login(ctx, "192.0.2.2", "gut-user", oldPassword)
+	if err != nil {
+		t.Fatalf("create other session: %v", err)
+	}
+	const nextPassword = "a completely new password 456"
+	deleted, err := service.ChangePassword(ctx, "192.0.2.1", current, oldPassword, nextPassword)
+	if err != nil || deleted != 1 {
+		t.Fatalf("change password: deleted=%d err=%v", deleted, err)
+	}
+	if valid, err := service.ValidSession(ctx, current); err != nil || !valid {
+		t.Fatalf("current session was not kept: valid=%v err=%v", valid, err)
+	}
+	if valid, err := service.ValidSession(ctx, other); err != nil || valid {
+		t.Fatalf("other session was not revoked: valid=%v err=%v", valid, err)
+	}
+	if _, err := service.Login(ctx, "192.0.2.3", "gut-user", oldPassword); err == nil {
+		t.Fatal("old account password still worked")
+	}
+	if _, err := service.Login(ctx, "192.0.2.3", "gut-user", nextPassword); err != nil {
+		t.Fatalf("new account password did not work: %v", err)
+	}
+	if _, err := service.ChangePassword(ctx, "192.0.2.4", current, "wrong current", "another long account password"); err == nil {
+		t.Fatal("password change accepted an incorrect current password")
+	}
+	if _, err := service.ChangePassword(ctx, "192.0.2.4", current, nextPassword, "short"); err == nil {
+		t.Fatal("password change accepted a short replacement password")
+	}
+}
+
+func TestAccountPasswordChangeRouteRequiresSessionAndUpdatesSignIn(t *testing.T) {
+	repository := newMemoryAccountRepository()
+	service := newAccountService(repository, strings.Repeat("s", 32), "https://gut.example")
+	ctx := context.Background()
+	oldPassword := "the original account password"
+	if err := service.Register(ctx, strings.Repeat("s", 32), "gut-user", oldPassword); err != nil {
+		t.Fatalf("register account: %v", err)
+	}
+	current, err := service.Login(ctx, "192.0.2.1", "gut-user", oldPassword)
+	if err != nil {
+		t.Fatalf("create current session: %v", err)
+	}
+	other, err := service.Login(ctx, "192.0.2.2", "gut-user", oldPassword)
+	if err != nil {
+		t.Fatalf("create other session: %v", err)
+	}
+	app := fiber.New(fiber.Config{ErrorHandler: AppErrorHandler})
+	app.Use(accountGateMiddleware(service))
+	registerAccountRoutes(app, service)
+
+	request := httptest.NewRequest(http.MethodPut, "/api/auth/password", strings.NewReader(
+		`{"current_password":"the original account password","new_password":"a replacement password 123"}`,
+	))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Diary-Request", "1")
+	request.AddCookie(&http.Cookie{Name: accountSessionCookie, Value: current})
+	response, err := app.Test(request, 10_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		var body map[string]any
+		_ = json.NewDecoder(response.Body).Decode(&body)
+		t.Fatalf("password change returned %d: %#v", response.StatusCode, body)
+	}
+	var body map[string]int
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil || body["revoked_other_sessions"] != 1 {
+		t.Fatalf("password change response does not report revoked sessions: body=%#v err=%v", body, err)
+	}
+	if valid, err := service.ValidSession(ctx, current); err != nil || !valid {
+		t.Fatalf("current session was revoked: valid=%v err=%v", valid, err)
+	}
+	if valid, err := service.ValidSession(ctx, other); err != nil || valid {
+		t.Fatalf("other device session remains valid: valid=%v err=%v", valid, err)
+	}
+	for _, attempt := range []struct {
+		password string
+		wantErr  bool
+	}{{oldPassword, true}, {"a replacement password 123", false}} {
+		_, err := service.Login(ctx, "192.0.2.3", "gut-user", attempt.password)
+		if (err != nil) != attempt.wantErr {
+			t.Fatalf("login with replacement password: err=%v wantErr=%v", err, attempt.wantErr)
 		}
 	}
 }

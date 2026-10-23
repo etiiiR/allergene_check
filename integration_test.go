@@ -319,6 +319,33 @@ func TestAccountAndHashedDeviceSessionsPersistInSurrealDB(t *testing.T) {
 	if got, err := repository.SessionExpiry(ctx, otherID); err != nil || got != 0 {
 		t.Fatalf("other-device session remains: got=%d err=%v", got, err)
 	}
+	passwordCurrentID := "password-current-" + uuid.NewString()
+	passwordOtherID := "password-other-" + uuid.NewString()
+	if err := repository.CreateSession(ctx, passwordCurrentID, expiry); err != nil {
+		t.Fatalf("create current session for password rotation: %v", err)
+	}
+	if err := repository.CreateSession(ctx, passwordOtherID, expiry); err != nil {
+		t.Fatalf("create other session for password rotation: %v", err)
+	}
+	defer repository.DeleteSession(context.Background(), passwordCurrentID)
+	defer repository.DeleteSession(context.Background(), passwordOtherID)
+	updatedAccount := accountRecord{
+		Username: "isolated-test", Salt: "bmV3c2FsdDEyMzQ1Njc4", PasswordHash: "bmV3cGFzc3dvcmRoYXNoMTIzNDU2Nzg5MDEyMzQ1Ng",
+	}
+	deleted, err = repository.UpdatePasswordAndDeleteOtherSessions(ctx, updatedAccount, passwordCurrentID)
+	if err != nil || deleted != 1 {
+		t.Fatalf("transactionally update account and revoke other session: deleted=%d err=%v", deleted, err)
+	}
+	loaded, err = repository.Account(ctx)
+	if err != nil || loaded == nil || loaded.Salt != updatedAccount.Salt || loaded.PasswordHash != updatedAccount.PasswordHash {
+		t.Fatalf("replacement account credentials were not persisted: %#v err=%v", loaded, err)
+	}
+	if got, err := repository.SessionExpiry(ctx, passwordCurrentID); err != nil || got != expiry {
+		t.Fatalf("password change removed current session: got=%d want=%d err=%v", got, expiry, err)
+	}
+	if got, err := repository.SessionExpiry(ctx, passwordOtherID); err != nil || got != 0 {
+		t.Fatalf("password change kept other session: got=%d err=%v", got, err)
+	}
 }
 
 // requireIsolatedIntegrationConfig prevents opt-in tests from modifying a
