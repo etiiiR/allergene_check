@@ -89,7 +89,9 @@ func NormalizeError(err error) *AppError {
 func AppErrorHandler(c *fiber.Ctx, err error) error {
 	appErr := NormalizeError(err)
 	if appErr.Status >= fiber.StatusInternalServerError {
-		log.Printf("request %s %s failed: %v", c.Method(), c.Path(), err)
+		// Internal causes may contain query or request details. Keep logs useful
+		// for triage without recording sensitive values or raw database errors.
+		log.Printf("request %s %s failed (%s)", c.Method(), c.Path(), appErr.Code)
 	}
 
 	return c.Status(appErr.Status).JSON(ErrorResponse{

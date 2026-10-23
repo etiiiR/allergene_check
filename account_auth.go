@@ -176,7 +176,7 @@ func (s *accountService) HasAccount(ctx context.Context) (bool, error) {
 
 func (s *accountService) Register(ctx context.Context, setupToken, username, password string) error {
 	if s.setupToken == "" || !constantTimeTokenEqual(setupToken, s.setupToken) {
-		return NewAppError(403, "account_setup_rejected", "Der einmalige Einrichtungscode ist ungültig.")
+		return NewAppError(403, "account_setup_rejected", "Der Einrichtungscode ist ungültig.")
 	}
 	username = strings.ToLower(strings.TrimSpace(username))
 	if !accountNameRE.MatchString(username) {
@@ -240,7 +240,12 @@ func (s *accountService) Login(ctx context.Context, ip, username, password strin
 	if deriveErr != nil || !known || subtle.ConstantTimeCompare(actual, expected) != 1 {
 		return "", NewAppError(401, "account_login_failed", "Benutzername oder Passwort stimmen nicht.")
 	}
-	return s.newSession(ctx)
+	token, err := s.newSession(ctx)
+	if err != nil {
+		return "", err
+	}
+	s.clearLoginAttempts(ip)
+	return token, nil
 }
 
 // ChangePassword authenticates the existing session and current password,
@@ -280,7 +285,12 @@ func (s *accountService) ChangePassword(ctx context.Context, ip, token, currentP
 	}
 	account.Salt = base64.RawURLEncoding.EncodeToString(salt)
 	account.PasswordHash = base64.RawURLEncoding.EncodeToString(derived)
-	return s.repository.UpdatePasswordAndDeleteOtherSessions(ctx, *account, hashSessionToken(token))
+	deleted, err := s.repository.UpdatePasswordAndDeleteOtherSessions(ctx, *account, hashSessionToken(token))
+	if err != nil {
+		return 0, err
+	}
+	s.clearLoginAttempts(ip)
+	return deleted, nil
 }
 
 func accountPasswordMatches(account *accountRecord, password string) bool {
@@ -401,6 +411,15 @@ func (s *accountService) allowLogin(ip string) bool {
 	attempt.count++
 	s.attempts[ip] = attempt
 	return true
+}
+
+// A successful credential check proves the current attempt was not a guess.
+// Forget earlier failures so repeated legitimate sign-ins from one household
+// do not accumulate into a lockout.
+func (s *accountService) clearLoginAttempts(ip string) {
+	s.mu.Lock()
+	delete(s.attempts, ip)
+	s.mu.Unlock()
 }
 
 // authenticateRequest checks only an opaque random session token. The stored

@@ -87,6 +87,27 @@ const routes = [
   "/onboarding",
   "/report",
 ];
+
+test(
+  "an empty filter offers a one-tap reset instead of suggesting the diary is new",
+  async ({ page }) => {
+    await page.goto("/diary");
+    await page.getByLabel("Datum").fill("2099-01-01");
+
+    const emptyState = page.locator(".empty-state");
+    await expect(
+      emptyState.getByRole("heading", {
+        name: "Keine Einträge für diese Auswahl",
+      }),
+    ).toBeVisible();
+    await emptyState
+      .getByRole("button", { name: "Alle Einträge zeigen" })
+      .click();
+    await expect(emptyState).toHaveCount(0);
+    await expect(page.locator(".diary-entry").first()).toBeVisible();
+  },
+);
+
 for (const route of routes) {
   test(`responsive and accessible: ${route}`, async ({ page }, testInfo) => {
     const errors = [];

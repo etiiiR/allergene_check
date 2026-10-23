@@ -61,22 +61,22 @@ function edited(saved) {
   editing.value = null;
   refreshAnalysis();
 }
-const events = computed(() => {
-  const all = [
-    ...diary.value.meals.map((x) => ({ ...x, kind: "meals" })),
-    ...diary.value.checkins.map((x) => ({ ...x, kind: "checkins" })),
-    ...(diary.value.stools || []).map((x) => ({
-      ...x,
-      kind: "stools",
-      occurred_at: x.observed_at,
-    })),
-    ...(diary.value.stress_observations || []).map((x) => ({
-      ...x,
-      kind: "stress",
-      occurred_at: x.observed_at,
-    })),
-  ];
-  return all
+const allEvents = computed(() => [
+  ...diary.value.meals.map((x) => ({ ...x, kind: "meals" })),
+  ...diary.value.checkins.map((x) => ({ ...x, kind: "checkins" })),
+  ...(diary.value.stools || []).map((x) => ({
+    ...x,
+    kind: "stools",
+    occurred_at: x.observed_at,
+  })),
+  ...(diary.value.stress_observations || []).map((x) => ({
+    ...x,
+    kind: "stress",
+    occurred_at: x.observed_at,
+  })),
+]);
+const events = computed(() =>
+  allEvents.value
     .filter(
       (x) =>
         (!date.value || dayOf(x.occurred_at) === date.value) &&
@@ -96,8 +96,8 @@ const events = computed(() => {
       sort.value === "severity"
         ? severity(b) - severity(a)
         : b.occurred_at.localeCompare(a.occurred_at),
-    );
-});
+    ),
+);
 const groups = computed(() => {
   if (sort.value === "severity")
     return [{ label: "Nach Beschwerdestärke", items: events.value }];
@@ -206,14 +206,41 @@ const groups = computed(() => {
     </div>
     <section v-if="!events.length" class="panel empty-state">
       <BookOpen :size="32" />
-      <h2>Noch ganz unbeschrieben.</h2>
-      <p>
-        Für diese Auswahl gibt es keine Einträge.<br />Eine Mahlzeit oder ein
-        Check-in ist ein guter Anfang.
-      </p>
-      <UiButton class="button primary" @click="entry = 'check'">
-        Befinden eintragen
-      </UiButton>
+      <template v-if="allEvents.length">
+        <h2>Keine Einträge für diese Auswahl</h2>
+        <p>Ändere Datum oder Filter, um deine anderen Einträge zu sehen.</p>
+        <UiButton
+          class="button secondary"
+          @click="
+            date = '';
+            filter = 'all';
+          "
+        >
+          Alle Einträge zeigen
+        </UiButton>
+      </template>
+      <template v-else>
+        <h2>Noch keine Einträge</h2>
+        <p>
+          Starte mit einer Mahlzeit oder einem kurzen Befinden-Check-in.
+        </p>
+        <div class="empty-state-actions">
+          <UiButton
+            class="button secondary"
+            data-tone="meal"
+            @click="entry = 'meal'"
+          >
+            <Utensils :size="17" />Mahlzeit eintragen
+          </UiButton>
+          <UiButton
+            class="button secondary"
+            data-tone="symptom"
+            @click="entry = 'check'"
+          >
+            <Heart :size="17" />Befinden eintragen
+          </UiButton>
+        </div>
+      </template>
     </section>
     <div class="diary-list">
       <section v-for="group in groups" :key="group.label" class="diary-group">

@@ -16,6 +16,12 @@ test("many ingredient rows stay compact and allergen choices fit a narrow phone"
   await page.goto("/recipes");
   await page.getByRole("button", { name: "Rezept hinzufügen" }).click();
   await page.getByLabel("Rezeptname").fill("Kompaktes Testrezept");
+  await expect(
+    page.getByRole("button", { name: "Rezept speichern", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByText("Zum Speichern mindestens eine Zutat ergänzen."),
+  ).toBeVisible();
   for (let count = 0; count < 10; count += 1) {
     await page
       .getByRole("button", { name: "Zutat manuell hinzufügen" })
@@ -68,7 +74,7 @@ test("HTML import fills portions and locally normalizes the editable preview", a
     "1 Prise Salz",
   );
   await expect(page.getByLabel("Zubereitung")).toHaveValue("Zutaten mischen.");
-  await expect(page.getByRole("alert")).toContainText("Portionszahl prüfen");
+  await expect(page.getByRole("status")).toContainText("Portionszahl prüfen");
   await expect(page.locator(".ingredient-editor").nth(1)).toContainText("Salz");
   await page.getByLabel("Zutat 2", { exact: true }).fill("2 Prisen Salz");
   expect(saves).toBe(0);
@@ -101,6 +107,41 @@ test("unsupported recipe pages show a useful error without clearing the draft", 
   );
   await expect(page.getByLabel("Rezept von URL übernehmen")).toHaveValue(
     source,
+  );
+});
+
+test("recipe import prevents edits from being silently overwritten while it is pending", async ({
+  page,
+}) => {
+  await page.goto("/recipes");
+  await page.getByRole("button", { name: "Rezept hinzufügen" }).click();
+  await page.getByLabel("Rezeptname").fill("Mein Entwurf bleibt erhalten");
+  await page.getByLabel("Rezept von URL übernehmen").fill(source);
+  await page.route("**/api/recipes/import", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await route.fulfill({
+      json: {
+        title: "Importiertes Rezept",
+        ingredients: ["1 Prise Salz"],
+        instructions: "Mischen.",
+        servings: 2,
+        source_url: source,
+      },
+    });
+  });
+
+  const response = page.waitForResponse((r) =>
+    r.url().endsWith("/api/recipes/import"),
+  );
+  await page.getByRole("button", { name: "Vorschau laden" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Deine Eingaben sind kurz gesperrt",
+  );
+  await expect(page.getByLabel("Rezeptname")).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Abbrechen" })).toBeEnabled();
+  await response;
+  await expect(page.getByLabel("Rezeptname")).toHaveValue(
+    "Importiertes Rezept",
   );
 });
 
@@ -140,7 +181,7 @@ test("piece yields require a deliberate portion count instead of silently saving
   await page.getByRole("button", { name: "Vorschau laden" }).click();
   const portions = page.getByLabel("Portionen", { exact: true });
   await expect(portions).toHaveValue("");
-  await expect(page.getByRole("alert")).toContainText("12 Pancakes");
+  await expect(page.getByRole("status")).toContainText("12 Pancakes");
   expect(await portions.evaluate((node) => node.checkValidity())).toBe(false);
   await portions.fill("4");
   expect(await portions.evaluate((node) => node.checkValidity())).toBe(true);

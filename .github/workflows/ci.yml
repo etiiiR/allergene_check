@@ -27,6 +27,12 @@ jobs:
         with:
           go-version: 1.27.1
           cache-dependency-path: go.sum
+      - name: Test guarded account setup-code rotation
+        run: sh scripts/test-rotate-auth-token.sh
+      - name: Test private account setup-code creation
+        run: sh scripts/test-setup-auth-token.sh
+      - name: Test non-executing Compose environment reader
+        run: sh scripts/test-read-compose-env-value.sh
       - run: go test -race ./...
       - run: go vet ./...
 

@@ -20,8 +20,15 @@ type changeAccountPasswordRequest struct {
 }
 
 func registerAccountRoutes(app *fiber.App, service *accountService) {
-	app.Get("/api/auth/status", func(c *fiber.Ctx) error {
+	auth := app.Group("/api/auth", func(c *fiber.Ctx) error {
+		// Never cache authentication responses, especially those that set or
+		// clear a session cookie.
 		c.Set("Cache-Control", "no-store")
+		c.Set("Pragma", "no-cache")
+		return c.Next()
+	})
+
+	auth.Get("/status", func(c *fiber.Ctx) error {
 		if service == nil {
 			return c.JSON(fiber.Map{"configured": false, "available": false})
 		}
@@ -32,7 +39,7 @@ func registerAccountRoutes(app *fiber.App, service *accountService) {
 		return c.JSON(fiber.Map{"configured": exists, "available": true})
 	})
 
-	app.Post("/api/auth/register", func(c *fiber.Ctx) error {
+	auth.Post("/register", func(c *fiber.Ctx) error {
 		if service == nil {
 			return ErrDatabaseNotConfigured
 		}
@@ -57,7 +64,7 @@ func registerAccountRoutes(app *fiber.App, service *accountService) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	app.Post("/api/auth/login", func(c *fiber.Ctx) error {
+	auth.Post("/login", func(c *fiber.Ctx) error {
 		if service == nil {
 			return ErrDatabaseNotConfigured
 		}
@@ -76,7 +83,7 @@ func registerAccountRoutes(app *fiber.App, service *accountService) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	app.Post("/api/auth/logout", func(c *fiber.Ctx) error {
+	auth.Post("/logout", func(c *fiber.Ctx) error {
 		if !sameOrigin(c) || c.Get("X-Diary-Request") != "1" {
 			return NewAppError(403, "request_rejected", "Die Anfrage konnte nicht bestätigt werden.")
 		}
@@ -88,11 +95,10 @@ func registerAccountRoutes(app *fiber.App, service *accountService) {
 			}
 			service.clearSessionCookie(c)
 		}
-		c.Set("Cache-Control", "no-store")
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	app.Delete("/api/auth/sessions/others", func(c *fiber.Ctx) error {
+	auth.Delete("/sessions/others", func(c *fiber.Ctx) error {
 		if service == nil {
 			return ErrDatabaseNotConfigured
 		}
@@ -109,11 +115,10 @@ func registerAccountRoutes(app *fiber.App, service *accountService) {
 			}
 			return WrapAppError(503, "account_sessions_unavailable", "Andere Geräte konnten nicht abgemeldet werden.", err)
 		}
-		c.Set("Cache-Control", "no-store")
 		return c.JSON(fiber.Map{"revoked": count})
 	})
 
-	app.Put("/api/auth/password", func(c *fiber.Ctx) error {
+	auth.Put("/password", func(c *fiber.Ctx) error {
 		if service == nil {
 			return ErrDatabaseNotConfigured
 		}
@@ -134,14 +139,12 @@ func registerAccountRoutes(app *fiber.App, service *accountService) {
 			}
 			return WrapAppError(503, "account_password_unavailable", "Das Kontopasswort konnte nicht sicher geändert werden. Bitte prüfe die Anmeldung und versuche es erneut.", err)
 		}
-		c.Set("Cache-Control", "no-store")
 		return c.JSON(fiber.Map{"revoked_other_sessions": count})
 	})
 
 	// Active browsers poll this endpoint while visible. A revoked device locks
 	// its in-memory vault on its next poll, rather than merely failing on save.
-	app.Get("/api/auth/session", func(c *fiber.Ctx) error {
-		c.Set("Cache-Control", "no-store")
+	auth.Get("/session", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 

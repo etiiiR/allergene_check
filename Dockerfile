@@ -1,8 +1,9 @@
 FROM node:24.21.0-alpine3.24 AS frontend
-WORKDIR /web
+WORKDIR /src/web
 COPY web/package*.json ./
 RUN npm ci
 COPY web/ ./
+COPY ml-service/app/data/ /src/ml-service/app/data/
 RUN npm run build
 
 FROM golang:1.27.1-alpine3.24 AS build
@@ -20,7 +21,7 @@ FROM alpine:3.24.2
 RUN adduser -D -H appuser
 COPY --from=build /out/fiber-api /usr/local/bin/fiber-api
 WORKDIR /app
-COPY --from=frontend /web/dist ./web/dist
+COPY --from=frontend /src/web/dist ./web/dist
 
 USER appuser
 EXPOSE 3000

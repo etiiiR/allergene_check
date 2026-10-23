@@ -126,7 +126,7 @@ async function submit() {
       </p>
       <form class="vault-form" @submit.prevent="submit">
         <label v-if="!accountConfigured" class="vault-field">
-          Einmaliger Einrichtungscode
+          Einrichtungscode
           <input
             ref="setupToken"
             class="d-input"
@@ -134,7 +134,10 @@ async function submit() {
             autocomplete="off"
             required
           />
-          <span>Du findest ihn in der privaten .env-Datei des Servers.</span>
+          <span>
+            Nur nötig, solange für diese Installation noch kein Konto besteht.
+            Du findest ihn in der privaten .env-Datei des Servers.
+          </span>
         </label>
         <label class="vault-field">
           Benutzername

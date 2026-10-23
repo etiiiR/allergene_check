@@ -13,7 +13,7 @@ import (
 func runServer() error {
 	config := loadConfig()
 	if len(config.accountSetupToken) < 32 {
-		return NewAppError(500, ErrorCodeStartup, "ACCOUNT_SETUP_TOKEN must contain at least 32 characters. Create it with sh setup-local-env.sh --auth.")
+		return NewAppError(500, ErrorCodeStartup, "ACCOUNT_SETUP_TOKEN must contain at least 32 characters. Use sh setup-local-env.sh --new for a new database volume, or sh setup-auth-token.sh with an existing .env file.")
 	}
 	if err := validatePublicAppURL(envOrDefault("APP_URL", "http://localhost:3000")); err != nil {
 		return err

@@ -6,12 +6,12 @@ services:
     command:
       - start
       - --user
-      - "${SURREALDB_USER:?Run sh setup-local-env.sh to create a private database password}"
+      - "${SURREALDB_USER:?Run sh setup-local-env.sh --new for a new database volume, or set existing credentials in .env}"
       - --pass
-      - "${SURREALDB_PASS:?Run sh setup-local-env.sh to create a private database password}"
+      - "${SURREALDB_PASS:?Run sh setup-local-env.sh --new for a new database volume, or set existing credentials in .env}"
       - rocksdb:/data/database.db
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${SURREALDB_HOST_PORT:-8000}:8000"
     volumes:
       - surrealdb-data:/data
     healthcheck:
@@ -37,11 +37,11 @@ services:
       SURREALDB_URL: ws://surrealdb:8000/rpc
       SURREALDB_NAMESPACE: ${SURREALDB_NAMESPACE:-main}
       SURREALDB_DATABASE: ${SURREALDB_DATABASE:-main}
-      SURREALDB_USER: "${SURREALDB_USER:?Run sh setup-local-env.sh to create a private database password}"
-      SURREALDB_PASS: "${SURREALDB_PASS:?Run sh setup-local-env.sh to create a private database password}"
-      ACCOUNT_SETUP_TOKEN: "${ACCOUNT_SETUP_TOKEN:?Run sh setup-local-env.sh --auth to create a private one-time account setup code}"
+      SURREALDB_USER: "${SURREALDB_USER:?Run sh setup-local-env.sh --new for a new database volume, or set existing credentials in .env}"
+      SURREALDB_PASS: "${SURREALDB_PASS:?Run sh setup-local-env.sh --new for a new database volume, or set existing credentials in .env}"
+      ACCOUNT_SETUP_TOKEN: "${ACCOUNT_SETUP_TOKEN:?Run sh setup-local-env.sh --new for a new install, or sh setup-auth-token.sh after configuring existing database credentials}"
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${APP_HOST_PORT:-3000}:3000"
     networks:
       - database
       - app-ml
@@ -50,7 +50,7 @@ services:
     build:
       context: ./ml-service
     ports:
-      - "127.0.0.1:8001:8000"
+      - "127.0.0.1:${ML_SERVICE_HOST_PORT:-8001}:8000"
     healthcheck:
       test:
         - CMD

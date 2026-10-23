@@ -119,6 +119,14 @@ func TestAccountSetupPasswordAndSessionAreIndependent(t *testing.T) {
 	if stored.Username != "gut-user" || stored.PasswordHash == accountPassword || stored.Salt == "" {
 		t.Fatalf("account credentials were not normalized and hashed: %#v", stored)
 	}
+	if err := service.Register(ctx, "setup-code-that-is-not-the-vault-key", "second-user", "another long account password"); err == nil {
+		t.Fatal("setup code created another account after the owner account existed")
+	} else {
+		var appErr *AppError
+		if !errors.As(err, &appErr) || appErr.Status != fiber.StatusConflict {
+			t.Fatalf("second account setup returned an unexpected error: %v", err)
+		}
+	}
 
 	if _, err := service.Login(ctx, "127.0.0.1", "not-this-user", accountPassword); err == nil {
 		t.Fatal("login accepted an unknown username")
@@ -134,6 +142,11 @@ func TestAccountSetupPasswordAndSessionAreIndependent(t *testing.T) {
 	token, err := service.Login(ctx, "127.0.0.1", "gut-user", accountPassword)
 	if err != nil {
 		t.Fatalf("login with account password: %v", err)
+	}
+	for attempt := 0; attempt < loginMaxAttempts+2; attempt++ {
+		if _, err := service.Login(ctx, "127.0.0.1", "gut-user", accountPassword); err != nil {
+			t.Fatalf("successful sign-in %d was rate-limited: %v", attempt+1, err)
+		}
 	}
 	valid, err := service.ValidSession(ctx, token)
 	if err != nil || !valid {
@@ -183,6 +196,12 @@ func TestAccountRoutesIssueHttpOnlySameSiteCookieAndProtectPrivateData(t *testin
 		var result map[string]any
 		_ = json.NewDecoder(response.Body).Decode(&result)
 		t.Fatalf("register returned %d: %#v", response.StatusCode, result)
+	}
+	if got := response.Header.Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("register Cache-Control=%q, want no-store", got)
+	}
+	if got := response.Header.Get("Pragma"); got != "no-cache" {
+		t.Fatalf("register Pragma=%q, want no-cache", got)
 	}
 	cookies := response.Cookies()
 	if len(cookies) != 1 || cookies[0].Name != accountSessionCookie || !cookies[0].HttpOnly || !cookies[0].Secure || cookies[0].SameSite != http.SameSiteStrictMode {

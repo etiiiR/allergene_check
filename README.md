@@ -23,7 +23,7 @@ A German-language personal food diary built with Go Fiber, the [Gonertia Go adap
 
 This is a **single-person diary** with one pseudonymous account to sign in across devices; it is not a multi-user service. Keep Docker Compose ports bound to `127.0.0.1` for local use. Remote access is an MVP and must go through an HTTPS reverse proxy; do not expose the app directly. Browser responses set a restrictive same-origin Content Security Policy and basic anti-framing/content-type headers, but these are defense-in-depth. The encrypted vault protects diary content at rest and during vault synchronization, not against a compromised device, a malicious app update, XSS, or access to an unlocked browser. No cloud AI service receives diary text. Recipe import sends the chosen URL to the local crawler service. Fonts are bundled locally.
 
-After setup, diary records and the personal profile (including the display pseudonym) are encrypted in the browser with AES-GCM before the server stores them in the `diary_vault` table. The pseudonymous account password only controls access to the encrypted vault; it cannot decrypt it. Each new device also needs the vault passphrase or recovery key. Neither key is sent to the server. Sessions last 30 days; Profile → Sicherheit can revoke every other device while keeping this one signed in. Open, online tabs check their session about every 30 seconds and lock after learning that access was revoked; offline devices are rejected when they reconnect. There is not yet a per-device session list or account-password recovery. A forgotten vault passphrase can only be replaced with the recovery key. While unlocked, the diary is present in browser memory; lock it when leaving the device. Keep the recovery key separately: losing both vault keys means permanent data loss. In Profile → Sicherheit, you can replace both vault credentials; the diary is re-encrypted on the device with a fresh data key, and the replacement is committed only after you confirm the new recovery phrase. Previously downloaded backups remain unchanged and continue to require the credentials that were active when each backup was made. The profile page downloads an encrypted JSON backup containing only the ciphertext envelope; it can be restored only into an empty vault after local verification with the passphrase or recovery key. Existing plaintext records require the explicit first-run migration; after the encrypted copy is verified, the primary legacy rows are removed transactionally. Historical database snapshots and old exports are not automatically erased. The display pseudonym is not anonymity or an account credential. The legacy plaintext API is disabled except for this one-time migration route. The vault uses revision checks backed by a database transaction to prevent silent concurrent overwrite. Review retention of old database/volume backups before changing deployments.
+After setup, diary records and the personal profile (including the display pseudonym) are encrypted in the browser with AES-GCM before the server stores them in the `diary_vault` table. The pseudonymous account password only controls access to the encrypted vault; it cannot decrypt it. Each new device also needs the vault passphrase or recovery key. Neither key is sent to the server. Sessions last 30 days; Profile → Sicherheit can revoke every other device while keeping this one signed in. Open, online tabs check their session about every 30 seconds and lock after learning that access was revoked; offline devices are rejected when they reconnect. There is not yet a per-device session list or self-service account-password recovery. A forgotten sign-in password can be reset by the self-hosted operator using the [account recovery runbook](docs/ACCOUNT_RECOVERY.md), but that does not restore vault access. A forgotten vault passphrase can only be replaced with the recovery key. While unlocked, the diary is present in browser memory; lock it when leaving the device. Keep the recovery key separately: losing both vault keys means permanent data loss. In Profile → Sicherheit, you can replace both vault credentials; the diary is re-encrypted on the device with a fresh data key, and the replacement is committed only after you confirm the new recovery phrase. Previously downloaded backups remain unchanged and continue to require the credentials that were active when each backup was made. The profile page downloads an encrypted JSON backup containing only the ciphertext envelope; it can be restored only into an empty vault after local verification with the passphrase or recovery key. Existing plaintext records require the explicit first-run migration; after the encrypted copy is verified, the primary legacy rows are removed transactionally. Historical database snapshots and old exports are not automatically erased. The display pseudonym is not anonymity or an account credential. The legacy plaintext API is disabled except for this one-time migration route. The vault uses revision checks backed by a database transaction to prevent silent concurrent overwrite. Review retention of old database/volume backups before changing deployments.
 
 ## How analysis works
 
@@ -82,14 +82,14 @@ a real-device test; it has not been built or installed here.
 
 ## Run the stack with Docker Compose
 
-Docker Compose builds the Vue assets and starts Fiber, persistent SurrealDB, and the Python ML service. For a **new, empty database volume**, create private database and one-time account setup secrets; the helper writes them to the ignored `.env` file with owner-only permissions and never replaces an existing file:
+Docker Compose builds the Vue assets and starts Fiber, persistent SurrealDB, and the Python ML service. For a **new, empty database volume**, create private database and account setup secrets; the helper writes them to the ignored `.env` file with owner-only permissions and never replaces an existing file:
 
 ```sh
 sh setup-local-env.sh --new
 docker-compose up --build
 ```
 
-If you already have a SurrealDB volume, do **not** use `--new`: its database password is stored inside that volume and is not changed by Compose. Keep your existing database credentials, then run `sh setup-auth-token.sh` to add the one-time account setup code without replacing `.env`. For a manually created `.env`, set the existing database credentials and `chmod 600 .env` before starting. Using the wrong credentials will keep the app from connecting, but will not delete the existing data.
+If you already have a SurrealDB volume, do **not** use `--new`: its database password is stored inside that volume and is not changed by Compose. Keep your existing database credentials, then run `sh setup-auth-token.sh` to add an account setup code without replacing `.env`. For a manually created `.env`, set the existing database credentials and `chmod 600 .env` before starting. If you start Go outside Compose, keep the values as single-line, unquoted entries for the safe local environment reader. Using the wrong credentials will keep the app from connecting, but will not delete the existing data.
 
 Open the app at `http://localhost:3000`. On first visit, create the one account for this installation with the setup code from `.env`, then choose a pseudonymous username and a separate account password. Every new device signs in with those account credentials and then unlocks the encrypted diary with its own copy of the vault passphrase or recovery phrase. SurrealDB is at `http://localhost:8000`, and Python API docs are at `http://localhost:8001/docs`.
 SurrealDB `v3.3.0` is pinned rather than following the moving `latest` tag. Data is stored in the named `surrealdb-data` volume. Before changing the database version, take a backup and verify restore plus the integration tests against that version.
@@ -124,15 +124,18 @@ Requires Go 1.27 (required by the pinned Go Inertia adapter), Node 22.12+ or 24+
 ```sh
 npm --prefix web ci
 npm --prefix web run build
-set -a
-. ./.env
-set +a
+set -eu
+SURREALDB_USER="$(sh scripts/read-compose-env-value.sh SURREALDB_USER)" \
+SURREALDB_PASS="$(sh scripts/read-compose-env-value.sh SURREALDB_PASS)" \
+ACCOUNT_SETUP_TOKEN="$(sh scripts/read-compose-env-value.sh ACCOUNT_SETUP_TOKEN)" \
+SURREALDB_NAMESPACE="$(sh scripts/read-compose-env-value.sh SURREALDB_NAMESPACE main)" \
+SURREALDB_DATABASE="$(sh scripts/read-compose-env-value.sh SURREALDB_DATABASE main)" \
 go run .
 ```
 
 For frontend changes, run `npm --prefix web run dev` in another terminal and reload the page. This watches production assets; it is not a Vite HMR server. Set `APP_URL` alongside `PORT` if changing the browser URL, and `ML_SERVICE_URL` if using a different Python endpoint.
 
-The server connects to SurrealDB at `ws://localhost:8000/rpc` by default and direct Go startup binds to `127.0.0.1:3000` only. Start SurrealDB separately before running the API locally. Database credentials and a 32-character one-time account setup secret are required; helpers create them in the ignored `.env`. To load them into a local Go process, run `set -a; . ./.env; set +a` in that shell first. Set `PORT` to use a different port. `LISTEN_HOST` defaults to loopback; only override it for a private container network or behind a verified HTTPS proxy. Compose binds the app inside its container but publishes the host port only on `127.0.0.1`:
+The server connects to SurrealDB at `ws://localhost:8000/rpc` by default and direct Go startup binds to `127.0.0.1:3000` only. Start SurrealDB separately before running the API locally. Database credentials and a 32-character account setup secret are required; helpers create them in the ignored `.env`. The setup secret is accepted only while no account exists and remains valid until rotated. The command above reads only the required values without executing `.env` as shell code; those entries must be single-line and unquoted. Set `PORT` to use a different port. `LISTEN_HOST` defaults to loopback; only override it for a private container network or behind a verified HTTPS proxy. Compose binds the app inside its container but publishes the host port only on `127.0.0.1`:
 
 ```sh
 PORT=8080 go run .
@@ -331,7 +334,7 @@ Connect a WebSocket client to `ws://localhost:3000/ws/live/notes`. Each connecti
 }
 ```
 
-Wrap internal causes with `WrapAppError`. The cause is retained for server logs and `errors.Is`/`errors.As`, but is not sent to clients.
+Wrap internal causes with `WrapAppError`. The cause is retained for `errors.Is`/`errors.As`, but is neither logged nor sent to clients; server logs contain only the request method/path and stable error code.
 
 ## Test
 

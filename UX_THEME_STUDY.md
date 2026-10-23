@@ -464,6 +464,10 @@ nicht lokal ausgeführt.
 - Optionale Felder als optional markieren und erst bei Bedarf zeigen.
 - Eingegebene Daten bei Fehlern erhalten und Erfolg, Laden sowie Analysefehler voneinander
   unterscheiden.
+- Nicht-blockierende Importhinweise als Statusmeldung zeigen; `alert` bleibt echten Fehlern
+  vorbehalten. Deaktivierte Speichern-Aktionen direkt mit der fehlenden Voraussetzung erklären.
+- Während Importen Eingaben sperren, die von der Antwort ersetzt würden; den Grund ankündigen
+  und Abbrechen weiterhin ermöglichen.
 - Auf 320px ohne horizontales Seiten-Scrolling funktionieren; Bedienelemente gross,
   beschriftet und mit Tastatur bedienbar halten.
 - Fehlende Beobachtung ausdrücklich als unbekannt behandeln und Muster vorsichtig formulieren.
@@ -494,6 +498,8 @@ nicht lokal ausgeführt.
 | P0 | Gleichwertige Heute-Aktionen und reduzierte Farbpalette. | Mahlzeit, Befinden, Gutes Befinden und Weitere Beobachtungen teilen Grösse und Gestaltung; drei semantische Farbfamilien; Kontrast/Axe bestehen. | Implementiert; Browser-Regressionen und Axe-Prüfungen bestanden. |
 | P0 | Erststart und erneutes Durchgehen der Profileinrichtung. | Kein vollständiges Profil führt in den dreistufigen Wizard; später fortsetzen; bestehende Profile vorausgefüllt erneut öffnen; Übergänge animiert und reduzierte Bewegung respektiert. | Implementiert; Erststart, Fortsetzen, Fokus, Reduced Motion, persistentes Pseudonym und Entsperren in einem neuen Browserkontext bestanden. |
 | P1 | Zutateneditor verdichten und Allergenauswahl für Mobilgeräte neu ordnen. | Alle Zutatennamen bleiben in der Liste sichtbar; Zuordnung/Allergene überlappen nicht; Import- und manuelle Zutaten bleiben änderbar. | Implementiert; 10 Zutaten und Allergen-Auswahl bei 320px sowie Rezeptimport im Browser bestanden. |
+| P1 | Leere Tagebuchansicht von leeren Filterergebnissen unterscheiden. | Ein wirklich leeres Tagebuch bietet gleichwertig Mahlzeit/Befinden; Filter ohne Treffer erklären den Zustand und setzen Datum/Filter mit einer Aktion zurück. | Implementiert; Browser-Regression hinzugefügt; Unit-Tests und Build bestehen, tatsächlicher Browserlauf wartet auf Docker-Zugriff. |
+| P1 | Rezeptimport vor stillem Überschreiben schützen und Rückmeldung entdramatisieren. | Während des Imports sind ersetzte Felder gesperrt, Abbrechen bleibt nutzbar; Hinweise sind Statusmeldungen, echte Fehler Alerts; fehlende Zutaten erklären den deaktivierten Speichern-Button. | Implementiert; verzögerte Import-Regression hinzugefügt; Unit-Tests und Build bestehen, tatsächlicher Browserlauf wartet auf Docker-Zugriff. |
 | P1 | Prozentanzeigen bei dünner Datenlage entschärfen. | Bei weniger als fünf Momenten in einer Vergleichsgruppe bleiben Fallzahlen sichtbar, Prozentwerte/Balken fehlen und die Beschreibung behauptet keine Ursache. | Implementiert; Regressionen für 1/1, fehlende Vergleichsgruppe, knapp unterschrittene Schwelle und ausreichende Gruppen ergänzt. |
 | P1 | Tagebuch-Hauptschleife mit fünf moderierten Personen prüfen. | Aufgaben: wiederholtes Rezept erfassen, neues Essen protokollieren, Beschwerden mit Verzögerung eintragen, Kontext ohne Mahlzeitenbezug ergänzen, Muster vorsichtig erklären. | Studienplan vorhanden; Personen noch nicht rekrutiert/getestet. |
 | P2 | Erkenntnisse aus echten Sitzungen priorisieren und zweite Iteration prüfen. | Ergebnisse enthalten Erfolgsquote, Zeit, Fehlbedienungen, Rücksprünge, Missverständnisse, Zitat nur mit Einwilligung sowie konkrete Änderung und Retest. | Nach der ersten echten Testrunde. |

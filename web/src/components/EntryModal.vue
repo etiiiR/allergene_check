@@ -14,6 +14,7 @@ import {
 } from "../symptom-selection.js";
 import {
   localTime,
+  symptomIntensityFromScore,
   symptomScoreFromIntensity,
   symptomIntensityLabels,
   useMutation,
