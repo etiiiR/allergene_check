@@ -113,7 +113,9 @@ async function submit() {
       <div class="vault-mark"><ShieldCheck :size="24" /></div>
       <p class="eyebrow">GUTFEELING · PRIVATES TAGEBUCH</p>
       <h1 id="account-title">
-        {{ accountConfigured ? "Auf deinen Tresor zugreifen" : "Konto einrichten" }}
+        {{
+          accountConfigured ? "Auf deinen Tresor zugreifen" : "Konto einrichten"
+        }}
       </h1>
       <p class="vault-intro">
         {{
@@ -145,7 +147,9 @@ async function submit() {
             pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,31}"
             required
           />
-          <span v-if="!accountConfigured">3–32 Zeichen; keine E-Mail nötig.</span>
+          <span v-if="!accountConfigured"
+            >3–32 Zeichen; keine E-Mail nötig.</span
+          >
         </label>
         <label class="vault-field">
           {{ accountConfigured ? "Kontopasswort" : "Neues Kontopasswort" }}
@@ -153,24 +157,47 @@ async function submit() {
             ref="password"
             class="d-input"
             type="password"
-            :autocomplete="accountConfigured ? 'current-password' : 'new-password'"
+            :autocomplete="
+              accountConfigured ? 'current-password' : 'new-password'
+            "
             minlength="12"
             maxlength="1024"
             required
           />
-          <span>Mindestens 12 Zeichen. Nutze ein anderes Passwort als für den Tresor.</span>
+          <span
+            >Mindestens 12 Zeichen. Nutze ein anderes Passwort als für den
+            Tresor.</span
+          >
         </label>
         <p v-if="error" class="alert error" role="alert">{{ error }}</p>
         <button class="button primary account-submit" :disabled="busy">
           <KeyRound :size="16" />
-          {{ busy ? "Wird geprüft …" : accountConfigured ? "Anmelden" : "Konto erstellen" }}
+          {{
+            busy
+              ? "Wird geprüft …"
+              : accountConfigured
+                ? "Anmelden"
+                : "Konto erstellen"
+          }}
         </button>
       </form>
+      <details v-if="accountConfigured" class="account-recovery-note">
+        <summary>Kontopasswort vergessen?</summary>
+        <p>
+          Es gibt noch keine Selbstbedienungs-Wiederherstellung. Wende dich an
+          die Person, die den Server betreibt. Ein neues Kontopasswort gibt nur
+          Zugriff auf den verschlüsselten Tresor – zum Entsperren brauchst du
+          weiterhin deine Tresor-Passphrase oder Wiederherstellungsphrase. Ohne
+          beide Tresorschlüssel kann niemand die gespeicherten Tagebuchdaten
+          wiederherstellen.
+        </p>
+      </details>
       <p class="vault-footnote">
         Dein Kontopasswort meldet Geräte an, kann aber den Tagebuch-Tresor nicht
-        entschlüsseln. Pro neuem Gerät brauchst du zusätzlich die Tresor-Passphrase
-        oder deine Wiederherstellungsphrase. Anmeldung und Kontopasswort brauchen
-        HTTPS, wenn du den Server ausserhalb deines Geräts verwendest.
+        entschlüsseln. Pro neuem Gerät brauchst du zusätzlich die
+        Tresor-Passphrase oder deine Wiederherstellungsphrase. Anmeldung und
+        Kontopasswort brauchen HTTPS, wenn du den Server ausserhalb deines
+        Geräts verwendest.
       </p>
     </section>
   </main>

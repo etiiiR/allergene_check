@@ -298,8 +298,13 @@ async function changeAccountPassword() {
     ]) {
       if (field.value) field.value.value = "";
     }
-    accountPasswordStatus.value =
-      "Kontopasswort geändert. Andere Geräte wurden abgemeldet; deine Tresor-Passphrase bleibt unverändert.";
+    const revoked = Number(result?.revoked_other_sessions) || 0;
+    const deviceStatus = revoked
+      ? revoked === 1
+        ? "1 weitere Anmeldung wurde abgemeldet."
+        : `${revoked} weitere Anmeldungen wurden abgemeldet.`
+      : "Es waren keine weiteren Geräte angemeldet.";
+    accountPasswordStatus.value = `Kontopasswort geändert. ${deviceStatus} Deine Tresor-Passphrase bleibt unverändert.`;
   } catch (cause) {
     accountPasswordError.value = cause.message;
   } finally {

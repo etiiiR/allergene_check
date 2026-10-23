@@ -3457,6 +3457,22 @@ td strong {
 .account-panel .vault-form { gap: 14px; }
 .account-panel .account-submit { min-height: 48px; }
 .account-panel .vault-footnote { line-height: 1.55; }
+.account-recovery-note {
+  border-top: 1px solid var(--border-strong);
+  padding-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.account-recovery-note summary {
+  width: fit-content;
+  color: var(--brand-ink);
+  font-weight: 650;
+  cursor: pointer;
+}
+.account-recovery-note p {
+  margin: 8px 0 0;
+}
 .account-session-card { display: grid; gap: 10px; }
 .account-session-card .helper { margin-bottom: 0; }
 .account-session-card .button { justify-self: start; }

@@ -346,6 +346,41 @@ func TestAccountAndHashedDeviceSessionsPersistInSurrealDB(t *testing.T) {
 	if got, err := repository.SessionExpiry(ctx, passwordOtherID); err != nil || got != 0 {
 		t.Fatalf("password change kept other session: got=%d err=%v", got, err)
 	}
+	resetSessionID := "account-reset-" + uuid.NewString()
+	if err := repository.CreateSession(ctx, resetSessionID, expiry); err != nil {
+		t.Fatalf("create session for account recovery drill: %v", err)
+	}
+	vaultID := models.NewRecordID("diary_vault", "account-reset-"+uuid.NewString())
+	const ciphertextSentinel = "opaque-encrypted-vault-sentinel"
+	if _, err := Create[surrealVaultRecord](ctx, store, vaultID, surrealVaultRecord{
+		Revision: 9, Payload: ciphertextSentinel,
+	}); err != nil {
+		t.Fatalf("create isolated vault sentinel: %v", err)
+	}
+	defer Delete[any](context.Background(), store, vaultID)
+	runbook, err := os.ReadFile("docs/account-reset.surql")
+	if err != nil {
+		t.Fatalf("read account reset runbook query: %v", err)
+	}
+	results, err := Query[any](ctx, store, string(runbook), nil)
+	if err != nil {
+		t.Fatalf("execute account reset runbook query: %v", err)
+	}
+	for _, result := range *results {
+		if result.Error != nil {
+			t.Fatalf("account reset runbook statement failed: %v", result.Error)
+		}
+	}
+	if current, err := repository.Account(ctx); err != nil || current != nil {
+		t.Fatalf("account reset left credentials in place: account=%#v err=%v", current, err)
+	}
+	if got, err := repository.SessionExpiry(ctx, resetSessionID); err != nil || got != 0 {
+		t.Fatalf("account reset left a session active: expiry=%d err=%v", got, err)
+	}
+	unchangedVault, err := Select[surrealVaultRecord](ctx, store, vaultID)
+	if err != nil || unchangedVault == nil || unchangedVault.Payload != ciphertextSentinel || unchangedVault.Revision != 9 {
+		t.Fatalf("account reset changed the encrypted vault: vault=%#v err=%v", unchangedVault, err)
+	}
 }
 
 // requireIsolatedIntegrationConfig prevents opt-in tests from modifying a

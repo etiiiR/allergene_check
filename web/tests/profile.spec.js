@@ -219,7 +219,7 @@ test("account password change separates account sign-in from the vault phrase", 
   await confirm.fill("replacement account password 123");
   await page.getByRole("button", { name: "Kontopasswort ändern" }).click();
   await expect(page.getByRole("status")).toContainText(
-    "Andere Geräte wurden abgemeldet",
+    "1 weitere Anmeldung wurde abgemeldet",
   );
   expect(requestBody).toEqual({
     current_password: "old account password",
