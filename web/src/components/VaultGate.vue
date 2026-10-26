@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { usePage } from "@inertiajs/vue3";
 import {
   ShieldCheck,
@@ -284,8 +284,24 @@ async function copyRecoveryKey() {
 
 let idleLock;
 const recordActivity = () => idleLock?.activity();
-const recheckIdleLock = () => {
-  if (document.visibilityState === "visible") idleLock?.recheck();
+const coverPrivateScreen = () => {
+  document.documentElement.dataset.privacyCover = "true";
+};
+const revealPrivateScreen = async () => {
+  if (document.visibilityState !== "visible") return;
+  idleLock?.recheck();
+  // Let a timed-out vault replace the decrypted page before revealing the app.
+  await nextTick();
+  if (document.visibilityState === "visible") {
+    delete document.documentElement.dataset.privacyCover;
+  }
+};
+const handleVisibilityChange = () => {
+  if (document.visibilityState === "visible") {
+    void revealPrivateScreen();
+  } else {
+    coverPrivateScreen();
+  }
 };
 onMounted(() => {
   idleLock = createVaultIdleLock({
@@ -298,8 +314,9 @@ onMounted(() => {
   window.addEventListener("touchstart", recordActivity, { passive: true });
   window.addEventListener("wheel", recordActivity, { passive: true });
   window.addEventListener("keydown", recordActivity);
-  document.addEventListener("visibilitychange", recheckIdleLock);
-  window.addEventListener("pageshow", recheckIdleLock);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  window.addEventListener("pagehide", coverPrivateScreen);
+  window.addEventListener("pageshow", handleVisibilityChange);
   idleLock.activity();
 });
 watch(unlocked, recordActivity);
@@ -309,12 +326,14 @@ onBeforeUnmount(() => {
   recoveryKeyForConfirmation = "";
   legacyDiary = null;
   clearCredentials();
+  delete document.documentElement.dataset.privacyCover;
   window.removeEventListener("pointerdown", recordActivity);
   window.removeEventListener("touchstart", recordActivity);
   window.removeEventListener("wheel", recordActivity);
   window.removeEventListener("keydown", recordActivity);
-  document.removeEventListener("visibilitychange", recheckIdleLock);
-  window.removeEventListener("pageshow", recheckIdleLock);
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
+  window.removeEventListener("pagehide", coverPrivateScreen);
+  window.removeEventListener("pageshow", handleVisibilityChange);
 });
 </script>
 

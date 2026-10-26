@@ -580,3 +580,20 @@ Backup-Restore-Test verifizierte auch die leere Zielinstanz. Der neue Warnhinwei
 320px mit Axe auf die Komponente, ohne horizontales Scrollen, mit „Weiterarbeiten“ und
 anschliessender automatischer Sperre geprüft. Die Seitenscans der übrigen Responsivitätsprüfungen
 liefen ebenfalls weiter.
+
+## 15. Privatsphäre beim Wechseln aus der App
+
+Nachtrag 26. Oktober 2026. Auch ein Ende-zu-Ende verschlüsseltes Tagebuch ist nach dem
+Entsperren auf dem Bildschirm lesbar. Beim Wechsel zu einer anderen App kann das Betriebssystem
+einen Bildschirmstand in der Aufgabenübersicht anzeigen. Die Web-App deckt deshalb den gesamten
+Inertia-Inhalt ab, sobald das Dokument in den Hintergrund geht oder `pagehide` ausgelöst wird.
+Beim Zurückkehren prüft sie zuerst die bestehende 15-Minuten-Sperre und zeigt erst danach wieder
+den Tresor oder den Entsperrbildschirm. Der Bildschirmwechsel verlängert die Frist nicht,
+speichert keine Notiz in `localStorage` und löscht keinen offenen Entwurf vor Ablauf der Frist.
+
+Die neue Playwright-Regressionsprüfung simuliert Hintergrund und Rückkehr und prüft, dass der
+Inhalt im Hintergrund-Cover nicht sichtbar und nach der Rückkehr wieder verfügbar ist, solange
+die Sperrfrist nicht abgelaufen ist. Das beweist noch nicht, dass iOS oder Android in jeder
+Version den App-Switcher-Screenshot rechtzeitig aktualisiert. Dafür sind Installations- und
+Gerätetests mit Bildschirmwechsel, Gerätesperre, App-Unterbrechung und abgelaufener Sperrfrist
+offen. Assistive-Technik und echte Nutzende sind weiterhin separat zu prüfen.

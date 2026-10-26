@@ -235,6 +235,32 @@ test("automatic vault lock warns first and offers a non-modal way to continue", 
   ).toBeVisible();
 });
 
+test("backgrounding covers decrypted diary content and checks idle time before revealing it", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".app-shell")).toBeVisible();
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(page.locator("#app")).toHaveCSS("visibility", "hidden");
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(page.locator("#app")).toHaveCSS("visibility", "visible");
+  await expect(page.locator(".app-shell")).toBeVisible();
+});
+
 test("inline editor retains failed inputs, re-enables saving, and restores focus", async ({
   page,
 }, testInfo) => {

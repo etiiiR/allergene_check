@@ -36,6 +36,13 @@ body {
   font-size: 14px;
   line-height: 1.55;
 }
+html[data-privacy-cover],
+html[data-privacy-cover] body {
+  background: var(--canvas);
+}
+html[data-privacy-cover] #app {
+  visibility: hidden !important;
+}
 #nprogress {
   pointer-events: none;
 }
