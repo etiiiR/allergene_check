@@ -69,6 +69,12 @@ const confirmAccountPasswordField = ref(null);
 const accountPasswordBusy = ref(false);
 const accountPasswordError = ref("");
 const accountPasswordStatus = ref("");
+const accountRecoveryCode = ref("");
+const accountRecoveryCodeConfirmation = ref(null);
+const accountRecoveryPasswordField = ref(null);
+const accountRecoveryBusy = ref(false);
+const accountRecoveryError = ref("");
+const accountRecoveryStatus = ref("");
 let preparedRotation = null;
 let rotationRecoveryKey = "";
 const healthSource = ref("apple_healthkit");
@@ -384,6 +390,87 @@ async function changeAccountPassword() {
     accountPasswordError.value = cause.message;
   } finally {
     accountPasswordBusy.value = false;
+  }
+}
+
+function generateAccountRecoveryCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  accountRecoveryCode.value = btoa(String.fromCharCode(...bytes))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/u, "");
+  bytes.fill(0);
+  if (accountRecoveryCodeConfirmation.value) {
+    accountRecoveryCodeConfirmation.value.value = "";
+  }
+  if (accountRecoveryPasswordField.value) {
+    accountRecoveryPasswordField.value.value = "";
+  }
+  accountRecoveryError.value = "";
+  accountRecoveryStatus.value = "";
+}
+
+async function copyAccountRecoveryCode() {
+  try {
+    await navigator.clipboard.writeText(accountRecoveryCode.value);
+    notify("Wiederherstellungscode kopiert. Speichere ihn sicher.");
+  } catch {
+    accountRecoveryError.value =
+      "Kopieren nicht möglich. Markiere und kopiere den Code manuell.";
+  }
+}
+
+async function saveAccountRecoveryCode() {
+  if (accountRecoveryBusy.value || !accountRecoveryCode.value) return;
+  accountRecoveryError.value = "";
+  accountRecoveryStatus.value = "";
+  if (
+    accountRecoveryCodeConfirmation.value?.value !== accountRecoveryCode.value
+  ) {
+    accountRecoveryError.value =
+      "Der Code stimmt nicht überein. Kopiere ihn zuerst an einen sicheren Ort.";
+    return;
+  }
+  const currentPassword = accountRecoveryPasswordField.value?.value || "";
+  if (!currentPassword) {
+    accountRecoveryError.value = "Gib zur Bestätigung dein Kontopasswort ein.";
+    return;
+  }
+  accountRecoveryBusy.value = true;
+  try {
+    const response = await fetch("/api/auth/recovery-code", {
+      method: "PUT",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Diary-Request": "1",
+      },
+      body: JSON.stringify({
+        current_password: currentPassword,
+        recovery_code: accountRecoveryCode.value,
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(
+        result?.error?.message ||
+          "Der Wiederherstellungscode konnte nicht gespeichert werden.",
+      );
+    }
+    accountRecoveryCode.value = "";
+    if (accountRecoveryCodeConfirmation.value) {
+      accountRecoveryCodeConfirmation.value.value = "";
+    }
+    if (accountRecoveryPasswordField.value) {
+      accountRecoveryPasswordField.value.value = "";
+    }
+    accountRecoveryStatus.value =
+      "Wiederherstellungscode eingerichtet. Bewahre deine Kopie sicher auf; dieser Code ersetzt nicht deine Tresor-Passphrase.";
+  } catch (cause) {
+    accountRecoveryError.value = cause.message;
+  } finally {
+    accountRecoveryBusy.value = false;
   }
 }
 
@@ -960,6 +1047,88 @@ onBeforeUnmount(clearRotation);
         <p v-if="accountPasswordStatus" class="alert success" role="status">
           {{ accountPasswordStatus }}
         </p>
+        <hr class="session-divider" />
+        <div class="account-recovery-setup">
+          <div>
+            <h2>Kontopasswort wiederherstellen</h2>
+            <p class="helper">
+              Richte vorsorglich einen einmaligen Code ein. Er kann nur die
+              Geräte-Anmeldung zurücksetzen – zum Entschlüsseln deines
+              Tagebuchs brauchst du weiterhin die Tresor-Passphrase oder
+              Wiederherstellungsphrase. Ohne Code bleibt die Wiederherstellung
+              über die Serverbetreuung.
+            </p>
+          </div>
+          <UiButton
+            v-if="!accountRecoveryCode"
+            type="button"
+            class="button secondary"
+            @click="generateAccountRecoveryCode"
+          >
+            Wiederherstellungscode erstellen oder ersetzen
+          </UiButton>
+          <div v-else class="account-recovery-code-step">
+            <p class="helper" role="note">
+              Speichere diesen Code jetzt in deinem Passwortmanager oder an
+              einem anderen sicheren Ort. Er wird nach der Bestätigung nicht
+              erneut angezeigt.
+            </p>
+            <code
+              class="vault-recovery-key account-recovery-code"
+              data-testid="account-recovery-code"
+              aria-label="Kontopasswort-Wiederherstellungscode"
+              >{{ accountRecoveryCode }}</code
+            >
+            <UiButton
+              type="button"
+              class="button secondary"
+              @click="copyAccountRecoveryCode"
+            >
+              <Copy :size="16" /> Code kopieren
+            </UiButton>
+            <form
+              class="form account-recovery-confirm-form"
+              @submit.prevent="saveAccountRecoveryCode"
+            >
+              <label class="vault-field">
+                Code zur Bestätigung erneut eingeben
+                <input
+                  ref="accountRecoveryCodeConfirmation"
+                  class="d-input"
+                  autocomplete="off"
+                  autocapitalize="off"
+                  spellcheck="false"
+                  required
+                />
+              </label>
+              <label class="vault-field">
+                Aktuelles Kontopasswort
+                <input
+                  ref="accountRecoveryPasswordField"
+                  class="d-input"
+                  type="password"
+                  autocomplete="current-password"
+                  maxlength="1024"
+                  required
+                />
+              </label>
+              <UiButton
+                type="submit"
+                class="button secondary"
+                :disabled="accountRecoveryBusy"
+                :loading="accountRecoveryBusy"
+              >
+                Code speichern
+              </UiButton>
+            </form>
+          </div>
+          <p v-if="accountRecoveryError" class="alert error" role="alert">
+            {{ accountRecoveryError }}
+          </p>
+          <p v-if="accountRecoveryStatus" class="alert success" role="status">
+            {{ accountRecoveryStatus }}
+          </p>
+        </div>
         <hr class="session-divider" />
         <div>
           <h2>Angemeldete Geräte</h2>

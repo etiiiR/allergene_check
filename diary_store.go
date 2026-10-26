@@ -42,6 +42,7 @@ DEFINE TABLE IF NOT EXISTS diary_account SCHEMALESS;
 DEFINE FIELD IF NOT EXISTS username ON diary_account TYPE string;
 DEFINE FIELD IF NOT EXISTS salt ON diary_account TYPE string;
 DEFINE FIELD IF NOT EXISTS password_hash ON diary_account TYPE string;
+DEFINE FIELD IF NOT EXISTS recovery_code_hash ON diary_account TYPE string;
 DEFINE TABLE IF NOT EXISTS diary_account_sessions SCHEMALESS;
 DEFINE FIELD IF NOT EXISTS expires_at ON diary_account_sessions TYPE int;
 DEFINE FIELD IF NOT EXISTS created_at ON diary_account_sessions TYPE int;

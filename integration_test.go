@@ -371,10 +371,6 @@ func TestAccountAndHashedDeviceSessionsPersistInSurrealDB(t *testing.T) {
 	if got, err := repository.SessionExpiry(ctx, passwordOtherID); err != nil || got != 0 {
 		t.Fatalf("password change kept other session: got=%d err=%v", got, err)
 	}
-	resetSessionID := "account-reset-" + uuid.NewString()
-	if err := repository.CreateSession(ctx, resetSessionID, expiry); err != nil {
-		t.Fatalf("create session for account recovery drill: %v", err)
-	}
 	vaultID := models.NewRecordID("diary_vault", "account-reset-"+uuid.NewString())
 	const ciphertextSentinel = "opaque-encrypted-vault-sentinel"
 	if _, err := Create[surrealVaultRecord](ctx, store, vaultID, surrealVaultRecord{
@@ -383,6 +379,43 @@ func TestAccountAndHashedDeviceSessionsPersistInSurrealDB(t *testing.T) {
 		t.Fatalf("create isolated vault sentinel: %v", err)
 	}
 	defer Delete[any](context.Background(), store, vaultID)
+	recoveryHash := strings.Repeat("d", 64)
+	if err := repository.SetRecoveryCodeHash(ctx, recoveryHash); err != nil {
+		t.Fatalf("save account recovery verifier: %v", err)
+	}
+	recoverySessionID := "recovery-current-" + uuid.NewString()
+	recoveryOtherID := "recovery-other-" + uuid.NewString()
+	if err := repository.CreateSession(ctx, recoverySessionID, expiry); err != nil {
+		t.Fatalf("create current session for account recovery: %v", err)
+	}
+	if err := repository.CreateSession(ctx, recoveryOtherID, expiry); err != nil {
+		t.Fatalf("create other session for account recovery: %v", err)
+	}
+	if err := repository.RecoverAccountPassword(ctx, "isolated-test", recoveryHash, accountRecord{
+		Salt: "cmVjb3Zlcnktc2FsdC0xMjM0", PasswordHash: "cmVjb3ZlcnktcGFzc3dvcmRoYXNoMTIzNDU2Nzg5MDEyMzQ1Ng",
+	}); err != nil {
+		t.Fatalf("transactionally consume recovery code and revoke sessions: %v", err)
+	}
+	loaded, err = repository.Account(ctx)
+	if err != nil || loaded == nil || loaded.RecoveryCodeHash != "" || loaded.Salt != "cmVjb3Zlcnktc2FsdC0xMjM0" {
+		t.Fatalf("account recovery did not atomically replace credentials and consume code: %#v err=%v", loaded, err)
+	}
+	for _, id := range []string{recoverySessionID, recoveryOtherID} {
+		if got, err := repository.SessionExpiry(ctx, id); err != nil || got != 0 {
+			t.Fatalf("account recovery left session %q active: expiry=%d err=%v", id, got, err)
+		}
+	}
+	if err := repository.RecoverAccountPassword(ctx, "isolated-test", recoveryHash, accountRecord{Salt: "replay", PasswordHash: "replay"}); !errors.Is(err, ErrAccountRecoveryFailed) {
+		t.Fatalf("recovery verifier was reusable: err=%v", err)
+	}
+	unchangedVault, err := Select[surrealVaultRecord](ctx, store, vaultID)
+	if err != nil || unchangedVault == nil || unchangedVault.Payload != ciphertextSentinel || unchangedVault.Revision != 9 {
+		t.Fatalf("account recovery changed the encrypted vault: vault=%#v err=%v", unchangedVault, err)
+	}
+	resetSessionID := "account-reset-" + uuid.NewString()
+	if err := repository.CreateSession(ctx, resetSessionID, expiry); err != nil {
+		t.Fatalf("create session for operator recovery drill: %v", err)
+	}
 	runbook, err := os.ReadFile("docs/account-reset.surql")
 	if err != nil {
 		t.Fatalf("read account reset runbook query: %v", err)
@@ -402,7 +435,7 @@ func TestAccountAndHashedDeviceSessionsPersistInSurrealDB(t *testing.T) {
 	if got, err := repository.SessionExpiry(ctx, resetSessionID); err != nil || got != 0 {
 		t.Fatalf("account reset left a session active: expiry=%d err=%v", got, err)
 	}
-	unchangedVault, err := Select[surrealVaultRecord](ctx, store, vaultID)
+	unchangedVault, err = Select[surrealVaultRecord](ctx, store, vaultID)
 	if err != nil || unchangedVault == nil || unchangedVault.Payload != ciphertextSentinel || unchangedVault.Revision != 9 {
 		t.Fatalf("account reset changed the encrypted vault: vault=%#v err=%v", unchangedVault, err)
 	}

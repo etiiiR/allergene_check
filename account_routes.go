@@ -19,6 +19,17 @@ type changeAccountPasswordRequest struct {
 	NewPassword     string `json:"new_password"`
 }
 
+type accountRecoveryCodeRequest struct {
+	CurrentPassword string `json:"current_password"`
+	RecoveryCode    string `json:"recovery_code"`
+}
+
+type accountRecoveryRequest struct {
+	Username     string `json:"username"`
+	RecoveryCode string `json:"recovery_code"`
+	NewPassword  string `json:"new_password"`
+}
+
 func registerAccountRoutes(app *fiber.App, service *accountService) {
 	auth := app.Group("/api/auth", func(c *fiber.Ctx) error {
 		// Never cache authentication responses, especially those that set or
@@ -80,6 +91,52 @@ func registerAccountRoutes(app *fiber.App, service *accountService) {
 			return err
 		}
 		service.setSessionCookie(c, token)
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	auth.Put("/recovery-code", func(c *fiber.Ctx) error {
+		if service == nil {
+			return ErrDatabaseNotConfigured
+		}
+		if !sameOrigin(c) || c.Get("X-Diary-Request") != "1" {
+			return NewAppError(403, "request_rejected", "Die Anfrage konnte nicht bestätigt werden.")
+		}
+		var request accountRecoveryCodeRequest
+		if err := c.BodyParser(&request); err != nil || len(request.CurrentPassword) > 1024 {
+			return invalid("Die Wiederherstellungsangaben sind ungültig.")
+		}
+		ctx, cancel := context.WithTimeout(c.UserContext(), 8*time.Second)
+		defer cancel()
+		if err := service.SetAccountRecoveryCode(ctx, c.IP(), c.Cookies(accountSessionCookie), request.CurrentPassword, request.RecoveryCode); err != nil {
+			var appErr *AppError
+			if errors.As(err, &appErr) {
+				return err
+			}
+			return WrapAppError(503, "account_recovery_unavailable", "Der Wiederherstellungscode konnte nicht gespeichert werden.", err)
+		}
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	auth.Post("/recover", func(c *fiber.Ctx) error {
+		if service == nil {
+			return ErrDatabaseNotConfigured
+		}
+		if !sameOrigin(c) || c.Get("X-Diary-Request") != "1" {
+			return NewAppError(403, "request_rejected", "Die Anfrage konnte nicht bestätigt werden.")
+		}
+		var request accountRecoveryRequest
+		if err := c.BodyParser(&request); err != nil || len(request.RecoveryCode) > 128 || len(request.NewPassword) > 1024 {
+			return accountRecoveryRejected()
+		}
+		ctx, cancel := context.WithTimeout(c.UserContext(), 10*time.Second)
+		defer cancel()
+		if err := service.RecoverAccountPassword(ctx, c.IP(), request.Username, request.RecoveryCode, request.NewPassword); err != nil {
+			var appErr *AppError
+			if errors.As(err, &appErr) {
+				return err
+			}
+			return WrapAppError(503, "account_recovery_unavailable", "Die Anmeldung kann gerade nicht wiederhergestellt werden.", err)
+		}
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 

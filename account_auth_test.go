@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -120,6 +122,30 @@ func (r *memoryAccountRepository) UpdatePasswordAndDeleteOtherSessions(_ context
 		}
 	}
 	return deleted, nil
+}
+
+func (r *memoryAccountRepository) SetRecoveryCodeHash(_ context.Context, hash string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.account == nil {
+		return ErrNoAccount
+	}
+	r.account.RecoveryCodeHash = hash
+	return nil
+}
+
+func (r *memoryAccountRepository) RecoverAccountPassword(_ context.Context, username, expectedHash string, replacement accountRecord) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.account == nil || r.account.Username != username || r.account.RecoveryCodeHash != expectedHash {
+		return ErrAccountRecoveryFailed
+	}
+	replacement.Username = r.account.Username
+	replacement.RecoveryCodeHash = ""
+	r.account = &replacement
+	r.sessions = make(map[string]int64)
+	r.sessionMetadata = make(map[string]accountSessionRecord)
+	return nil
 }
 
 func TestAccountSetupPasswordAndSessionAreIndependent(t *testing.T) {
@@ -398,6 +424,125 @@ func TestDeviceLabelFromUserAgentStoresOnlyCoarsePlatform(t *testing.T) {
 	}
 	if got := deviceLabelFromUserAgent(strings.Repeat("x", 4096)); len(got) > 64 {
 		t.Fatalf("unexpectedly retained raw user-agent data: %q", got)
+	}
+}
+
+func TestAccountRecoveryCodeResetsSignInOnceAndRevokesEveryDevice(t *testing.T) {
+	repository := newMemoryAccountRepository()
+	service := newAccountService(repository, strings.Repeat("s", 32), "https://gut.example")
+	ctx := context.Background()
+	const oldPassword = "a separate account password 123"
+	const newPassword = "a newly recovered password 456"
+	if err := service.Register(ctx, strings.Repeat("s", 32), "gut-user", oldPassword); err != nil {
+		t.Fatalf("register account: %v", err)
+	}
+	current, err := service.Login(ctx, "192.0.2.1", "gut-user", oldPassword)
+	if err != nil {
+		t.Fatalf("create current session: %v", err)
+	}
+	other, err := service.Login(ctx, "192.0.2.2", "gut-user", oldPassword)
+	if err != nil {
+		t.Fatalf("create other session: %v", err)
+	}
+	recoveryCode := base64.RawURLEncoding.EncodeToString([]byte(strings.Repeat("x", accountRecoveryCodeBytes)))
+	if err := service.SetAccountRecoveryCode(ctx, "192.0.2.1", current, oldPassword, recoveryCode); err != nil {
+		t.Fatalf("save recovery code: %v", err)
+	}
+	stored, err := repository.Account(ctx)
+	if err != nil || stored == nil || stored.RecoveryCodeHash == recoveryCode || stored.RecoveryCodeHash == "" {
+		t.Fatalf("recovery code was stored without a one-way digest: account=%#v err=%v", stored, err)
+	}
+	if err := service.RecoverAccountPassword(ctx, "192.0.2.3", "gut-user", strings.Repeat("A", 43), newPassword); err == nil {
+		t.Fatal("account recovery accepted a different validly-shaped code")
+	}
+	if err := service.RecoverAccountPassword(ctx, "192.0.2.3", "GUT-USER", recoveryCode, newPassword); err != nil {
+		t.Fatalf("recover sign-in with the correct code: %v", err)
+	}
+	for _, token := range []string{current, other} {
+		if valid, err := service.ValidSession(ctx, token); err != nil || valid {
+			t.Fatalf("recovery left an existing device signed in: valid=%v err=%v", valid, err)
+		}
+	}
+	if _, err := service.Login(ctx, "192.0.2.4", "gut-user", oldPassword); err == nil {
+		t.Fatal("old sign-in password still works after recovery")
+	}
+	if _, err := service.Login(ctx, "192.0.2.4", "gut-user", newPassword); err != nil {
+		t.Fatalf("new sign-in password does not work: %v", err)
+	}
+	if err := service.RecoverAccountPassword(ctx, "192.0.2.5", "gut-user", recoveryCode, oldPassword); err == nil {
+		t.Fatal("single-use recovery code worked a second time")
+	}
+}
+
+func TestAccountRecoveryRoutesRequireSameOriginTokenAndResetOnlySignIn(t *testing.T) {
+	repository := newMemoryAccountRepository()
+	service := newAccountService(repository, strings.Repeat("s", 32), "http://localhost")
+	ctx := context.Background()
+	const oldPassword = "original account password 123"
+	const newPassword = "recovered account password 456"
+	if err := service.Register(ctx, strings.Repeat("s", 32), "gut-user", oldPassword); err != nil {
+		t.Fatalf("register account: %v", err)
+	}
+	current, err := service.Login(ctx, "192.0.2.1", "gut-user", oldPassword)
+	if err != nil {
+		t.Fatalf("create current session: %v", err)
+	}
+	other, err := service.Login(ctx, "192.0.2.2", "gut-user", oldPassword)
+	if err != nil {
+		t.Fatalf("create other session: %v", err)
+	}
+	code := base64.RawURLEncoding.EncodeToString([]byte(strings.Repeat("r", accountRecoveryCodeBytes)))
+	app := fiber.New(fiber.Config{ErrorHandler: AppErrorHandler})
+	app.Use(accountGateMiddleware(service))
+	registerAccountRoutes(app, service)
+
+	codeBody, _ := json.Marshal(accountRecoveryCodeRequest{CurrentPassword: oldPassword, RecoveryCode: code})
+	request := httptest.NewRequest(http.MethodPut, "/api/auth/recovery-code", strings.NewReader(string(codeBody)))
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{Name: accountSessionCookie, Value: current})
+	response, err := app.Test(request, 10_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusForbidden {
+		t.Fatalf("code setup without request token returned %d, want 403", response.StatusCode)
+	}
+
+	request = httptest.NewRequest(http.MethodPut, "/api/auth/recovery-code", strings.NewReader(string(codeBody)))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Diary-Request", "1")
+	request.AddCookie(&http.Cookie{Name: accountSessionCookie, Value: current})
+	response, err = app.Test(request, 10_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusNoContent {
+		t.Fatalf("code setup returned %d, want 204", response.StatusCode)
+	}
+
+	recoveryBody, _ := json.Marshal(accountRecoveryRequest{Username: "gut-user", RecoveryCode: code, NewPassword: newPassword})
+	request = httptest.NewRequest(http.MethodPost, "/api/auth/recover", strings.NewReader(string(recoveryBody)))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Diary-Request", "1")
+	response, err = app.Test(request, 10_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(response.Body)
+		response.Body.Close()
+		t.Fatalf("account recovery returned %d, want 204: %s", response.StatusCode, body)
+	}
+	response.Body.Close()
+	for _, token := range []string{current, other} {
+		if valid, err := service.ValidSession(ctx, token); err != nil || valid {
+			t.Fatalf("account recovery left an existing session active: valid=%v err=%v", valid, err)
+		}
+	}
+	if _, err := service.Login(ctx, "192.0.2.3", "gut-user", newPassword); err != nil {
+		t.Fatalf("recovered account password cannot sign in: %v", err)
 	}
 }
 

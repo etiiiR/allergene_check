@@ -23,28 +23,31 @@ import (
 )
 
 const (
-	accountRecordKey       = "owner"
-	accountSessionCookie   = "gutfeeling_session"
-	accountSessionLifetime = 30 * 24 * time.Hour
-	passwordHashIterations = 600_000
-	passwordHashBytes      = 32
-	passwordSaltBytes      = 16
-	loginWindow            = 15 * time.Minute
-	loginMaxAttempts       = 8
-	loginCleanupInterval   = time.Minute
-	maxTrackedLoginIPs     = 4096
+	accountRecordKey         = "owner"
+	accountSessionCookie     = "gutfeeling_session"
+	accountSessionLifetime   = 30 * 24 * time.Hour
+	passwordHashIterations   = 600_000
+	passwordHashBytes        = 32
+	passwordSaltBytes        = 16
+	accountRecoveryCodeBytes = 32
+	loginWindow              = 15 * time.Minute
+	loginMaxAttempts         = 8
+	loginCleanupInterval     = time.Minute
+	maxTrackedLoginIPs       = 4096
 )
 
 var (
-	ErrAccountExists = errors.New("account already exists")
-	ErrNoAccount     = errors.New("account does not exist")
-	accountNameRE    = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{2,31}$`)
+	ErrAccountExists         = errors.New("account already exists")
+	ErrNoAccount             = errors.New("account does not exist")
+	ErrAccountRecoveryFailed = errors.New("account recovery failed")
+	accountNameRE            = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{2,31}$`)
 )
 
 type accountRecord struct {
-	Username     string `json:"username"`
-	Salt         string `json:"salt"`
-	PasswordHash string `json:"password_hash"`
+	Username         string `json:"username"`
+	Salt             string `json:"salt"`
+	PasswordHash     string `json:"password_hash"`
+	RecoveryCodeHash string `json:"recovery_code_hash"`
 }
 
 type accountSessionRecord struct {
@@ -82,6 +85,8 @@ type AccountRepository interface {
 	DeleteSession(context.Context, string) error
 	DeleteOtherSessions(context.Context, string) (int, error)
 	UpdatePasswordAndDeleteOtherSessions(context.Context, accountRecord, string) (int, error)
+	SetRecoveryCodeHash(context.Context, string) error
+	RecoverAccountPassword(context.Context, string, string, accountRecord) error
 }
 
 type surrealAccountRepository struct{ store *SurrealStore }
@@ -176,6 +181,46 @@ func (r *surrealAccountRepository) UpdatePasswordAndDeleteOtherSessions(ctx cont
 		return 0, err
 	}
 	return deleted, nil
+}
+
+func (r *surrealAccountRepository) SetRecoveryCodeHash(ctx context.Context, hash string) error {
+	_, err := Merge[accountRecord](ctx, r.store,
+		models.NewRecordID("diary_account", accountRecordKey),
+		map[string]any{"recovery_code_hash": hash},
+	)
+	return err
+}
+
+// RecoverAccountPassword atomically consumes a recovery verifier, replaces
+// only sign-in credentials, and revokes every session. It never touches the
+// encrypted diary vault or receives its decryption keys.
+func (r *surrealAccountRepository) RecoverAccountPassword(ctx context.Context, username, expectedHash string, replacement accountRecord) error {
+	return r.store.WithTransaction(ctx, func(tx *surrealdb.Transaction) error {
+		id := models.NewRecordID("diary_account", accountRecordKey)
+		current, err := surrealdb.Select[accountRecord](ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if current == nil || current.Username != username || current.RecoveryCodeHash == "" ||
+			subtle.ConstantTimeCompare([]byte(current.RecoveryCodeHash), []byte(expectedHash)) != 1 {
+			return ErrAccountRecoveryFailed
+		}
+		replacement.Username = current.Username
+		replacement.RecoveryCodeHash = "" // Recovery codes are single-use.
+		if _, err := surrealdb.Update[accountRecord](ctx, tx, id, replacement); err != nil {
+			return err
+		}
+		results, err := surrealdb.Query[any](ctx, tx, `DELETE FROM diary_account_sessions;`, nil)
+		if err != nil {
+			return err
+		}
+		for _, result := range *results {
+			if result.Error != nil {
+				return result.Error
+			}
+		}
+		return nil
+	})
 }
 
 type accountService struct {
@@ -330,6 +375,99 @@ func (s *accountService) ChangePassword(ctx context.Context, ip, token, currentP
 	}
 	s.clearLoginAttempts(ip)
 	return deleted, nil
+}
+
+// SetAccountRecoveryCode stores only a digest of a cryptographically random
+// account-access code after verifying both the current session and password.
+// The code cannot decrypt the diary vault.
+func (s *accountService) SetAccountRecoveryCode(ctx context.Context, ip, token, currentPassword, code string) error {
+	if len(currentPassword) > 1024 {
+		return NewAppError(fiber.StatusUnauthorized, "account_password_incorrect", "Das aktuelle Kontopasswort stimmt nicht.")
+	}
+	if !s.allowLogin(ip) {
+		return NewAppError(429, "login_rate_limited", "Zu viele Versuche. Bitte warte 15 Minuten.")
+	}
+	valid, err := s.ValidSession(ctx, token)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return NewAppError(fiber.StatusUnauthorized, "account_sign_in_required", "Bitte melde dich erneut an.")
+	}
+	hash, validCode := accountRecoveryCodeDigest(code)
+	if !validCode {
+		return invalid("Erstelle bitte einen gültigen Wiederherstellungscode und bestätige ihn.")
+	}
+	account, err := s.repository.Account(ctx)
+	if err != nil {
+		return err
+	}
+	if account == nil || !accountPasswordMatches(account, currentPassword) {
+		return NewAppError(fiber.StatusUnauthorized, "account_password_incorrect", "Das aktuelle Kontopasswort stimmt nicht.")
+	}
+	if err := s.repository.SetRecoveryCodeHash(ctx, hash); err != nil {
+		return err
+	}
+	s.clearLoginAttempts(ip)
+	return nil
+}
+
+// RecoverAccountPassword uses a one-time high-entropy code to restore account
+// sign-in. The generic failure message avoids revealing whether a username or
+// recovery code is valid. Vault decryption credentials are never involved.
+func (s *accountService) RecoverAccountPassword(ctx context.Context, ip, username, code, nextPassword string) error {
+	username = strings.ToLower(strings.TrimSpace(username))
+	if !accountNameRE.MatchString(username) || len(nextPassword) < 12 || len(nextPassword) > 1024 {
+		return accountRecoveryRejected()
+	}
+	if !s.allowLogin(ip) {
+		return NewAppError(429, "login_rate_limited", "Zu viele Versuche. Bitte warte 15 Minuten.")
+	}
+	recoveryHash, validCode := accountRecoveryCodeDigest(code)
+	if !validCode {
+		return accountRecoveryRejected()
+	}
+	account, err := s.repository.Account(ctx)
+	if err != nil {
+		return err
+	}
+	if account == nil || account.Username != username || account.RecoveryCodeHash == "" ||
+		subtle.ConstantTimeCompare([]byte(account.RecoveryCodeHash), []byte(recoveryHash)) != 1 {
+		return accountRecoveryRejected()
+	}
+	salt := make([]byte, passwordSaltBytes)
+	if _, err := rand.Read(salt); err != nil {
+		return fmt.Errorf("generate account password salt: %w", err)
+	}
+	derived, err := deriveAccountPassword(nextPassword, salt)
+	if err != nil {
+		return err
+	}
+	replacement := accountRecord{
+		Username: username, Salt: base64.RawURLEncoding.EncodeToString(salt),
+		PasswordHash: base64.RawURLEncoding.EncodeToString(derived),
+	}
+	if err := s.repository.RecoverAccountPassword(ctx, username, recoveryHash, replacement); err != nil {
+		if errors.Is(err, ErrAccountRecoveryFailed) {
+			return accountRecoveryRejected()
+		}
+		return err
+	}
+	s.clearLoginAttempts(ip)
+	return nil
+}
+
+func accountRecoveryCodeDigest(code string) (string, bool) {
+	decoded, err := base64.RawURLEncoding.DecodeString(code)
+	if err != nil || len(decoded) != accountRecoveryCodeBytes || base64.RawURLEncoding.EncodeToString(decoded) != code {
+		return "", false
+	}
+	digest := sha256.Sum256(decoded)
+	return hex.EncodeToString(digest[:]), true
+}
+
+func accountRecoveryRejected() error {
+	return NewAppError(fiber.StatusUnauthorized, "account_recovery_failed", "Wiederherstellungscode oder Benutzername ungültig. Falls du noch keinen Code eingerichtet hast, wende dich an die Serverbetreuung.")
 }
 
 func accountPasswordMatches(account *accountRecord, password string) bool {
@@ -588,7 +726,7 @@ func accountGateMiddleware(service *accountService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		path := c.Path()
 		if service == nil || path == "/health" || path == "/api/status" || path == "/login" ||
-			strings.HasPrefix(path, "/assets/") || path == "/api/auth/status" || path == "/api/auth/login" || path == "/api/auth/register" || path == "/api/auth/logout" {
+			strings.HasPrefix(path, "/assets/") || path == "/api/auth/status" || path == "/api/auth/login" || path == "/api/auth/register" || path == "/api/auth/logout" || path == "/api/auth/recover" {
 			return c.Next()
 		}
 		return service.authenticateRequest(c)

@@ -580,6 +580,26 @@ textarea:focus-visible {
   display: grid;
   gap: 8px;
 }
+.account-recovery-setup,
+.account-recovery-code-step {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.account-recovery-code {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.account-recovery-confirm-form {
+  max-width: 560px;
+}
+.account-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .device-session-row {
   display: flex;
   align-items: center;

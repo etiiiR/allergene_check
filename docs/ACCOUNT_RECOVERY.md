@@ -1,5 +1,22 @@
 # Recover account sign-in without changing the encrypted diary
 
+## User recovery code
+
+While signed in, open Profile → Sicherheit and create an optional account
+recovery code. Save it somewhere private and separate from the server; the app
+requires you to re-enter it before enabling the code. Only a hash is stored by
+the server. If you forget the account password, enter the username, this code,
+and a new account password on the sign-in page. The code works once, resets
+sign-in only, and signs out all devices. You must still use the vault
+passphrase or vault recovery phrase to decrypt diary entries. The account
+recovery code cannot replace either vault key.
+
+If the user never configured a code, loses it, or recovery fails, use the
+operator procedure below. Never ask a user to send their recovery code to
+support.
+
+## Operator fallback
+
 This runbook is for the self-hosted operator when the account sign-in password
 has been lost. It removes only the account record and device sessions. It does
 not change, decrypt, or delete the encrypted diary vault. Afterward, the

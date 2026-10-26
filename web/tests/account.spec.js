@@ -9,8 +9,10 @@ test("a second device signs in before it can fetch or unlock the encrypted vault
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole("heading", { name: "Auf deinen Tresor zugreifen" })).toBeVisible();
     await page.getByText("Kontopasswort vergessen?", { exact: true }).click();
-    await expect(page.getByText(/keine Selbstbedienungs-Wiederherstellung/u)).toBeVisible();
-    await expect(page.getByText(/brauchst du weiterhin deine Tresor-Passphrase/u)).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Mit Wiederherstellungscode zurücksetzen" }),
+    ).toBeVisible();
+    await expect(page.getByText(/setzt nur die Anmeldung zurück/u)).toBeVisible();
 
     const privateVault = await context.request.get(new URL("/api/vault", appBaseURL).href);
     expect(privateVault.status()).toBe(401);

@@ -20,6 +20,13 @@ const password = ref(null);
 const setupToken = ref(null);
 const busy = ref(false);
 const error = ref("");
+const recoveryMode = ref(false);
+const recoveryCode = ref(null);
+const recoveryPassword = ref(null);
+const recoveryPasswordConfirmation = ref(null);
+const recoveryBusy = ref(false);
+const recoveryError = ref("");
+const recoveryStatus = ref("");
 let sessionTimer = 0;
 let checkingSession = false;
 
@@ -105,6 +112,73 @@ async function submit() {
     busy.value = false;
   }
 }
+
+function clearRecoveryCredentials() {
+  for (const field of [
+    recoveryCode,
+    recoveryPassword,
+    recoveryPasswordConfirmation,
+  ]) {
+    if (field.value) field.value.value = "";
+  }
+}
+
+function leaveRecovery() {
+  clearRecoveryCredentials();
+  recoveryMode.value = false;
+  recoveryError.value = "";
+  recoveryStatus.value = "";
+}
+
+async function recoverAccount() {
+  if (recoveryBusy.value) return;
+  recoveryError.value = "";
+  recoveryStatus.value = "";
+  const nextPassword = recoveryPassword.value?.value || "";
+  const confirmation = recoveryPasswordConfirmation.value?.value || "";
+  if (nextPassword.length < 12 || nextPassword.length > 1024) {
+    recoveryError.value = "Das neue Kontopasswort muss mindestens 12 Zeichen lang sein.";
+    return;
+  }
+  if (nextPassword !== confirmation) {
+    recoveryError.value = "Die neuen Passwörter stimmen nicht überein.";
+    return;
+  }
+  recoveryBusy.value = true;
+  try {
+    const response = await fetch("/api/auth/recover", {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Diary-Request": "1",
+      },
+      body: JSON.stringify({
+        username: username.value?.value || "",
+        recovery_code: recoveryCode.value?.value?.trim() || "",
+        new_password: nextPassword,
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(
+        result?.error?.message ||
+          "Die Anmeldung konnte nicht wiederhergestellt werden.",
+      );
+    }
+    clearRecoveryCredentials();
+    if (password.value) password.value.value = "";
+    recoveryMode.value = false;
+    recoveryStatus.value =
+      "Kontopasswort zurückgesetzt. Melde dich jetzt an. Zum Öffnen brauchst du weiterhin deine Tresor-Passphrase oder Wiederherstellungsphrase.";
+  } catch (cause) {
+    recoveryError.value = cause.message;
+    clearRecoveryCredentials();
+  } finally {
+    recoveryBusy.value = false;
+  }
+}
 </script>
 
 <template>
@@ -186,13 +260,93 @@ async function submit() {
       </form>
       <details v-if="accountConfigured" class="account-recovery-note">
         <summary>Kontopasswort vergessen?</summary>
-        <p>
-          Es gibt noch keine Selbstbedienungs-Wiederherstellung. Wende dich an
-          die Person, die den Server betreibt. Ein neues Kontopasswort gibt nur
-          Zugriff auf den verschlüsselten Tresor – zum Entsperren brauchst du
-          weiterhin deine Tresor-Passphrase oder Wiederherstellungsphrase. Ohne
-          beide Tresorschlüssel kann niemand die gespeicherten Tagebuchdaten
-          wiederherstellen.
+        <p v-if="!recoveryMode">
+          Nutze den Wiederherstellungscode, den du vorher unter Profil →
+          Sicherheit eingerichtet hast. Er setzt nur die Anmeldung zurück; die
+          Daten bleiben Ende-zu-Ende verschlüsselt.
+        </p>
+        <form
+          v-if="recoveryMode"
+          class="form account-password-form"
+          @submit.prevent="recoverAccount"
+        >
+          <p class="helper">Benutzername steht im Feld oben.</p>
+          <label class="vault-field">
+            Wiederherstellungscode
+            <input
+              ref="recoveryCode"
+              class="d-input"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              minlength="43"
+              maxlength="43"
+              required
+            />
+          </label>
+          <label class="vault-field">
+            Neues Kontopasswort <span>mindestens 12 Zeichen</span>
+            <input
+              ref="recoveryPassword"
+              class="d-input"
+              type="password"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="1024"
+              required
+            />
+          </label>
+          <label class="vault-field">
+            Neues Kontopasswort wiederholen
+            <input
+              ref="recoveryPasswordConfirmation"
+              class="d-input"
+              type="password"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="1024"
+              required
+            />
+          </label>
+          <p v-if="recoveryError" class="alert error" role="alert">
+            {{ recoveryError }}
+          </p>
+          <p v-if="recoveryStatus" class="alert success" role="status">
+            {{ recoveryStatus }}
+          </p>
+          <div class="account-recovery-actions">
+            <button
+              class="button primary account-submit"
+              :disabled="recoveryBusy"
+            >
+              {{ recoveryBusy ? "Wird zurückgesetzt …" : "Passwort zurücksetzen" }}
+            </button>
+            <button
+              type="button"
+              class="button secondary"
+              :disabled="recoveryBusy"
+              @click="leaveRecovery"
+            >
+              Zurück
+            </button>
+          </div>
+        </form>
+        <template v-else>
+          <button
+            type="button"
+            class="button secondary"
+            @click="recoveryMode = true"
+          >
+            Mit Wiederherstellungscode zurücksetzen
+          </button>
+          <p v-if="recoveryStatus" class="alert success" role="status">
+            {{ recoveryStatus }}
+          </p>
+        </template>
+        <p v-if="!recoveryMode" class="helper">
+          Kein Code eingerichtet oder Code verloren? Wende dich an die
+          Serverbetreuung. Ohne Kontozugang und Tresorschlüssel kann niemand
+          deine Tagebuchdaten entschlüsseln.
         </p>
       </details>
       <p class="vault-footnote">
