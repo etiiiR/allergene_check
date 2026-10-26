@@ -59,6 +59,7 @@ const busy = ref(false);
 const error = ref("");
 const message = ref("");
 const setupPassphraseVisible = ref(false);
+const setupPassphraseGenerated = ref(false);
 const setupPassphraseStatus = ref("");
 const idleWarning = ref(false);
 const unlocked = computed(() => isVaultUnlocked());
@@ -68,6 +69,7 @@ const legacyAvailable = computed(() => vaultSessionState.legacyAvailable);
 let preparedVault = null;
 let recoveryKeyForConfirmation = "";
 let legacyDiary = null;
+let settingGeneratedSetupPassphrase = false;
 
 const fieldValue = (field) => field.value?.value || "";
 const clearField = (field) => {
@@ -80,6 +82,7 @@ const clearCredentials = () => {
   clearField(recoveryConfirmationField);
   clearField(restoreSecretField);
   setupPassphraseVisible.value = false;
+  setupPassphraseGenerated.value = false;
   setupPassphraseStatus.value = "";
 };
 
@@ -93,19 +96,32 @@ async function generateSetupPassphrase() {
       "value",
     ).set;
     setter.call(input, generated);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    setupPassphraseVisible.value = true;
+    settingGeneratedSetupPassphrase = true;
+    try {
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    } finally {
+      settingGeneratedSetupPassphrase = false;
+    }
+    setupPassphraseVisible.value = false;
+    setupPassphraseGenerated.value = true;
     try {
       await navigator.clipboard.writeText(generated);
       setupPassphraseStatus.value =
         "Zufällige Passphrase erstellt und kopiert. Füge sie ins Bestätigungsfeld ein und speichere sie in deinem Passwortmanager. Du brauchst sie auch auf neuen Geräten.";
     } catch {
       setupPassphraseStatus.value =
-        "Zufällige Passphrase erstellt. Kopiere sie aus dem sichtbaren Feld in dein Bestätigungsfeld und speichere sie in deinem Passwortmanager. Du brauchst sie auch auf neuen Geräten.";
+        "Zufällige Passphrase erstellt. Zeige sie an, um sie von Hand zu kopieren, und speichere sie in deinem Passwortmanager. Du brauchst sie auch auf neuen Geräten.";
     }
   } catch (cause) {
     error.value = cause.message;
   }
+}
+
+function handleSetupPassphraseInput() {
+  if (settingGeneratedSetupPassphrase) return;
+  setupPassphraseGenerated.value = false;
+  setupPassphraseVisible.value = false;
+  setupPassphraseStatus.value = "";
 }
 
 const blankDiary = () => ({
@@ -497,6 +513,7 @@ onBeforeUnmount(() => {
             autocomplete="new-password"
             minlength="12"
             required
+            @input="handleSetupPassphraseInput"
           />
         </label>
         <button
@@ -510,6 +527,15 @@ onBeforeUnmount(() => {
         <p v-if="setupPassphraseStatus" class="helper" role="status">
           {{ setupPassphraseStatus }}
         </p>
+        <button
+          v-if="setupPassphraseGenerated"
+          class="button secondary vault-passphrase-generate"
+          type="button"
+          :aria-pressed="setupPassphraseVisible"
+          @click="setupPassphraseVisible = !setupPassphraseVisible"
+        >
+          {{ setupPassphraseVisible ? "Passphrase verbergen" : "Passphrase anzeigen" }}
+        </button>
         <label class="vault-field">
           Passphrase wiederholen
           <input

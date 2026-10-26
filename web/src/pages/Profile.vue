@@ -53,6 +53,7 @@ const rotationConfirmRecoveryField = ref(null);
 const rotationStep = ref(false);
 const rotationConfirmed = ref(false);
 const rotationPassphraseVisible = ref(false);
+const rotationPassphraseGenerated = ref(false);
 const rotationPassphraseStatus = ref("");
 const rotationBusy = ref(false);
 const rotationError = ref("");
@@ -80,6 +81,7 @@ const accountRecoveryError = ref("");
 const accountRecoveryStatus = ref("");
 let preparedRotation = null;
 let rotationRecoveryKey = "";
+let settingGeneratedRotationPassphrase = false;
 const healthSource = ref("apple_healthkit");
 const healthFile = ref(null);
 const healthBusy = ref(false);
@@ -220,19 +222,32 @@ async function generateRotationPassphrase() {
       "value",
     ).set;
     setter.call(input, generated);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    rotationPassphraseVisible.value = true;
+    settingGeneratedRotationPassphrase = true;
+    try {
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    } finally {
+      settingGeneratedRotationPassphrase = false;
+    }
+    rotationPassphraseVisible.value = false;
+    rotationPassphraseGenerated.value = true;
     try {
       await navigator.clipboard.writeText(generated);
       rotationPassphraseStatus.value =
         "Zufällige Passphrase erstellt und kopiert. Füge sie ins Bestätigungsfeld ein und speichere sie in deinem Passwortmanager. Du brauchst sie auch auf neuen Geräten.";
     } catch {
       rotationPassphraseStatus.value =
-        "Zufällige Passphrase erstellt. Kopiere sie aus dem sichtbaren Feld in dein Bestätigungsfeld und speichere sie in deinem Passwortmanager. Du brauchst sie auch auf neuen Geräten.";
+        "Zufällige Passphrase erstellt. Zeige sie an, um sie von Hand zu kopieren, und speichere sie in deinem Passwortmanager. Du brauchst sie auch auf neuen Geräten.";
     }
   } catch (cause) {
     rotationError.value = cause.message;
   }
+}
+
+function handleRotationPassphraseInput() {
+  if (settingGeneratedRotationPassphrase) return;
+  rotationPassphraseGenerated.value = false;
+  rotationPassphraseVisible.value = false;
+  rotationPassphraseStatus.value = "";
 }
 
 async function logoutThisDevice() {
@@ -509,6 +524,7 @@ function clearRotation() {
   rotationStep.value = false;
   rotationConfirmed.value = false;
   rotationPassphraseVisible.value = false;
+  rotationPassphraseGenerated.value = false;
   rotationPassphraseStatus.value = "";
   clearField(rotationPassphraseField);
   clearField(rotationConfirmPassphraseField);
@@ -541,10 +557,16 @@ async function prepareCredentialRotation() {
     rotationRecoveryKey = preparedRotation.recoveryKey;
     rotationStep.value = true;
     rotationConfirmed.value = false;
+    rotationPassphraseVisible.value = false;
+    rotationPassphraseGenerated.value = false;
+    rotationPassphraseStatus.value = "";
     clearField(rotationPassphraseField);
     clearField(rotationConfirmPassphraseField);
   } catch (cause) {
     rotationError.value = cause.message;
+    rotationPassphraseVisible.value = false;
+    rotationPassphraseGenerated.value = false;
+    rotationPassphraseStatus.value = "";
     clearField(rotationPassphraseField);
     clearField(rotationConfirmPassphraseField);
   } finally {
@@ -926,6 +948,7 @@ onBeforeUnmount(clearRotation);
               :type="rotationPassphraseVisible ? 'text' : 'password'"
               autocomplete="new-password"
               minlength="12"
+              @input="handleRotationPassphraseInput"
               @keydown.enter.prevent="prepareCredentialRotation"
             />
           </label>
@@ -940,6 +963,15 @@ onBeforeUnmount(clearRotation);
           <p v-if="rotationPassphraseStatus" class="helper" role="status">
             {{ rotationPassphraseStatus }}
           </p>
+          <button
+            v-if="rotationPassphraseGenerated"
+            class="button secondary vault-passphrase-generate"
+            type="button"
+            :aria-pressed="rotationPassphraseVisible"
+            @click="rotationPassphraseVisible = !rotationPassphraseVisible"
+          >
+            {{ rotationPassphraseVisible ? "Passphrase verbergen" : "Passphrase anzeigen" }}
+          </button>
           <label class="vault-field">
             Neue Passphrase wiederholen
             <input
