@@ -20,6 +20,7 @@ import {
   restoreEncryptedVault,
   vaultSessionState,
 } from "../privacy/vault-session.js";
+import { generateVaultPassphrase } from "../privacy/passphrase-generator.js";
 import {
   MAX_ENCRYPTED_BACKUP_BYTES,
   parseEncryptedVaultBackup,
@@ -57,6 +58,8 @@ const backupName = ref("");
 const busy = ref(false);
 const error = ref("");
 const message = ref("");
+const setupPassphraseVisible = ref(false);
+const setupPassphraseStatus = ref("");
 const idleWarning = ref(false);
 const unlocked = computed(() => isVaultUnlocked());
 const legacyAvailable = computed(() => vaultSessionState.legacyAvailable);
@@ -76,7 +79,34 @@ const clearCredentials = () => {
   clearField(recoveryInputField);
   clearField(recoveryConfirmationField);
   clearField(restoreSecretField);
+  setupPassphraseVisible.value = false;
+  setupPassphraseStatus.value = "";
 };
+
+async function generateSetupPassphrase() {
+  error.value = "";
+  try {
+    const generated = generateVaultPassphrase();
+    const input = passphraseField.value;
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    ).set;
+    setter.call(input, generated);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    setupPassphraseVisible.value = true;
+    try {
+      await navigator.clipboard.writeText(generated);
+      setupPassphraseStatus.value =
+        "Zufällige Passphrase erstellt und kopiert. Füge sie ins Bestätigungsfeld ein und speichere sie in deinem Passwortmanager. Du brauchst sie auch auf neuen Geräten.";
+    } catch {
+      setupPassphraseStatus.value =
+        "Zufällige Passphrase erstellt. Kopiere sie aus dem sichtbaren Feld in dein Bestätigungsfeld und speichere sie in deinem Passwortmanager. Du brauchst sie auch auf neuen Geräten.";
+    }
+  } catch (cause) {
+    error.value = cause.message;
+  }
+}
 
 const blankDiary = () => ({
   profile: {
@@ -463,12 +493,23 @@ onBeforeUnmount(() => {
           <input
             class="d-input"
             ref="passphraseField"
-            type="password"
+            :type="setupPassphraseVisible ? 'text' : 'password'"
             autocomplete="new-password"
             minlength="12"
             required
           />
         </label>
+        <button
+          class="button secondary vault-passphrase-generate"
+          type="button"
+          :disabled="busy"
+          @click="generateSetupPassphrase"
+        >
+          <KeyRound :size="16" /> Sichere Passphrase erstellen
+        </button>
+        <p v-if="setupPassphraseStatus" class="helper" role="status">
+          {{ setupPassphraseStatus }}
+        </p>
         <label class="vault-field">
           Passphrase wiederholen
           <input

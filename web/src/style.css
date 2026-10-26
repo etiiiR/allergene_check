@@ -3541,6 +3541,7 @@ td strong {
 }
 .vault-field { gap: 6px; font-weight: 600; }
 .vault-field > span { color: var(--muted); font-size: 12px; font-weight: 400; }
+.vault-passphrase-generate { width: 100%; justify-content: center; }
 .vault-form > .button,
 .vault-panel > .button { width: 100%; justify-content: center; }
 .account-panel .vault-form { gap: 14px; }

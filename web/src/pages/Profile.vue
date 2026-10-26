@@ -22,6 +22,7 @@ import { api } from "../lib";
 import { notify } from "../ui/feedback";
 import { nativeHealthAvailable, syncAppleHealth } from "../ui/health";
 import { generatePseudonym } from "../privacy/pseudonym";
+import { generateVaultPassphrase } from "../privacy/passphrase-generator.js";
 import {
   commitVaultCredentialRotation,
   prepareVaultCredentialRotation,
@@ -51,6 +52,8 @@ const rotationConfirmPassphraseField = ref(null);
 const rotationConfirmRecoveryField = ref(null);
 const rotationStep = ref(false);
 const rotationConfirmed = ref(false);
+const rotationPassphraseVisible = ref(false);
+const rotationPassphraseStatus = ref("");
 const rotationBusy = ref(false);
 const rotationError = ref("");
 const rotationStatus = ref("");
@@ -205,6 +208,32 @@ const fieldValue = (field) => field.value?.value || "";
 const clearField = (field) => {
   if (field.value) field.value.value = "";
 };
+
+async function generateRotationPassphrase() {
+  rotationError.value = "";
+  rotationPassphraseStatus.value = "";
+  try {
+    const generated = generateVaultPassphrase();
+    const input = rotationPassphraseField.value;
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    ).set;
+    setter.call(input, generated);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    rotationPassphraseVisible.value = true;
+    try {
+      await navigator.clipboard.writeText(generated);
+      rotationPassphraseStatus.value =
+        "Zufällige Passphrase erstellt und kopiert. Füge sie ins Bestätigungsfeld ein und speichere sie in deinem Passwortmanager. Du brauchst sie auch auf neuen Geräten.";
+    } catch {
+      rotationPassphraseStatus.value =
+        "Zufällige Passphrase erstellt. Kopiere sie aus dem sichtbaren Feld in dein Bestätigungsfeld und speichere sie in deinem Passwortmanager. Du brauchst sie auch auf neuen Geräten.";
+    }
+  } catch (cause) {
+    rotationError.value = cause.message;
+  }
+}
 
 async function logoutThisDevice() {
   if (logoutBusy.value) return;
@@ -479,6 +508,8 @@ function clearRotation() {
   rotationRecoveryKey = "";
   rotationStep.value = false;
   rotationConfirmed.value = false;
+  rotationPassphraseVisible.value = false;
+  rotationPassphraseStatus.value = "";
   clearField(rotationPassphraseField);
   clearField(rotationConfirmPassphraseField);
   clearField(rotationConfirmRecoveryField);
@@ -892,12 +923,23 @@ onBeforeUnmount(clearRotation);
             <input
               class="d-input"
               ref="rotationPassphraseField"
-              type="password"
+              :type="rotationPassphraseVisible ? 'text' : 'password'"
               autocomplete="new-password"
               minlength="12"
               @keydown.enter.prevent="prepareCredentialRotation"
             />
           </label>
+          <button
+            class="button secondary vault-passphrase-generate"
+            type="button"
+            :disabled="rotationBusy"
+            @click="generateRotationPassphrase"
+          >
+            <KeyRound :size="16" /> Sichere Passphrase erstellen
+          </button>
+          <p v-if="rotationPassphraseStatus" class="helper" role="status">
+            {{ rotationPassphraseStatus }}
+          </p>
           <label class="vault-field">
             Neue Passphrase wiederholen
             <input
