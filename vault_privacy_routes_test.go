@@ -7,21 +7,41 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func TestLegacyDiaryRoutesAreBlockedOutsideExplicitMigration(t *testing.T) {
+func TestPersonalDiaryRoutesRequireTheEncryptedVault(t *testing.T) {
 	app := fiber.New(fiber.Config{ErrorHandler: AppErrorHandler})
 	registerDiaryAPI(app, &DiaryRepository{}, &AnalysisClient{})
 
-	for _, route := range []string{"/api/diary", "/api/export", "/api/patterns"} {
-		response, err := app.Test(httptest.NewRequest("GET", route, nil))
-		if err != nil || response.StatusCode != 423 {
-			t.Fatalf("GET %s status=%v err=%v, want 423", route, response.StatusCode, err)
-		}
+	routes := []struct {
+		method string
+		path   string
+	}{
+		{method: "GET", path: "/api/diary"},
+		{method: "GET", path: "/api/export"},
+		{method: "GET", path: "/api/patterns"},
+		{method: "PUT", path: "/api/profile"},
+		{method: "POST", path: "/api/ingredients/analyze"},
+		{method: "POST", path: "/api/recipe-flags"},
+		{method: "POST", path: "/api/stools"},
+		{method: "POST", path: "/api/stress"},
+		{method: "POST", path: "/api/health/import"},
+		{method: "POST", path: "/api/recipes"},
+		{method: "PUT", path: "/api/recipes/00000000-0000-4000-8000-000000000001"},
+		{method: "POST", path: "/api/meals"},
+		{method: "POST", path: "/api/checkins"},
+		{method: "DELETE", path: "/api/meals/00000000-0000-4000-8000-000000000001"},
 	}
-	request := httptest.NewRequest("POST", "/api/profile", nil)
-	request.Header.Set("X-Diary-Request", "1")
-	response, err := app.Test(request)
-	if err != nil || response.StatusCode != 423 {
-		t.Fatalf("POST /api/profile status=%v err=%v, want 423", response.StatusCode, err)
+	for _, route := range routes {
+		t.Run(route.method+" "+route.path, func(t *testing.T) {
+			request := httptest.NewRequest(route.method, route.path, nil)
+			if route.method != "GET" {
+				request.Header.Set("X-Diary-Request", "1")
+			}
+			response, err := app.Test(request)
+			if err != nil || response.StatusCode != 423 {
+				t.Fatalf("status=%v err=%v, want 423 encrypted_vault_required", response.StatusCode, err)
+			}
+			response.Body.Close()
+		})
 	}
 
 	legacy, err := app.Test(httptest.NewRequest("GET", "/api/legacy/diary", nil))
