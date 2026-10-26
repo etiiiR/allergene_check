@@ -44,6 +44,8 @@ DEFINE FIELD IF NOT EXISTS salt ON diary_account TYPE string;
 DEFINE FIELD IF NOT EXISTS password_hash ON diary_account TYPE string;
 DEFINE TABLE IF NOT EXISTS diary_account_sessions SCHEMALESS;
 DEFINE FIELD IF NOT EXISTS expires_at ON diary_account_sessions TYPE int;
+DEFINE FIELD IF NOT EXISTS created_at ON diary_account_sessions TYPE int;
+DEFINE FIELD IF NOT EXISTS device_label ON diary_account_sessions TYPE string;
 COMMIT TRANSACTION;`, nil)
 	return err
 }

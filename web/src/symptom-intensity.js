@@ -23,7 +23,10 @@ export function preserveUnchangedSymptomScores(
   edited = {},
   changedKeys = [],
 ) {
-  const result = structuredClone(original);
+  // Vue supplies a reactive proxy here; structuredClone rejects proxies.
+  // Symptom scores are primitive values, so copying the own entries is enough
+  // to create a detached payload while preserving untouched legacy precision.
+  const result = Object.fromEntries(Object.entries(original || {}));
   for (const key of changedKeys) {
     if (Object.hasOwn(edited, key)) result[key] = edited[key];
     else delete result[key];

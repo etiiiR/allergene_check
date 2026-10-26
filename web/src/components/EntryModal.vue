@@ -401,7 +401,7 @@ function submit() {
           </div>
         </fieldset>
         <template v-if="form.food_relation === 'timed_window'">
-          <p class="helper">
+          <p class="helper timing-shared-note">
             Ein Zeitfenster zeigt Nähe, keinen Auslöser. Die Zeit gilt für alle
             ausgewählten Symptome; bei unterschiedlichem Beginn bitte getrennt
             erfassen.

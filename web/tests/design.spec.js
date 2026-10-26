@@ -335,7 +335,11 @@ test("daily overview and both symptom steps keep primary actions above mobile na
     const nav = await page.locator(".bottom-nav").boundingBox();
     expect(action.y + action.height).toBeLessThanOrEqual(nav.y);
   };
-  await aboveNavigation(page.locator(".home-footer"));
+  // The footer is deliberately below the compact overview; the primary capture
+  // controls must be reachable above the fixed mobile navigation.
+  await aboveNavigation(
+    page.getByRole("button", { name: "Befinden", exact: true }),
+  );
   await page.getByRole("button", { name: "Befinden", exact: true }).click();
   await page.getByRole("button", { name: "Blähungen", exact: true }).click();
   await page.getByRole("radio", { name: "Blähungen: Leicht" }).click();

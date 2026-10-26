@@ -56,7 +56,7 @@ func registerAccountRoutes(app *fiber.App, service *accountService) {
 			}
 			return err
 		}
-		token, err := service.Login(c.UserContext(), c.IP(), request.Username, request.Password)
+		token, err := service.Login(c.UserContext(), c.IP(), request.Username, request.Password, deviceLabelFromUserAgent(c.Get(fiber.HeaderUserAgent)))
 		if err != nil {
 			return err
 		}
@@ -75,7 +75,7 @@ func registerAccountRoutes(app *fiber.App, service *accountService) {
 		if err := c.BodyParser(&request); err != nil || len(request.Password) > 1024 {
 			return NewAppError(401, "account_login_failed", "Benutzername oder Passwort stimmen nicht.")
 		}
-		token, err := service.Login(c.UserContext(), c.IP(), request.Username, request.Password)
+		token, err := service.Login(c.UserContext(), c.IP(), request.Username, request.Password, deviceLabelFromUserAgent(c.Get(fiber.HeaderUserAgent)))
 		if err != nil {
 			return err
 		}
@@ -116,6 +116,42 @@ func registerAccountRoutes(app *fiber.App, service *accountService) {
 			return WrapAppError(503, "account_sessions_unavailable", "Andere Geräte konnten nicht abgemeldet werden.", err)
 		}
 		return c.JSON(fiber.Map{"revoked": count})
+	})
+
+	auth.Get("/sessions", func(c *fiber.Ctx) error {
+		if service == nil {
+			return ErrDatabaseNotConfigured
+		}
+		ctx, cancel := context.WithTimeout(c.UserContext(), 5*time.Second)
+		defer cancel()
+		sessions, err := service.Sessions(ctx, c.Cookies(accountSessionCookie))
+		if err != nil {
+			var appErr *AppError
+			if errors.As(err, &appErr) {
+				return err
+			}
+			return WrapAppError(503, "account_sessions_unavailable", "Anmeldungen konnten gerade nicht geladen werden.", err)
+		}
+		return c.JSON(fiber.Map{"sessions": sessions})
+	})
+
+	auth.Delete("/sessions/:id", func(c *fiber.Ctx) error {
+		if service == nil {
+			return ErrDatabaseNotConfigured
+		}
+		if !sameOrigin(c) || c.Get("X-Diary-Request") != "1" {
+			return NewAppError(403, "request_rejected", "Die Anfrage konnte nicht bestätigt werden.")
+		}
+		ctx, cancel := context.WithTimeout(c.UserContext(), 5*time.Second)
+		defer cancel()
+		if err := service.RevokeSession(ctx, c.Cookies(accountSessionCookie), c.Params("id")); err != nil {
+			var appErr *AppError
+			if errors.As(err, &appErr) {
+				return err
+			}
+			return WrapAppError(503, "account_session_unavailable", "Dieses Gerät konnte gerade nicht abgemeldet werden.", err)
+		}
+		return c.SendStatus(fiber.StatusNoContent)
 	})
 
 	auth.Put("/password", func(c *fiber.Ctx) error {

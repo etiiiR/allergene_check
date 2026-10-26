@@ -191,6 +191,10 @@ test("symptom check-in records its timing window", async ({
   await page.getByRole("radio", { name: "Übelkeit: Mittel" }).click();
   await expect(
     page.getByRole("button", { name: "Weiter", exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("radio", { name: "Blähungen: Leicht" }).click();
+  await expect(
+    page.getByRole("button", { name: "Weiter", exact: true }),
   ).toBeEnabled();
   await page.getByRole("radio", { name: "Blähungen: Sehr stark" }).click();
   await page.getByRole("button", { name: "Weiter", exact: true }).click();

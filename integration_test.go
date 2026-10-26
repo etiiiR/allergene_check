@@ -293,6 +293,25 @@ func TestAccountAndHashedDeviceSessionsPersistInSurrealDB(t *testing.T) {
 	if got, err := repository.SessionExpiry(ctx, sessionID); err != nil || got != expiry {
 		t.Fatalf("load device session expiry: got=%d want=%d err=%v", got, expiry, err)
 	}
+	metadataSessionID := strings.Repeat("a", 64)
+	createdAt := time.Now().Add(-time.Minute).Unix()
+	if err := repository.CreateSessionWithMetadata(ctx, metadataSessionID, expiry, createdAt, "Safari auf iPhone / iPad"); err != nil {
+		t.Fatalf("create session with device metadata: %v", err)
+	}
+	defer repository.DeleteSession(context.Background(), metadataSessionID)
+	sessions, err := repository.ListSessions(ctx)
+	if err != nil {
+		t.Fatalf("list device sessions: %v", err)
+	}
+	var metadataSessionFound bool
+	for _, session := range sessions {
+		if id, ok := session.ID.ID.(string); ok && id == metadataSessionID {
+			metadataSessionFound = session.ExpiresAt == expiry && session.CreatedAt == createdAt && session.DeviceLabel == "Safari auf iPhone / iPad"
+		}
+	}
+	if !metadataSessionFound {
+		t.Fatalf("session inventory did not round-trip device metadata: %#v", sessions)
+	}
 	if err := repository.DeleteSession(ctx, sessionID); err != nil {
 		t.Fatalf("revoke device session: %v", err)
 	}
@@ -318,6 +337,9 @@ func TestAccountAndHashedDeviceSessionsPersistInSurrealDB(t *testing.T) {
 	}
 	if got, err := repository.SessionExpiry(ctx, otherID); err != nil || got != 0 {
 		t.Fatalf("other-device session remains: got=%d err=%v", got, err)
+	}
+	if err := repository.DeleteSession(ctx, currentID); err != nil {
+		t.Fatalf("clean up current session before password rotation: %v", err)
 	}
 	passwordCurrentID := "password-current-" + uuid.NewString()
 	passwordOtherID := "password-other-" + uuid.NewString()

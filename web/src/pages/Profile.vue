@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { Head, Link, router } from "@inertiajs/vue3";
 import {
   CalendarDays,
@@ -59,6 +59,10 @@ const logoutError = ref("");
 const revokeOtherBusy = ref(false);
 const revokeOtherError = ref("");
 const revokeOtherStatus = ref("");
+const deviceSessions = ref([]);
+const deviceSessionsBusy = ref(false);
+const deviceSessionsError = ref("");
+const revokeSessionBusyID = ref("");
 const currentAccountPasswordField = ref(null);
 const newAccountPasswordField = ref(null);
 const confirmAccountPasswordField = ref(null);
@@ -243,12 +247,83 @@ async function revokeOtherDevices() {
     revokeOtherStatus.value = revoked
       ? `${revoked} weitere Anmeldung${revoked === 1 ? "" : "en"} abgemeldet.`
       : "Es waren keine weiteren Anmeldungen aktiv.";
+    await loadDeviceSessions();
   } catch (cause) {
     revokeOtherError.value = cause.message;
   } finally {
     revokeOtherBusy.value = false;
   }
 }
+
+async function loadDeviceSessions() {
+  if (deviceSessionsBusy.value) return;
+  deviceSessionsBusy.value = true;
+  deviceSessionsError.value = "";
+  try {
+    const response = await fetch("/api/auth/sessions", {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(
+        result?.error?.message || "Anmeldungen konnten nicht geladen werden.",
+      );
+    }
+    deviceSessions.value = Array.isArray(result.sessions) ? result.sessions : [];
+  } catch (cause) {
+    deviceSessionsError.value = cause.message;
+  } finally {
+    deviceSessionsBusy.value = false;
+  }
+}
+
+async function revokeDeviceSession(session) {
+  if (session.current || revokeSessionBusyID.value) return;
+  revokeSessionBusyID.value = session.id;
+  deviceSessionsError.value = "";
+  try {
+    const response = await fetch(
+      `/api/auth/sessions/${encodeURIComponent(session.id)}`,
+      {
+        method: "DELETE",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "X-Diary-Request": "1" },
+      },
+    );
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(
+        result?.error?.message || "Dieses Gerät konnte nicht abgemeldet werden.",
+      );
+    }
+    deviceSessions.value = deviceSessions.value.filter(
+      (item) => item.id !== session.id,
+    );
+    notify(`${session.device_label} wurde abgemeldet.`);
+  } catch (cause) {
+    deviceSessionsError.value = cause.message;
+  } finally {
+    revokeSessionBusyID.value = "";
+  }
+}
+
+function sessionCreatedAt(timestamp) {
+  if (!timestamp) return "Datum nicht verfügbar";
+  return new Intl.DateTimeFormat("de-CH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(timestamp * 1000));
+}
+
+watch(
+  tab,
+  (value) => {
+    if (value === "security") loadDeviceSessions();
+  },
+  { immediate: true },
+);
 
 async function changeAccountPassword() {
   if (accountPasswordBusy.value) return;
@@ -887,15 +962,54 @@ onBeforeUnmount(clearRotation);
         </p>
         <hr class="session-divider" />
         <div>
-          <h2>Andere Geräte</h2>
+          <h2>Angemeldete Geräte</h2>
           <p class="helper">
-            Melde alle anderen Geräte ab, wenn du sie nicht mehr nutzt. Online
+            Prüfe deine aktiven Anmeldungen und melde einzelne Geräte oder alle
+            anderen ab. Online
             geöffnete Tagebücher werden spätestens bei der nächsten Prüfung in
             etwa 30 Sekunden gesperrt. Offlinegeräte werden beim nächsten
             Verbindungsversuch abgewiesen. Deine Daten bleiben verschlüsselt;
-            dieses Gerät bleibt angemeldet.
+            dieses Gerät kann angemeldet bleiben.
           </p>
         </div>
+        <div class="device-session-list" aria-label="Aktive Anmeldungen">
+          <p v-if="deviceSessionsBusy" class="helper" role="status">
+            Anmeldungen werden geladen …
+          </p>
+          <p v-else-if="!deviceSessions.length" class="helper">
+            Keine aktiven Anmeldungen gefunden.
+          </p>
+          <article
+            v-for="session in deviceSessions"
+            :key="session.id"
+            class="device-session-row"
+            data-testid="device-session"
+          >
+            <div>
+              <strong>{{ session.device_label }}</strong>
+              <p class="helper">
+                {{ session.current ? "Dieses Gerät · aktuell" : "Angemeldet" }}
+                <span aria-hidden="true">·</span>
+                {{ sessionCreatedAt(session.created_at) }}
+              </p>
+            </div>
+            <UiButton
+              v-if="!session.current"
+              type="button"
+              class="button secondary compact"
+              :disabled="Boolean(revokeSessionBusyID)"
+              :loading="revokeSessionBusyID === session.id"
+              :aria-label="`${session.device_label} abmelden`"
+              @click="revokeDeviceSession(session)"
+            >
+              Abmelden
+            </UiButton>
+            <span v-else class="device-session-current">Aktuell</span>
+          </article>
+        </div>
+        <p v-if="deviceSessionsError" class="alert error" role="alert">
+          {{ deviceSessionsError }}
+        </p>
         <UiButton
           type="button"
           class="button secondary"

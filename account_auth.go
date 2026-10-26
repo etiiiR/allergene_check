@@ -48,7 +48,18 @@ type accountRecord struct {
 }
 
 type accountSessionRecord struct {
-	ExpiresAt int64 `json:"expires_at"`
+	ID          models.RecordID `json:"id"`
+	ExpiresAt   int64           `json:"expires_at"`
+	CreatedAt   int64           `json:"created_at"`
+	DeviceLabel string          `json:"device_label"`
+}
+
+type accountSessionView struct {
+	ID          string `json:"id"`
+	ExpiresAt   int64  `json:"expires_at"`
+	CreatedAt   int64  `json:"created_at"`
+	DeviceLabel string `json:"device_label"`
+	Current     bool   `json:"current"`
 }
 
 // AccountRepository persists only account credentials and opaque session
@@ -57,7 +68,9 @@ type AccountRepository interface {
 	Account(context.Context) (*accountRecord, error)
 	CreateAccount(context.Context, accountRecord) error
 	CreateSession(context.Context, string, int64) error
+	CreateSessionWithMetadata(context.Context, string, int64, int64, string) error
 	SessionExpiry(context.Context, string) (int64, error)
+	ListSessions(context.Context) ([]accountSessionRecord, error)
 	DeleteSession(context.Context, string) error
 	DeleteOtherSessions(context.Context, string) (int, error)
 	UpdatePasswordAndDeleteOtherSessions(context.Context, accountRecord, string) (int, error)
@@ -81,7 +94,13 @@ func (r *surrealAccountRepository) CreateAccount(ctx context.Context, account ac
 }
 
 func (r *surrealAccountRepository) CreateSession(ctx context.Context, id string, expiry int64) error {
-	_, err := Create[accountSessionRecord](ctx, r.store, models.NewRecordID("diary_account_sessions", id), accountSessionRecord{ExpiresAt: expiry})
+	return r.CreateSessionWithMetadata(ctx, id, expiry, 0, "")
+}
+
+func (r *surrealAccountRepository) CreateSessionWithMetadata(ctx context.Context, id string, expiry, createdAt int64, deviceLabel string) error {
+	_, err := Create[accountSessionRecord](ctx, r.store, models.NewRecordID("diary_account_sessions", id), accountSessionRecord{
+		ExpiresAt: expiry, CreatedAt: createdAt, DeviceLabel: deviceLabel,
+	})
 	return err
 }
 
@@ -91,6 +110,14 @@ func (r *surrealAccountRepository) SessionExpiry(ctx context.Context, id string)
 		return 0, err
 	}
 	return record.ExpiresAt, nil
+}
+
+func (r *surrealAccountRepository) ListSessions(ctx context.Context) ([]accountSessionRecord, error) {
+	records, err := Select[[]accountSessionRecord](ctx, r.store, models.Table("diary_account_sessions"))
+	if err != nil || records == nil {
+		return nil, err
+	}
+	return *records, nil
 }
 
 func (r *surrealAccountRepository) DeleteSession(ctx context.Context, id string) error {
@@ -204,7 +231,7 @@ func (s *accountService) Register(ctx context.Context, setupToken, username, pas
 	})
 }
 
-func (s *accountService) Login(ctx context.Context, ip, username, password string) (string, error) {
+func (s *accountService) Login(ctx context.Context, ip, username, password string, deviceLabels ...string) (string, error) {
 	if len(password) > 1024 {
 		return "", NewAppError(401, "account_login_failed", "Benutzername oder Passwort stimmen nicht.")
 	}
@@ -240,7 +267,11 @@ func (s *accountService) Login(ctx context.Context, ip, username, password strin
 	if deriveErr != nil || !known || subtle.ConstantTimeCompare(actual, expected) != 1 {
 		return "", NewAppError(401, "account_login_failed", "Benutzername oder Passwort stimmen nicht.")
 	}
-	token, err := s.newSession(ctx)
+	deviceLabel := "Browser auf Gerät"
+	if len(deviceLabels) > 0 && deviceLabels[0] != "" {
+		deviceLabel = deviceLabels[0]
+	}
+	token, err := s.newSession(ctx, deviceLabel)
 	if err != nil {
 		return "", err
 	}
@@ -313,16 +344,120 @@ func deriveAccountPassword(password string, salt []byte) ([]byte, error) {
 	return pbkdf2.Key(sha256.New, password, salt, passwordHashIterations, passwordHashBytes)
 }
 
-func (s *accountService) newSession(ctx context.Context) (string, error) {
+func (s *accountService) newSession(ctx context.Context, deviceLabel string) (string, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
 		return "", fmt.Errorf("generate account session: %w", err)
 	}
 	token := base64.RawURLEncoding.EncodeToString(raw)
-	if err := s.repository.CreateSession(ctx, hashSessionToken(token), s.clock().Add(accountSessionLifetime).Unix()); err != nil {
+	now := s.clock().Unix()
+	if err := s.repository.CreateSessionWithMetadata(ctx, hashSessionToken(token), now+int64(accountSessionLifetime.Seconds()), now, deviceLabel); err != nil {
 		return "", err
 	}
 	return token, nil
+}
+
+// Sessions returns only unexpired sign-in metadata. The session record ID is a
+// SHA-256 token digest, never the browser's bearer cookie; raw User-Agent and IP
+// values are deliberately not persisted.
+func (s *accountService) Sessions(ctx context.Context, token string) ([]accountSessionView, error) {
+	valid, err := s.ValidSession(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	if !valid {
+		return nil, NewAppError(fiber.StatusUnauthorized, "account_sign_in_required", "Bitte melde dich erneut an.")
+	}
+	records, err := s.repository.ListSessions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	currentID := hashSessionToken(token)
+	now := s.clock().Unix()
+	sessions := make([]accountSessionView, 0, len(records))
+	for _, record := range records {
+		id, ok := record.ID.ID.(string)
+		if !ok || !isSessionDigest(id) || record.ExpiresAt <= now {
+			continue
+		}
+		label := record.DeviceLabel
+		if label == "" {
+			label = "Unbekanntes Gerät"
+		}
+		sessions = append(sessions, accountSessionView{
+			ID: id, ExpiresAt: record.ExpiresAt, CreatedAt: record.CreatedAt,
+			DeviceLabel: label, Current: id == currentID,
+		})
+	}
+	return sessions, nil
+}
+
+// RevokeSession removes one other device while ensuring the caller cannot
+// accidentally revoke the session currently authorizing this request.
+func (s *accountService) RevokeSession(ctx context.Context, token, targetID string) error {
+	valid, err := s.ValidSession(ctx, token)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return NewAppError(fiber.StatusUnauthorized, "account_sign_in_required", "Bitte melde dich erneut an.")
+	}
+	if !isSessionDigest(targetID) {
+		return invalid("Diese Anmeldung konnte nicht erkannt werden.")
+	}
+	if subtle.ConstantTimeCompare([]byte(targetID), []byte(hashSessionToken(token))) == 1 {
+		return invalid("Dieses Gerät kannst du hier nicht abmelden. Nutze dafür „Dieses Gerät abmelden“.")
+	}
+	expiry, err := s.repository.SessionExpiry(ctx, targetID)
+	if err != nil {
+		return err
+	}
+	if expiry == 0 || expiry <= s.clock().Unix() {
+		return NewAppError(fiber.StatusNotFound, "account_session_not_found", "Diese Anmeldung ist nicht mehr aktiv.")
+	}
+	return s.repository.DeleteSession(ctx, targetID)
+}
+
+func isSessionDigest(value string) bool {
+	if len(value) != sha256.Size*2 || value != strings.ToLower(value) {
+		return false
+	}
+	decoded, err := hex.DecodeString(value)
+	return err == nil && len(decoded) == sha256.Size
+}
+
+// deviceLabelFromUserAgent reduces the browser header to a coarse, readable
+// label; it never stores the full header or a network address.
+func deviceLabelFromUserAgent(value string) string {
+	if len(value) > 512 {
+		value = value[:512]
+	}
+	ua := strings.ToLower(value)
+	browser := "Browser"
+	switch {
+	case strings.Contains(ua, "edg/"):
+		browser = "Edge"
+	case strings.Contains(ua, "firefox/"):
+		browser = "Firefox"
+	case strings.Contains(ua, "chrome/") || strings.Contains(ua, "crios/"):
+		browser = "Chrome"
+	case strings.Contains(ua, "safari/"):
+		browser = "Safari"
+	}
+	platform := "Gerät"
+	switch {
+	case strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") || strings.Contains(ua, "ipod"):
+		platform = "iPhone / iPad"
+	case strings.Contains(ua, "android"):
+		platform = "Android"
+	case strings.Contains(ua, "windows"):
+		platform = "Windows"
+	case strings.Contains(ua, "macintosh") || strings.Contains(ua, "mac os"):
+		platform = "Mac"
+	case strings.Contains(ua, "linux"):
+		platform = "Linux"
+	}
+	return browser + " auf " + platform
 }
 
 func hashSessionToken(token string) string {

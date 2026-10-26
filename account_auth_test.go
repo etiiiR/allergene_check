@@ -13,16 +13,20 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/surrealdb/surrealdb.go/pkg/models"
 )
 
 type memoryAccountRepository struct {
-	mu       sync.Mutex
-	account  *accountRecord
-	sessions map[string]int64
+	mu              sync.Mutex
+	account         *accountRecord
+	sessions        map[string]int64
+	sessionMetadata map[string]accountSessionRecord
 }
 
 func newMemoryAccountRepository() *memoryAccountRepository {
-	return &memoryAccountRepository{sessions: make(map[string]int64)}
+	return &memoryAccountRepository{
+		sessions: make(map[string]int64), sessionMetadata: make(map[string]accountSessionRecord),
+	}
 }
 
 func (r *memoryAccountRepository) Account(context.Context) (*accountRecord, error) {
@@ -47,9 +51,17 @@ func (r *memoryAccountRepository) CreateAccount(_ context.Context, account accou
 }
 
 func (r *memoryAccountRepository) CreateSession(_ context.Context, id string, expiry int64) error {
+	return r.CreateSessionWithMetadata(context.Background(), id, expiry, 0, "")
+}
+
+func (r *memoryAccountRepository) CreateSessionWithMetadata(_ context.Context, id string, expiry, createdAt int64, deviceLabel string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.sessions[id] = expiry
+	r.sessionMetadata[id] = accountSessionRecord{
+		ID: models.NewRecordID("diary_account_sessions", id), ExpiresAt: expiry,
+		CreatedAt: createdAt, DeviceLabel: deviceLabel,
+	}
 	return nil
 }
 
@@ -63,7 +75,18 @@ func (r *memoryAccountRepository) DeleteSession(_ context.Context, id string) er
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.sessions, id)
+	delete(r.sessionMetadata, id)
 	return nil
+}
+
+func (r *memoryAccountRepository) ListSessions(context.Context) ([]accountSessionRecord, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	items := make([]accountSessionRecord, 0, len(r.sessionMetadata))
+	for _, session := range r.sessionMetadata {
+		items = append(items, session)
+	}
+	return items, nil
 }
 
 func (r *memoryAccountRepository) DeleteOtherSessions(_ context.Context, currentID string) (int, error) {
@@ -73,6 +96,7 @@ func (r *memoryAccountRepository) DeleteOtherSessions(_ context.Context, current
 	for id := range r.sessions {
 		if id != currentID {
 			delete(r.sessions, id)
+			delete(r.sessionMetadata, id)
 			deleted++
 		}
 	}
@@ -91,6 +115,7 @@ func (r *memoryAccountRepository) UpdatePasswordAndDeleteOtherSessions(_ context
 	for id := range r.sessions {
 		if id != currentID {
 			delete(r.sessions, id)
+			delete(r.sessionMetadata, id)
 			deleted++
 		}
 	}
@@ -305,6 +330,142 @@ func TestRevokeOtherSessionsKeepsCurrentDeviceSignedIn(t *testing.T) {
 		if valid, err := service.ValidSession(ctx, token); err != nil || valid {
 			t.Fatalf("other device remained signed in: valid=%v err=%v", valid, err)
 		}
+	}
+}
+
+func TestDeviceSessionInventoryAndSelectiveRevocation(t *testing.T) {
+	repository := newMemoryAccountRepository()
+	service := newAccountService(repository, strings.Repeat("s", 32), "https://gut.example")
+	ctx := context.Background()
+	if err := service.Register(ctx, strings.Repeat("s", 32), "gut-user", "a long account password"); err != nil {
+		t.Fatalf("register account: %v", err)
+	}
+	current, err := service.Login(ctx, "192.0.2.1", "gut-user", "a long account password", "Firefox auf Linux")
+	if err != nil {
+		t.Fatalf("create current session: %v", err)
+	}
+	other, err := service.Login(ctx, "192.0.2.2", "gut-user", "a long account password", "Safari auf iPhone / iPad")
+	if err != nil {
+		t.Fatalf("create other session: %v", err)
+	}
+
+	sessions, err := service.Sessions(ctx, current)
+	if err != nil || len(sessions) != 2 {
+		t.Fatalf("list sessions: sessions=%#v err=%v", sessions, err)
+	}
+	var currentFound, otherFound bool
+	for _, session := range sessions {
+		switch {
+		case session.Current:
+			currentFound = session.DeviceLabel == "Firefox auf Linux" && session.ID == hashSessionToken(current)
+		case session.ID == hashSessionToken(other):
+			otherFound = session.DeviceLabel == "Safari auf iPhone / iPad"
+		}
+		if session.ID == current || session.ID == other {
+			t.Fatal("session inventory exposed a bearer token")
+		}
+	}
+	if !currentFound || !otherFound {
+		t.Fatalf("inventory omitted expected device labels or current session: %#v", sessions)
+	}
+	if err := service.RevokeSession(ctx, current, hashSessionToken(current)); err == nil {
+		t.Fatal("selective revocation allowed the current device to revoke itself")
+	}
+	if err := service.RevokeSession(ctx, current, hashSessionToken(other)); err != nil {
+		t.Fatalf("revoke selected device: %v", err)
+	}
+	if valid, err := service.ValidSession(ctx, other); err != nil || valid {
+		t.Fatalf("selected device remained signed in: valid=%v err=%v", valid, err)
+	}
+	if valid, err := service.ValidSession(ctx, current); err != nil || !valid {
+		t.Fatalf("current device was revoked: valid=%v err=%v", valid, err)
+	}
+	if err := service.RevokeSession(ctx, current, "not-a-session-id"); err == nil {
+		t.Fatal("selective revocation accepted a malformed session id")
+	}
+}
+
+func TestDeviceLabelFromUserAgentStoresOnlyCoarsePlatform(t *testing.T) {
+	for _, test := range []struct{ ua, want string }{
+		{"Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1", "Safari auf iPhone / iPad"},
+		{"Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0", "Firefox auf Linux"},
+		{"Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/120.0 Safari/537.36 Edg/120.0", "Edge auf Windows"},
+		{"", "Browser auf Gerät"},
+	} {
+		if got := deviceLabelFromUserAgent(test.ua); got != test.want {
+			t.Errorf("deviceLabelFromUserAgent()=%q, want %q", got, test.want)
+		}
+	}
+	if got := deviceLabelFromUserAgent(strings.Repeat("x", 4096)); len(got) > 64 {
+		t.Fatalf("unexpectedly retained raw user-agent data: %q", got)
+	}
+}
+
+func TestAccountSessionRoutesListAndRevokeOneDevice(t *testing.T) {
+	repository := newMemoryAccountRepository()
+	service := newAccountService(repository, strings.Repeat("s", 32), "http://localhost")
+	ctx := context.Background()
+	if err := service.Register(ctx, strings.Repeat("s", 32), "gut-user", "a long account password"); err != nil {
+		t.Fatalf("register account: %v", err)
+	}
+	current, err := service.Login(ctx, "192.0.2.1", "gut-user", "a long account password", "Firefox auf Linux")
+	if err != nil {
+		t.Fatalf("create current session: %v", err)
+	}
+	other, err := service.Login(ctx, "192.0.2.2", "gut-user", "a long account password", "Safari auf iPhone / iPad")
+	if err != nil {
+		t.Fatalf("create other session: %v", err)
+	}
+	app := fiber.New(fiber.Config{ErrorHandler: AppErrorHandler})
+	app.Use(accountGateMiddleware(service))
+	registerAccountRoutes(app, service)
+
+	listRequest := httptest.NewRequest(http.MethodGet, "/api/auth/sessions", nil)
+	listRequest.AddCookie(&http.Cookie{Name: accountSessionCookie, Value: current})
+	listResponse, err := app.Test(listRequest, 10_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listResponse.Body.Close()
+	if listResponse.StatusCode != http.StatusOK || listResponse.Header.Get("Cache-Control") != "no-store" {
+		t.Fatalf("session inventory response status=%d cache=%q", listResponse.StatusCode, listResponse.Header.Get("Cache-Control"))
+	}
+	var body struct {
+		Sessions []accountSessionView `json:"sessions"`
+	}
+	if err := json.NewDecoder(listResponse.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Sessions) != 2 {
+		t.Fatalf("inventory returned %d sessions, want 2", len(body.Sessions))
+	}
+
+	revokeRequest := httptest.NewRequest(http.MethodDelete, "/api/auth/sessions/"+hashSessionToken(other), nil)
+	revokeRequest.AddCookie(&http.Cookie{Name: accountSessionCookie, Value: current})
+	revokeResponse, err := app.Test(revokeRequest, 10_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer revokeResponse.Body.Close()
+	if revokeResponse.StatusCode != http.StatusForbidden {
+		t.Fatalf("mutation without request token returned status %d, want 403", revokeResponse.StatusCode)
+	}
+	revokeRequest = httptest.NewRequest(http.MethodDelete, "/api/auth/sessions/"+hashSessionToken(other), nil)
+	revokeRequest.Header.Set("X-Diary-Request", "1")
+	revokeRequest.AddCookie(&http.Cookie{Name: accountSessionCookie, Value: current})
+	revokeResponse, err = app.Test(revokeRequest, 10_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer revokeResponse.Body.Close()
+	if revokeResponse.StatusCode != http.StatusNoContent {
+		t.Fatalf("selective revoke returned status %d, want 204", revokeResponse.StatusCode)
+	}
+	if valid, err := service.ValidSession(ctx, other); err != nil || valid {
+		t.Fatalf("selected device remained authorized: valid=%v err=%v", valid, err)
+	}
+	if valid, err := service.ValidSession(ctx, current); err != nil || !valid {
+		t.Fatalf("requesting device lost authorization: valid=%v err=%v", valid, err)
 	}
 }
 
