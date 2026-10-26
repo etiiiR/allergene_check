@@ -2,6 +2,8 @@
 
 Status (2026-10-26): the browser vault and local personal-data path are wired; the server sends only the opaque vault envelope to Inertia. Existing plaintext data has an explicit import path; the first confirmed vault save removes the old primary records transactionally. A one-account pseudonymous sign-in MVP gates pages and APIs, creates revocable per-device sessions, and keeps its account password separate from the client-side vault passphrase. Profile → Sicherheit lists active devices with coarse browser/platform labels and sign-in times, and can revoke one session or all other sessions while preserving the current one. Raw User-Agent and IP values are not retained for the inventory. Go tests cover inventory and selective revocation; all 61 Playwright browser tests pass against two isolated apps and fresh memory-only databases, including single-device revoke and encrypted-backup restore. All four SurrealDB integration tests pass against a disposable namespace. This is still not production-ready: self-service account-password recovery, operational recovery drills, real-device testing, independent security review, hosted CI confirmation, and real-user research remain open.
 
+Hosted CI check (2026-10-26): GitHub created run 19 for commit `b72ed72` but marked it failed with zero jobs and no check runs. The public run data exposes no job logs or test failure, so this is not evidence that the code-level checks failed or passed; CI startup/runner configuration must be investigated before release.
+
 **Update (2026-10-26):** “account-password recovery” in the status above means
 self-service recovery. A scoped operator runbook now exists at
 `docs/ACCOUNT_RECOVERY.md`; it reads the required values without evaluating
