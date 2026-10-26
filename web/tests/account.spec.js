@@ -53,7 +53,7 @@ test("revoking other devices preserves this session and locks the revoked browse
     await page.goto("/profile");
     await page.getByRole("button", { name: "Sicherheit" }).click();
     await page.getByRole("button", { name: "Andere Geräte abmelden" }).click();
-    await expect(page.getByRole("status")).toContainText(/\d+ weitere Anmeldungen? abgemeldet/u);
+    await expect(page.getByRole("status")).toContainText(/\d+ weitere Anmeldung(?:en)? abgemeldet/u);
 
     expect((await page.request.get(new URL("/api/vault", appBaseURL).href)).status()).toBe(200);
     expect((await context.request.get(new URL("/api/vault", appBaseURL).href)).status()).toBe(401);

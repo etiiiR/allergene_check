@@ -54,6 +54,14 @@ type accountSessionRecord struct {
 	DeviceLabel string          `json:"device_label"`
 }
 
+// accountSessionData is the create payload; record identity belongs to the
+// explicit SurrealDB target and must not be serialized as an empty field.
+type accountSessionData struct {
+	ExpiresAt   int64  `json:"expires_at"`
+	CreatedAt   int64  `json:"created_at"`
+	DeviceLabel string `json:"device_label"`
+}
+
 type accountSessionView struct {
 	ID          string `json:"id"`
 	ExpiresAt   int64  `json:"expires_at"`
@@ -98,7 +106,7 @@ func (r *surrealAccountRepository) CreateSession(ctx context.Context, id string,
 }
 
 func (r *surrealAccountRepository) CreateSessionWithMetadata(ctx context.Context, id string, expiry, createdAt int64, deviceLabel string) error {
-	_, err := Create[accountSessionRecord](ctx, r.store, models.NewRecordID("diary_account_sessions", id), accountSessionRecord{
+	_, err := Create[accountSessionRecord](ctx, r.store, models.NewRecordID("diary_account_sessions", id), accountSessionData{
 		ExpiresAt: expiry, CreatedAt: createdAt, DeviceLabel: deviceLabel,
 	})
 	return err

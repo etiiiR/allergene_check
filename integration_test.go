@@ -312,6 +312,9 @@ func TestAccountAndHashedDeviceSessionsPersistInSurrealDB(t *testing.T) {
 	if !metadataSessionFound {
 		t.Fatalf("session inventory did not round-trip device metadata: %#v", sessions)
 	}
+	if err := repository.DeleteSession(ctx, metadataSessionID); err != nil {
+		t.Fatalf("clean up metadata session before bulk-revocation check: %v", err)
+	}
 	if err := repository.DeleteSession(ctx, sessionID); err != nil {
 		t.Fatalf("revoke device session: %v", err)
 	}
