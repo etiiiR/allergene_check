@@ -305,6 +305,14 @@ test("diary sentinel is absent from Inertia page props and the stored vault enve
     const response = await page.goto("/profile");
     const html = await response.text();
     expect(html).not.toContain(sentinel);
+    expect(page.url()).not.toContain(sentinel);
+    const browserStorage = await page.evaluate(() =>
+      JSON.stringify({
+        local: Object.entries(localStorage),
+        session: Object.entries(sessionStorage),
+      }),
+    );
+    expect(browserStorage).not.toContain(sentinel);
     const vault = await (await request.get("/api/vault")).json();
     expect(JSON.stringify(vault)).not.toContain(sentinel);
     expect(vault.envelope?.payload?.ciphertext).toBeTruthy();

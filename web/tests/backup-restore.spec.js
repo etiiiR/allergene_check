@@ -64,6 +64,14 @@ test("new vault setup can generate a local passphrase without sending it to the 
       page.getByRole("heading", { name: "Wiederherstellung sichern" }),
     ).toBeVisible();
     expect(outgoingBodies.join("\n")).not.toContain(generated);
+    expect(page.url()).not.toContain(generated);
+    const browserStorage = await page.evaluate(() =>
+      JSON.stringify({
+        local: Object.entries(localStorage),
+        session: Object.entries(sessionStorage),
+      }),
+    );
+    expect(browserStorage).not.toContain(generated);
     const vault = await (
       await context.request.get(new URL("/api/vault", restoreURL).href)
     ).json();
