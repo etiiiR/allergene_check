@@ -1,6 +1,6 @@
 <script setup>
 import { reactive } from "vue";
-import { HeartPulse } from "@lucide/vue";
+import { HeartPulse } from "../icons.js";
 import EntryPanel from "./EntryPanel.vue";
 import { localDate, localTime, useMutation } from "../lib";
 

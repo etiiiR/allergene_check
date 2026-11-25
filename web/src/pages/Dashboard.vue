@@ -11,7 +11,7 @@ import {
   Plus,
   Utensils,
   CalendarDays,
-} from "@lucide/vue";
+} from "../icons.js";
 import AppShell from "../components/AppShell.vue";
 import { useVaultDiary } from "../privacy/vault-session.js";
 import EntryModal from "../components/EntryModal.vue";

@@ -16,17 +16,25 @@ import (
 
 // newApp builds the Fiber routes around one shared SurrealDB client.
 func newApp(db *surrealdb.DB) *fiber.App {
+	return newAppWithStore(NewSurrealStore(db))
+}
+
+func newAppWithStore(store *SurrealStore) *fiber.App {
 	// Match the vault endpoint's explicit ciphertext limit while allowing room
 	// for the surrounding JSON request. Individual routes still validate their
 	// own payload sizes and shapes.
 	app := fiber.New(fiber.Config{
-		ErrorHandler: AppErrorHandler,
-		BodyLimit:    maxVaultEnvelopeBytes + (64 << 10),
+		ErrorHandler:            AppErrorHandler,
+		BodyLimit:               maxVaultEnvelopeBytes + (64 << 10),
+		EnableTrustedProxyCheck: true,
+		TrustedProxies:          trustedProxyAddresses(),
+		ProxyHeader:             fiber.HeaderXForwardedFor,
+		EnableIPValidation:      true,
 	})
 	app.Use(localSecurityHeaders)
-	store := NewSurrealStore(db)
 	var account *accountService
-	if db != nil {
+	databaseConfigured := store.configured()
+	if databaseConfigured {
 		app.Use(localHostGuard)
 		account = newAccountService(&surrealAccountRepository{store: store}, os.Getenv("ACCOUNT_SETUP_TOKEN"), envOrDefault("APP_URL", "http://localhost:3000"))
 	}
@@ -37,8 +45,8 @@ func newApp(db *surrealdb.DB) *fiber.App {
 	repo := &DiaryRepository{store: store}
 	registerDiaryAPI(app, repo, newAnalysisClient())
 	registerWeb(app, repo, account)
-	app.Get("/health", healthHandler(store, db != nil))
-	registerLiveQueryRoutes(app, store, db != nil)
+	app.Get("/health", healthHandler(store, databaseConfigured))
+	registerLiveQueryRoutes(app, store, databaseConfigured)
 
 	return app
 }

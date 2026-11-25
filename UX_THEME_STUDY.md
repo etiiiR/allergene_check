@@ -13,17 +13,17 @@ sowie die Formulare für Mahlzeiten, Befinden, Stress, Stuhl, Rezepte und persö
 
 ## 2. Beobachtungen und Entscheidungen
 
-| Beobachtung im bisherigen Code | Konsequenz für die Überarbeitung |
-| --- | --- |
-| Mehr als 4.000 CSS-Zeilen mit vielen späteren Overrides und separaten Grüntönen | Ein gemeinsames Token-System und eine kompakte CSS-Datei mit klaren Komponenten- und Layoutabschnitten |
-| Drei tägliche Erfassungsaktionen sahen durch Akzentfarbe und Button-Variante wie verschiedene Prioritätsstufen aus | Mahlzeit, Befinden, gutes Befinden und der Einstieg zu weiteren Beobachtungen erhalten dieselbe Form, Höhe und ruhige Indigo-Fläche; die Reihenfolge und Beschriftung geben Orientierung |
-| Ein frisches oder zurückgesetztes Tagebuch konnte auf der Heute-Seite landen, ohne die persönliche Einrichtung zu beginnen | Ein unvollständiges Profil startet direkt im Einrichtungs-Wizard; überspringen bleibt möglich, und das Dashboard bietet eine sichtbare Wiederaufnahme |
-| Sechs kleine Navigationsziele auf dem Smartphone | Fünf Hauptziele; FODMAP, Bericht und Profil bleiben über Mehr erreichbar |
-| Modale Formulare und Details unterbrechen den Lesefluss | Eintrags- und Detailansichten werden im Hauptbereich der Seite angezeigt |
-| Speichern ist erst durch das Schliessen des Formulars erkennbar | Sichtbarer Pending-Zustand, Erfolgsfeedback und aktualisierte Daten |
-| Kalender bezeichnet einen einzelnen guten Check-in als guten Tag | Gutes Befinden wird ausdrücklich als Moment bezeichnet |
-| Analyse zeigt viele Detailabschnitte vor Zutatenmustern | Datenbasis, führende Muster, Stress und weitere Einflüsse zuerst; Details danach |
-| Gemischte Schriftfamilien, kleine Texte und dekorative Rezeptgrafiken | Eine Schrift, besser lesbare Hilfstexte und kompakte Rezeptköpfe |
+| Beobachtung im bisherigen Code                                                                                             | Konsequenz für die Überarbeitung                                                                                                                                                         |
+| -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mehr als 4.000 CSS-Zeilen mit vielen späteren Overrides und separaten Grüntönen                                            | Ein gemeinsames Token-System und eine kompakte CSS-Datei mit klaren Komponenten- und Layoutabschnitten                                                                                   |
+| Drei tägliche Erfassungsaktionen sahen durch Akzentfarbe und Button-Variante wie verschiedene Prioritätsstufen aus         | Mahlzeit, Befinden, gutes Befinden und der Einstieg zu weiteren Beobachtungen erhalten dieselbe Form, Höhe und ruhige Indigo-Fläche; die Reihenfolge und Beschriftung geben Orientierung |
+| Ein frisches oder zurückgesetztes Tagebuch konnte auf der Heute-Seite landen, ohne die persönliche Einrichtung zu beginnen | Ein unvollständiges Profil startet direkt im Einrichtungs-Wizard; überspringen bleibt möglich, und das Dashboard bietet eine sichtbare Wiederaufnahme                                    |
+| Sechs kleine Navigationsziele auf dem Smartphone                                                                           | Fünf Hauptziele; FODMAP, Bericht und Profil bleiben über Mehr erreichbar                                                                                                                 |
+| Modale Formulare und Details unterbrechen den Lesefluss                                                                    | Eintrags- und Detailansichten werden im Hauptbereich der Seite angezeigt                                                                                                                 |
+| Speichern ist erst durch das Schliessen des Formulars erkennbar                                                            | Sichtbarer Pending-Zustand, Erfolgsfeedback und aktualisierte Daten                                                                                                                      |
+| Kalender bezeichnet einen einzelnen guten Check-in als guten Tag                                                           | Gutes Befinden wird ausdrücklich als Moment bezeichnet                                                                                                                                   |
+| Analyse zeigt viele Detailabschnitte vor Zutatenmustern                                                                    | Datenbasis, führende Muster, Stress und weitere Einflüsse zuerst; Details danach                                                                                                         |
+| Gemischte Schriftfamilien, kleine Texte und dekorative Rezeptgrafiken                                                      | Eine Schrift, besser lesbare Hilfstexte und kompakte Rezeptköpfe                                                                                                                         |
 
 ## 3. Produktziele
 
@@ -47,20 +47,20 @@ Die Grundflächen sind Weiss und helles Slate. Dunkler Slate-Text liefert den Ko
 Indigo kennzeichnet aktive Navigation und primäre Aktionen. Grün wurde auf ausdrücklichen
 Nutzerwunsch entfernt, auch aus Erfolgs- und Kalenderzuständen. Farbe unterstützt immer ein Textlabel.
 
-| Verwendung | Token / Farbe |
-| --- | --- |
-| Hintergrund | `--canvas: #f8fafc` |
-| Oberfläche | `--surface: #ffffff` |
-| Haupttext | `--ink: #17232e` |
-| Hilfstext | `--muted: #526171` |
-| Trennlinien | `--line: #e2e8f0` |
-| Eingaberahmen | `--border-strong: #cbd5e1` |
-| Primäraktion | `--accent: #4338ca` |
-| Aktive Auswahl | `--accent-soft: #eef2ff` |
-| Mahlzeit, Alltagserfassung und guter Moment | Indigo plus klare Beschriftung / Symbol |
-| Eingetragene Beschwerden | Rosé plus Symptomtext; kein Diagnosealarm |
+| Verwendung                                           | Token / Farbe                               |
+| ---------------------------------------------------- | ------------------------------------------- |
+| Hintergrund                                          | `--canvas: #f8fafc`                         |
+| Oberfläche                                           | `--surface: #ffffff`                        |
+| Haupttext                                            | `--ink: #17232e`                            |
+| Hilfstext                                            | `--muted: #526171`                          |
+| Trennlinien                                          | `--line: #e2e8f0`                           |
+| Eingaberahmen                                        | `--border-strong: #cbd5e1`                  |
+| Primäraktion                                         | `--accent: #4338ca`                         |
+| Aktive Auswahl                                       | `--accent-soft: #eef2ff`                    |
+| Mahlzeit, Alltagserfassung und guter Moment          | Indigo plus klare Beschriftung / Symbol     |
+| Eingetragene Beschwerden                             | Rosé plus Symptomtext; kein Diagnosealarm   |
 | Freiwilliger Kontext (Stress, Zyklus, Schlaf, Stuhl) | Neutrales Slate; Kontext bleibt beschriftet |
-| Fehler / Löschen | Rot |
+| Fehler / Löschen                                     | Rot                                         |
 
 Es gibt keine eigene Farbe pro Feld. Rot bleibt Fehlern und Löschen vorbehalten; ein
 statistischer Zusammenhang ist kein Alarm. Kalender ohne Check-in bekommen keine positive Bewertung.
@@ -184,6 +184,9 @@ Einträge werden nach lokalem Kalendertag gruppiert. Die Beschwerdestärke-Sorti
 verwendet bewusst eine gemeinsame Liste, damit ihre Reihenfolge erhalten bleibt.
 Datum, Eintragstyp, Symptome und Sortierung bleiben filterbar. Notizen sind aufklappbar.
 Löschen wird auf einer Bestätigungsseite erklärt; Abbrechen und Behalten schreiben keine Daten.
+Auf schmalen Displays stehen Check-in, Mahlzeit, Stuhl und Stress als gleich breite
+Zwei-Spalten-Aktionen mit mindestens 48px Höhe. Das verhindert den dreispaltigen Umbruch
+von „Check-in“ und hält alle vier Erfassungswege gleich leicht erreichbar.
 
 ### Kalender
 
@@ -238,18 +241,18 @@ Bei Fehler: Eingabe bleibt bestehen → Fehler lesen → korrigieren → erneut 
 
 ## 8. Komponenten und Wartung
 
-| Datei | Verantwortung |
-| --- | --- |
-| `web/src/tailwind.css` | Tailwind, DaisyUI-Plugin und Light-Theme |
-| `web/src/style.css` | gemeinsame Tokens, Komponentenregeln, Seitenlayouts und Print |
-| `components/ui/UiButton.vue` | Varianten, native Button-Semantik, Loading und Disabled |
-| `components/ui/UiCard.vue`, `UiBadge.vue` | gemeinsame Container und Statusdarstellung |
-| `components/ui/UiEditor.vue` | Bearbeitung im Seiteninhalt, Fokus und Rückkehr |
-| `components/EntryPanel.vue` | gemeinsamer Einstieg der bestehenden Formulare in den Editor |
-| `components/ui/UiSkeleton.vue` | lesbarer Ladezustand |
-| `components/ui/ToastHost.vue`, `ui/feedback.js` | Feedback über Seitenwechsel hinweg |
-| `ui/workspace.js` | aktive Seiteneditoren |
-| `lib.js` | Speichern, Duplicate-Guard und Feedback |
+| Datei                                           | Verantwortung                                                 |
+| ----------------------------------------------- | ------------------------------------------------------------- |
+| `web/src/tailwind.css`                          | Tailwind, DaisyUI-Plugin und Light-Theme                      |
+| `web/src/style.css`                             | gemeinsame Tokens, Komponentenregeln, Seitenlayouts und Print |
+| `components/ui/UiButton.vue`                    | Varianten, native Button-Semantik, Loading und Disabled       |
+| `components/ui/UiCard.vue`, `UiBadge.vue`       | gemeinsame Container und Statusdarstellung                    |
+| `components/ui/UiEditor.vue`                    | Bearbeitung im Seiteninhalt, Fokus und Rückkehr               |
+| `components/EntryPanel.vue`                     | gemeinsamer Einstieg der bestehenden Formulare in den Editor  |
+| `components/ui/UiSkeleton.vue`                  | lesbarer Ladezustand                                          |
+| `components/ui/ToastHost.vue`, `ui/feedback.js` | Feedback über Seitenwechsel hinweg                            |
+| `ui/workspace.js`                               | aktive Seiteneditoren                                         |
+| `lib.js`                                        | Speichern, Duplicate-Guard und Feedback                       |
 
 Fachformulare behalten vorerst ihre bisherigen Dateinamen wie `EntryModal.vue`.
 Diese Namen sind historisch; die Komponenten erzeugen keine Dialoge.
@@ -335,11 +338,11 @@ Das Feedback vom 05.10.2026 korrigiert die frühere, zu stark ausdifferenzierte 
 Farbe soll Orientierung geben, aber nicht jede Eingabeart in eine eigene Farbe kleiden oder
 Alltagsaktionen als unterschiedlich wichtig darstellen. Grün bleibt ausgeschlossen.
 
-| Semantische Gruppe | Behandlung | Bedeutung |
-| --- | --- | --- |
-| Tagebuch-Alltag, Mahlzeit und gutes Befinden | Indigo und sehr helle Indigo-Fläche | Primäre Erfassung; Essen und Befinden haben gleichwertig erreichbare Aktionen |
-| Symptome | Dunkles Rosé auf sehr heller Rosé-Fläche | Eingetragene Beschwerden, kein Warn- oder Diagnoseurteil |
-| Stress, Stuhl, Zyklus, Zeit und Notiz | Neutrales Slate | Freiwilliger Kontext; Unterschiede bleiben in Text und Symbolen erkennbar |
+| Semantische Gruppe                           | Behandlung                               | Bedeutung                                                                     |
+| -------------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------- |
+| Tagebuch-Alltag, Mahlzeit und gutes Befinden | Indigo und sehr helle Indigo-Fläche      | Primäre Erfassung; Essen und Befinden haben gleichwertig erreichbare Aktionen |
+| Symptome                                     | Dunkles Rosé auf sehr heller Rosé-Fläche | Eingetragene Beschwerden, kein Warn- oder Diagnoseurteil                      |
+| Stress, Stuhl, Zyklus, Zeit und Notiz        | Neutrales Slate                          | Freiwilliger Kontext; Unterschiede bleiben in Text und Symbolen erkennbar     |
 
 Die vier Einstiege „Mahlzeit eintragen“, „Befinden“, „Gutes Befinden“ und „Weitere
 Beobachtungen“ teilen im Heute-Bereich dieselbe Höhe, Fläche, Kontur und Rundung. Mahlzeit
@@ -384,14 +387,14 @@ Zusammenfassung bleibt ein Hinweis und keine Diagnose.
 
 ### Heuristische Befunde am aktuellen Produkt
 
-| Priorität | Codebefund | Risiko für die Person | Richtung |
-| --- | --- | --- | --- |
-| P0 | Symptomstärken wurden in bestehenden Check-ins als 0–10-Zahlen bearbeitet; die Analyse nutzt weiter den historischen Zahlenvertrag. | Ein freies Zahlenfeld ist mühsam und suggeriert eine Genauigkeit, die die eigene Erinnerung nicht immer hergibt. | Pro Symptom eine zusammenhängende 0–5-Sterne-Auswahl mit passendem Symptomnamen und Icon; 0 bedeutet „Keine“. Die gewählte Stufe zusätzlich ausschreiben und per Tastatur bedienbar machen. Keine freie 0–10-Eingabe. |
-| P0 | Die Rezeptbibliothek zeigt eine einspaltige, über die ganze Inhaltsbreite laufende Kartenliste. | Auf breiten Bildschirmen entstehen breite Inhaltsbänder und wenig Überblick; Personen müssen vertikal viele Karten absuchen. | Karteninhalt kompakter setzen, auf breiten Desktop-Ansichten zwei Spalten nutzen und auf Mobilgeräten bei einer lesbaren Spalte bleiben. Suche, Zutatenhinweis und primäre Aktion sichtbar halten. |
-| P1 | Der Rezepteditor kann pro Zutat Zuordnung, Vorschläge und Allergene zeigen. | Viele Zutaten vergrössern den Editor stark; native Mehrfachauswahl kann auf schmalen Geräten unleserlich werden. | Vollständige Zutatenliste mit kompakten Zeilen; seltene Detailfelder inline bei Bedarf öffnen. Allergene als umfließende, beschriftete Auswahl statt horizontal gequetschter Mehrfachauswahl. |
-| P1 | Die App bündelt Tagebuch, Rezeptcrawler, ML-Auswertung und optionale Gesundheitskontexte. | Neue Personen können nicht sofort erkennen, was sie täglich tun müssen und was nur Zusatz ist. | Pro Seite eine nächste Hauptaktion, übrige Funktionen klar nachgeordnet; optionale Kontexte nicht als Pflicht oder Voraussetzung formulieren. |
-| P1 | Ohne konkrete Mahlzeitenwahl verglich die Analyse automatisch alle Mahlzeiten im Zeitfenster; „Nicht zuordnen“ war nur optisch eindeutig, fachlich aber nicht. | Ein zufällig zeitnahes Essen konnte als mögliche Zutatsexposition erscheinen und die Vermutung eines Essensauslösers verstärken. | Zwischen Zeitfenstervergleich und „Keine Mahlzeit zuordnen“ wählen lassen; die zweite Auswahl schliesst Essen aus der Zutatenanalyse aus, behält den Moment aber für andere Einflüsse. |
-| P1 | Ein Muster kann bei nur einem Treffer „100 %“ anzeigen. | Kleine Stichproben wirken wie ein starkes oder belastbares Ergebnis, auch wenn die Warnung „Noch wenig Daten“ danebensteht. | Fallzahlen sichtbar lassen, Prozentwerte und Vergleichsbalken erst bei mindestens fünf Momenten je Gruppe anzeigen und Ergebnisse persönlich/deskriptiv benennen. |
+| Priorität | Codebefund                                                                                                                                                     | Risiko für die Person                                                                                                            | Richtung                                                                                                                                                                                                              |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0        | Symptomstärken wurden in bestehenden Check-ins als 0–10-Zahlen bearbeitet; die Analyse nutzt weiter den historischen Zahlenvertrag.                            | Ein freies Zahlenfeld ist mühsam und suggeriert eine Genauigkeit, die die eigene Erinnerung nicht immer hergibt.                 | Pro Symptom eine zusammenhängende 0–5-Sterne-Auswahl mit passendem Symptomnamen und Icon; 0 bedeutet „Keine“. Die gewählte Stufe zusätzlich ausschreiben und per Tastatur bedienbar machen. Keine freie 0–10-Eingabe. |
+| P0        | Die Rezeptbibliothek zeigt eine einspaltige, über die ganze Inhaltsbreite laufende Kartenliste.                                                                | Auf breiten Bildschirmen entstehen breite Inhaltsbänder und wenig Überblick; Personen müssen vertikal viele Karten absuchen.     | Karteninhalt kompakter setzen, auf breiten Desktop-Ansichten zwei Spalten nutzen und auf Mobilgeräten bei einer lesbaren Spalte bleiben. Suche, Zutatenhinweis und primäre Aktion sichtbar halten.                    |
+| P1        | Der Rezepteditor kann pro Zutat Zuordnung, Vorschläge und Allergene zeigen.                                                                                    | Viele Zutaten vergrössern den Editor stark; native Mehrfachauswahl kann auf schmalen Geräten unleserlich werden.                 | Vollständige Zutatenliste mit kompakten Zeilen; seltene Detailfelder inline bei Bedarf öffnen. Allergene als umfließende, beschriftete Auswahl statt horizontal gequetschter Mehrfachauswahl.                         |
+| P1        | Die App bündelt Tagebuch, Rezeptcrawler, ML-Auswertung und optionale Gesundheitskontexte.                                                                      | Neue Personen können nicht sofort erkennen, was sie täglich tun müssen und was nur Zusatz ist.                                   | Pro Seite eine nächste Hauptaktion, übrige Funktionen klar nachgeordnet; optionale Kontexte nicht als Pflicht oder Voraussetzung formulieren.                                                                         |
+| P1        | Ohne konkrete Mahlzeitenwahl verglich die Analyse automatisch alle Mahlzeiten im Zeitfenster; „Nicht zuordnen“ war nur optisch eindeutig, fachlich aber nicht. | Ein zufällig zeitnahes Essen konnte als mögliche Zutatsexposition erscheinen und die Vermutung eines Essensauslösers verstärken. | Zwischen Zeitfenstervergleich und „Keine Mahlzeit zuordnen“ wählen lassen; die zweite Auswahl schliesst Essen aus der Zutatenanalyse aus, behält den Moment aber für andere Einflüsse.                                |
+| P1        | Ein Muster kann bei nur einem Treffer „100 %“ anzeigen.                                                                                                        | Kleine Stichproben wirken wie ein starkes oder belastbares Ergebnis, auch wenn die Warnung „Noch wenig Daten“ danebensteht.      | Fallzahlen sichtbar lassen, Prozentwerte und Vergleichsbalken erst bei mindestens fünf Momenten je Gruppe anzeigen und Ergebnisse persönlich/deskriptiv benennen.                                                     |
 
 ### Simulierte Aufgaben – drei Überarbeitungsrunden
 
@@ -491,18 +494,18 @@ nicht lokal ausgeführt.
 
 ### Priorisierter Umsetzungs- und Forschungs-Backlog
 
-| Prio | Arbeit | Abnahmekriterium | Status |
-| --- | --- | --- | --- |
-| P0 | Symptomstärke in Erfassen, Bearbeiten, Markierung, Tagebuch, Kalender und Bericht vereinheitlichen. | Ein auswählbarer 0–5-Sterne-Status mit sichtbarem Symptomname/Icon, klarer Textstufe, Tastatursteuerung und lesbarer Übernahme bestehender Einträge. | Implementiert; 43 Unit-Tests und vollständiger 51-Test-Browserlauf bestanden, einschliesslich Tagebuch-Bearbeitung und Axe-Prüfung der Kernseiten. |
-| P0 | Rezeptbibliothek kompakter darstellen. | 12 Einträge pro Seite; bei 320/390px eine Spalte ohne Überlauf, bei 1024px zwei und bei 1440px drei kompakte Spalten; Suche, Aktionen, lange Namen und Screenreader-Beschriftungen bleiben nutzbar. | Implementiert; Suche und Bibliothek mit 200 Rezepten, Paging, Mobil-/Desktop-Layout und Tastaturauswahl im Browser bestanden. |
-| P0 | Gleichwertige Heute-Aktionen und reduzierte Farbpalette. | Mahlzeit, Befinden, Gutes Befinden und Weitere Beobachtungen teilen Grösse und Gestaltung; drei semantische Farbfamilien; Kontrast/Axe bestehen. | Implementiert; Browser-Regressionen und Axe-Prüfungen bestanden. |
-| P0 | Erststart und erneutes Durchgehen der Profileinrichtung. | Kein vollständiges Profil führt in den dreistufigen Wizard; später fortsetzen; bestehende Profile vorausgefüllt erneut öffnen; Übergänge animiert und reduzierte Bewegung respektiert. | Implementiert; Erststart, Fortsetzen, Fokus, Reduced Motion, persistentes Pseudonym und Entsperren in einem neuen Browserkontext bestanden. |
-| P1 | Zutateneditor verdichten und Allergenauswahl für Mobilgeräte neu ordnen. | Alle Zutatennamen bleiben in der Liste sichtbar; Zuordnung/Allergene überlappen nicht; Import- und manuelle Zutaten bleiben änderbar. | Implementiert; 10 Zutaten und Allergen-Auswahl bei 320px sowie Rezeptimport im Browser bestanden. |
-| P1 | Leere Tagebuchansicht von leeren Filterergebnissen unterscheiden. | Ein wirklich leeres Tagebuch bietet gleichwertig Mahlzeit/Befinden; Filter ohne Treffer erklären den Zustand und setzen Datum/Filter mit einer Aktion zurück. | Implementiert; Browser-Regression hinzugefügt; Unit-Tests und Build bestehen, tatsächlicher Browserlauf wartet auf Docker-Zugriff. |
-| P1 | Rezeptimport vor stillem Überschreiben schützen und Rückmeldung entdramatisieren. | Während des Imports sind ersetzte Felder gesperrt, Abbrechen bleibt nutzbar; Hinweise sind Statusmeldungen, echte Fehler Alerts; fehlende Zutaten erklären den deaktivierten Speichern-Button. | Implementiert; verzögerte Import-Regression hinzugefügt; Unit-Tests und Build bestehen, tatsächlicher Browserlauf wartet auf Docker-Zugriff. |
-| P1 | Prozentanzeigen bei dünner Datenlage entschärfen. | Bei weniger als fünf Momenten in einer Vergleichsgruppe bleiben Fallzahlen sichtbar, Prozentwerte/Balken fehlen und die Beschreibung behauptet keine Ursache. | Implementiert; Regressionen für 1/1, fehlende Vergleichsgruppe, knapp unterschrittene Schwelle und ausreichende Gruppen ergänzt. |
-| P1 | Tagebuch-Hauptschleife mit fünf moderierten Personen prüfen. | Aufgaben: wiederholtes Rezept erfassen, neues Essen protokollieren, Beschwerden mit Verzögerung eintragen, Kontext ohne Mahlzeitenbezug ergänzen, Muster vorsichtig erklären. | Studienplan vorhanden; Personen noch nicht rekrutiert/getestet. |
-| P2 | Erkenntnisse aus echten Sitzungen priorisieren und zweite Iteration prüfen. | Ergebnisse enthalten Erfolgsquote, Zeit, Fehlbedienungen, Rücksprünge, Missverständnisse, Zitat nur mit Einwilligung sowie konkrete Änderung und Retest. | Nach der ersten echten Testrunde. |
+| Prio | Arbeit                                                                                              | Abnahmekriterium                                                                                                                                                                                    | Status                                                                                                                                             |
+| ---- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0   | Symptomstärke in Erfassen, Bearbeiten, Markierung, Tagebuch, Kalender und Bericht vereinheitlichen. | Ein auswählbarer 0–5-Sterne-Status mit sichtbarem Symptomname/Icon, klarer Textstufe, Tastatursteuerung und lesbarer Übernahme bestehender Einträge.                                                | Implementiert; 43 Unit-Tests und vollständiger 51-Test-Browserlauf bestanden, einschliesslich Tagebuch-Bearbeitung und Axe-Prüfung der Kernseiten. |
+| P0   | Rezeptbibliothek kompakter darstellen.                                                              | 12 Einträge pro Seite; bei 320/390px eine Spalte ohne Überlauf, bei 1024px zwei und bei 1440px drei kompakte Spalten; Suche, Aktionen, lange Namen und Screenreader-Beschriftungen bleiben nutzbar. | Implementiert; Suche und Bibliothek mit 200 Rezepten, Paging, Mobil-/Desktop-Layout und Tastaturauswahl im Browser bestanden.                      |
+| P0   | Gleichwertige Heute-Aktionen und reduzierte Farbpalette.                                            | Mahlzeit, Befinden, Gutes Befinden und Weitere Beobachtungen teilen Grösse und Gestaltung; drei semantische Farbfamilien; Kontrast/Axe bestehen.                                                    | Implementiert; Browser-Regressionen und Axe-Prüfungen bestanden.                                                                                   |
+| P0   | Erststart und erneutes Durchgehen der Profileinrichtung.                                            | Kein vollständiges Profil führt in den dreistufigen Wizard; später fortsetzen; bestehende Profile vorausgefüllt erneut öffnen; Übergänge animiert und reduzierte Bewegung respektiert.              | Implementiert; Erststart, Fortsetzen, Fokus, Reduced Motion, persistentes Pseudonym und Entsperren in einem neuen Browserkontext bestanden.        |
+| P1   | Zutateneditor verdichten und Allergenauswahl für Mobilgeräte neu ordnen.                            | Alle Zutatennamen bleiben in der Liste sichtbar; Zuordnung/Allergene überlappen nicht; Import- und manuelle Zutaten bleiben änderbar.                                                               | Implementiert; 10 Zutaten und Allergen-Auswahl bei 320px sowie Rezeptimport im Browser bestanden.                                                  |
+| P1   | Leere Tagebuchansicht von leeren Filterergebnissen unterscheiden.                                   | Ein wirklich leeres Tagebuch bietet gleichwertig Mahlzeit/Befinden; Filter ohne Treffer erklären den Zustand und setzen Datum/Filter mit einer Aktion zurück.                                       | Implementiert; Browser-Regression hinzugefügt; Unit-Tests und Build bestehen, tatsächlicher Browserlauf wartet auf Docker-Zugriff.                 |
+| P1   | Rezeptimport vor stillem Überschreiben schützen und Rückmeldung entdramatisieren.                   | Während des Imports sind ersetzte Felder gesperrt, Abbrechen bleibt nutzbar; Hinweise sind Statusmeldungen, echte Fehler Alerts; fehlende Zutaten erklären den deaktivierten Speichern-Button.      | Implementiert; verzögerte Import-Regression hinzugefügt; Unit-Tests und Build bestehen, tatsächlicher Browserlauf wartet auf Docker-Zugriff.       |
+| P1   | Prozentanzeigen bei dünner Datenlage entschärfen.                                                   | Bei weniger als fünf Momenten in einer Vergleichsgruppe bleiben Fallzahlen sichtbar, Prozentwerte/Balken fehlen und die Beschreibung behauptet keine Ursache.                                       | Implementiert; Regressionen für 1/1, fehlende Vergleichsgruppe, knapp unterschrittene Schwelle und ausreichende Gruppen ergänzt.                   |
+| P1   | Tagebuch-Hauptschleife mit fünf moderierten Personen prüfen.                                        | Aufgaben: wiederholtes Rezept erfassen, neues Essen protokollieren, Beschwerden mit Verzögerung eintragen, Kontext ohne Mahlzeitenbezug ergänzen, Muster vorsichtig erklären.                       | Studienplan vorhanden; Personen noch nicht rekrutiert/getestet.                                                                                    |
+| P2   | Erkenntnisse aus echten Sitzungen priorisieren und zweite Iteration prüfen.                         | Ergebnisse enthalten Erfolgsquote, Zeit, Fehlbedienungen, Rücksprünge, Missverständnisse, Zitat nur mit Einwilligung sowie konkrete Änderung und Retest.                                            | Nach der ersten echten Testrunde.                                                                                                                  |
 
 **Sprint-Vorschlag (je zwei Wochen):** Sprint 1 schliesst die P0-Eingabe- und Rezeptkartenänderungen
 mit Browser-/Geräteprüfung ab. Sprint 2 verdichtet Zutatenbearbeitung und Allergenauswahl, danach

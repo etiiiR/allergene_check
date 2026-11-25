@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createEncryptedVault } from "../src/privacy/vault-crypto.js";
+import {
+  createEncryptedVault,
+  decryptVaultPayload,
+  encryptVaultPayload,
+} from "../src/privacy/vault-crypto.js";
 import {
   commitPreparedVault,
   acceptServerVault,
@@ -31,7 +35,9 @@ function mockVaultServer() {
     }
     if (server.failPuts) {
       return new Response(
-        JSON.stringify({ error: { code: "write_unavailable", message: "write unavailable" } }),
+        JSON.stringify({
+          error: { code: "write_unavailable", message: "write unavailable" },
+        }),
         { status: 503 },
       );
     }
@@ -102,7 +108,10 @@ test("a delayed older Inertia snapshot cannot relock a newly saved vault", async
 
     assert.equal(vaultSessionState.revision, 1);
     assert.equal(vaultSessionState.status, "unlocked");
-    assert.equal(vaultSessionState.diary.profile.display_name, "Restored profile");
+    assert.equal(
+      vaultSessionState.diary.profile.display_name,
+      "Restored profile",
+    );
   } finally {
     mock.restore();
   }
@@ -150,6 +159,161 @@ test("vault session creates, verifies, saves, locks and reopens only ciphertext"
     await unlockVaultWithPassphrase(passphrase);
     assert.equal(vaultSessionState.diary.checkins.length, 2);
     assert.equal(isVaultUnlocked(), true);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("concurrent changes to separate diary entries merge and retry safely", async () => {
+  const mock = mockVaultServer();
+  try {
+    const base = {
+      profile: { display_name: "Private", body_group: "unspecified" },
+      recipes: [{ id: "recipe-1", title: "Original", notes: "Original notes" }],
+      meals: [],
+      checkins: [],
+      recipe_flags: [],
+      stools: [],
+      stress_observations: [],
+    };
+    await loadVaultSession();
+    const prepared = await prepareVault(base, passphrase);
+    await commitPreparedVault(prepared);
+
+    const remoteDiary = structuredClone(base);
+    remoteDiary.recipes[0].title = "Phone title";
+    remoteDiary.meals.push({ id: "meal-from-phone", title: "Phone meal" });
+    mock.server.vault = {
+      revision: 2,
+      envelope: {
+        ...mock.server.vault.envelope,
+        payload: await encryptVaultPayload(prepared.dataKey, remoteDiary),
+      },
+    };
+
+    await transactDiary((draft) => {
+      draft.recipes[0].notes = "Tablet notes";
+      draft.checkins.push({ id: "note-from-tablet", notes: "Tablet note" });
+      return { diary: draft, result: "saved" };
+    });
+
+    assert.equal(vaultSessionState.status, "unlocked");
+    assert.equal(vaultSessionState.revision, 3);
+    assert.deepEqual(vaultSessionState.diary.recipes[0], {
+      ...remoteDiary.recipes[0],
+      notes: "Tablet notes",
+    });
+    assert.deepEqual(vaultSessionState.diary.meals, remoteDiary.meals);
+    assert.deepEqual(vaultSessionState.diary.checkins, [
+      { id: "note-from-tablet", notes: "Tablet note" },
+    ]);
+    const stored = await decryptVaultPayload(
+      prepared.dataKey,
+      mock.server.vault.envelope.payload,
+    );
+    assert.deepEqual(stored, vaultSessionState.diary);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("same-field edits on two devices fail closed without overwriting either server copy", async () => {
+  const mock = mockVaultServer();
+  try {
+    const base = {
+      profile: { display_name: "Private" },
+      recipes: [{ id: "recipe-1", title: "Original" }],
+      meals: [],
+      checkins: [],
+      recipe_flags: [],
+      stools: [],
+      stress_observations: [],
+    };
+    await loadVaultSession();
+    const prepared = await prepareVault(base, passphrase);
+    await commitPreparedVault(prepared);
+
+    const remoteDiary = structuredClone(base);
+    remoteDiary.recipes[0].title = "Phone edit";
+    mock.server.vault = {
+      revision: 2,
+      envelope: {
+        ...mock.server.vault.envelope,
+        payload: await encryptVaultPayload(prepared.dataKey, remoteDiary),
+      },
+    };
+
+    await assert.rejects(
+      transactDiary((draft) => {
+        draft.recipes[0].title = "Tablet edit";
+        return { diary: draft, result: "unsaved" };
+      }),
+      /gleichzeitig auf einem anderen Gerät geändert/u,
+    );
+
+    assert.equal(vaultSessionState.status, "conflict");
+    assert.equal(vaultSessionState.diary, null);
+    assert.equal(mock.server.vault.revision, 2);
+    assert.equal(
+      (
+        await decryptVaultPayload(
+          prepared.dataKey,
+          mock.server.vault.envelope.payload,
+        )
+      ).recipes[0].title,
+      "Phone edit",
+    );
+  } finally {
+    mock.restore();
+  }
+});
+
+test("a recipe deletion cannot orphan a meal added on another device", async () => {
+  const mock = mockVaultServer();
+  try {
+    const base = {
+      profile: { display_name: "Private" },
+      recipes: [{ id: "recipe-1", title: "Saved recipe" }],
+      meals: [],
+      checkins: [],
+      recipe_flags: [],
+      stools: [],
+      stress_observations: [],
+    };
+    await loadVaultSession();
+    const prepared = await prepareVault(base, passphrase);
+    await commitPreparedVault(prepared);
+
+    const remoteDiary = structuredClone(base);
+    remoteDiary.meals.push({
+      id: "meal-from-phone",
+      recipe_id: "recipe-1",
+      title: "Saved recipe",
+    });
+    mock.server.vault = {
+      revision: 2,
+      envelope: {
+        ...mock.server.vault.envelope,
+        payload: await encryptVaultPayload(prepared.dataKey, remoteDiary),
+      },
+    };
+
+    await assert.rejects(
+      transactDiary((draft) => {
+        draft.recipes = [];
+        return { diary: draft, result: null };
+      }),
+      /gleichzeitig auf einem anderen Gerät geändert/u,
+    );
+
+    assert.equal(vaultSessionState.status, "conflict");
+    assert.equal(mock.server.vault.revision, 2);
+    const stored = await decryptVaultPayload(
+      prepared.dataKey,
+      mock.server.vault.envelope.payload,
+    );
+    assert.equal(stored.recipes[0].id, "recipe-1");
+    assert.equal(stored.meals[0].recipe_id, "recipe-1");
   } finally {
     mock.restore();
   }
@@ -287,17 +451,19 @@ test("credential rotation replaces both keys and preserves encrypted diary data"
       .filter((call) => call.method === "PUT")
       .map((call) => call.body)
       .join("\n");
-    for (const secret of [passphrase, nextPassphrase, previousRecoveryKey, prepared.recoveryKey]) {
+    for (const secret of [
+      passphrase,
+      nextPassphrase,
+      previousRecoveryKey,
+      prepared.recoveryKey,
+    ]) {
       assert.ok(!writes.includes(secret));
     }
     assert.ok(!writes.includes("Pseudonym bleibt privat"));
     assert.ok(!writes.includes("Bauchweh nach dem Essen"));
 
     lockVaultSession();
-    await assert.rejects(
-      unlockVaultWithPassphrase(passphrase),
-      /ungültig/u,
-    );
+    await assert.rejects(unlockVaultWithPassphrase(passphrase), /ungültig/u);
     await unlockVaultWithPassphrase(nextPassphrase);
     assert.deepEqual(vaultSessionState.diary, diary);
     lockVaultSession();
@@ -315,7 +481,11 @@ test("credential rotation replaces both keys and preserves encrypted diary data"
 test("failed credential save leaves the existing vault and unlocked diary usable", async () => {
   const mock = mockVaultServer();
   try {
-    const diary = { profile: {}, recipes: [], checkins: [{ notes: "still here" }] };
+    const diary = {
+      profile: {},
+      recipes: [],
+      checkins: [{ notes: "still here" }],
+    };
     await loadVaultSession();
     await commitPreparedVault(await prepareVault(diary, passphrase));
     const previousEnvelope = mock.server.vault.envelope;
@@ -324,7 +494,10 @@ test("failed credential save leaves the existing vault and unlocked diary usable
     );
     mock.server.failPuts = true;
 
-    await assert.rejects(commitVaultCredentialRotation(prepared), /write unavailable/u);
+    await assert.rejects(
+      commitVaultCredentialRotation(prepared),
+      /write unavailable/u,
+    );
     assert.equal(vaultSessionState.status, "unlocked");
     assert.equal(vaultSessionState.revision, 1);
     assert.deepEqual(vaultSessionState.envelope, previousEnvelope);
@@ -409,7 +582,7 @@ test("queued diary updates serialize against the latest decrypted state", async 
   }
 });
 
-test("stale vault writes fail closed and discard the unlocked plaintext view", async () => {
+test("stale revision with unchanged data is retried without losing the edit", async () => {
   const mock = mockVaultServer();
   try {
     await loadVaultSession();
@@ -420,16 +593,14 @@ test("stale vault writes fail closed and discard the unlocked plaintext view", a
       ),
     );
     mock.server.vault.revision++;
-    await assert.rejects(
-      transactDiary((draft) => {
-        draft.recipes.push({ title: "must not overwrite another tab" });
-        return { diary: draft, result: null };
-      }),
-      /zwischenzeitlich geändert/u,
-    );
-    assert.equal(vaultSessionState.status, "conflict");
-    assert.equal(vaultSessionState.diary, null);
-    assert.equal(isVaultUnlocked(), false);
+    await transactDiary((draft) => {
+      draft.recipes.push({ id: "local-recipe", title: "keep this edit" });
+      return { diary: draft, result: null };
+    });
+    assert.equal(vaultSessionState.status, "unlocked");
+    assert.equal(vaultSessionState.diary.recipes[0].title, "keep this edit");
+    assert.equal(vaultSessionState.revision, 3);
+    assert.equal(isVaultUnlocked(), true);
   } finally {
     mock.restore();
   }

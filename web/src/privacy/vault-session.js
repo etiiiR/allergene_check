@@ -314,10 +314,7 @@ export function commitVaultCredentialRotation(prepared) {
         "Die gespeicherte Verschlüsselung weicht vom Entwurf ab. Bitte entsperre den Tresor erneut.",
       );
     }
-    if (
-      prepared.epoch !== sessionEpoch ||
-      mutableState.status !== "unlocked"
-    ) {
+    if (prepared.epoch !== sessionEpoch || mutableState.status !== "unlocked") {
       installLocked(saved);
       throw new Error(
         "Die Zugangsdaten wurden gespeichert. Bitte entsperre den Tresor erneut.",
@@ -461,6 +458,203 @@ export const unlockVaultWithPassphrase = (passphrase) =>
 export const unlockVaultWithRecoveryKey = (recoveryKey) =>
   unlockWith(unlockWithRecoveryKey, recoveryKey);
 
+const diaryCollections = [
+  "recipes",
+  "meals",
+  "checkins",
+  "recipe_flags",
+  "stools",
+  "stress_observations",
+];
+
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, canonical(value[key])]),
+    );
+  }
+  return value;
+}
+
+function sameValue(left, right) {
+  return JSON.stringify(canonical(left)) === JSON.stringify(canonical(right));
+}
+
+// Merge changes at the field level so concurrent edits to separate diary
+// entries (or separate fields on one entry) can sync without losing either.
+// A deletion racing an edit, or two different edits to the same field, needs
+// the user's attention and is deliberately not guessed at.
+function mergeObject(base, local, remote) {
+  if (
+    !base ||
+    typeof base !== "object" ||
+    Array.isArray(base) ||
+    !local ||
+    typeof local !== "object" ||
+    Array.isArray(local) ||
+    !remote ||
+    typeof remote !== "object" ||
+    Array.isArray(remote)
+  )
+    return null;
+
+  const merged = {};
+  const keys = new Set([
+    ...Object.keys(base),
+    ...Object.keys(local),
+    ...Object.keys(remote),
+  ]);
+  for (const key of keys) {
+    const before = base[key];
+    const ours = local[key];
+    const theirs = remote[key];
+    const localChanged = !sameValue(before, ours);
+    const remoteChanged = !sameValue(before, theirs);
+    if (localChanged && remoteChanged && !sameValue(ours, theirs)) return null;
+    const value = localChanged ? ours : theirs;
+    if (value !== undefined) merged[key] = value;
+  }
+  return merged;
+}
+
+function mergeCollection(base, local, remote) {
+  if (![base, local, remote].every(Array.isArray)) return null;
+  const indexById = (items) => {
+    const index = new Map();
+    for (const item of items) {
+      if (
+        !item ||
+        typeof item.id !== "string" ||
+        !item.id ||
+        index.has(item.id)
+      ) {
+        return null;
+      }
+      index.set(item.id, item);
+    }
+    return index;
+  };
+  const before = indexById(base);
+  const ours = indexById(local);
+  const theirs = indexById(remote);
+  if (!before || !ours || !theirs) return null;
+
+  const ids = new Set([...theirs.keys(), ...ours.keys()]);
+  const result = new Map();
+  for (const id of ids) {
+    const prior = before.get(id);
+    const localItem = ours.get(id);
+    const remoteItem = theirs.get(id);
+    const localChanged = !sameValue(prior, localItem);
+    const remoteChanged = !sameValue(prior, remoteItem);
+    let selected;
+    if (localChanged && remoteChanged) {
+      if (localItem === undefined || remoteItem === undefined) {
+        if (localItem !== remoteItem) return null;
+        selected = undefined;
+      } else {
+        selected = mergeObject(prior || {}, localItem, remoteItem);
+        if (!selected) return null;
+      }
+    } else {
+      selected = localChanged ? localItem : remoteItem;
+    }
+    if (selected !== undefined) result.set(id, selected);
+  }
+
+  // Preserve the server's ordering and append only local additions.
+  const order = [...remote.map((item) => item.id)];
+  for (const item of local) {
+    if (!theirs.has(item.id)) order.push(item.id);
+  }
+  return order.filter((id) => result.has(id)).map((id) => result.get(id));
+}
+
+function diaryLinks(diary) {
+  const recipeItems = diary.recipes || [];
+  const mealItems = diary.meals || [];
+  const checkins = diary.checkins || [];
+  const flags = diary.recipe_flags || [];
+  const recipes = new Set(recipeItems.map((item) => item.id));
+  const meals = new Map(mealItems.map((item) => [item.id, item]));
+  const links = new Map();
+  for (const meal of mealItems) {
+    if (meal.recipe_id) {
+      links.set(
+        `meal:${meal.id}:recipe:${meal.recipe_id}`,
+        recipes.has(meal.recipe_id),
+      );
+    }
+  }
+  for (const checkin of checkins) {
+    if (checkin.reference_meal_id) {
+      links.set(
+        `checkin:${checkin.id}:meal:${checkin.reference_meal_id}`,
+        meals.has(checkin.reference_meal_id),
+      );
+    }
+  }
+  for (const flag of flags) {
+    if (flag.recipe_id) {
+      links.set(
+        `flag:${flag.id}:recipe:${flag.recipe_id}`,
+        recipes.has(flag.recipe_id),
+      );
+    }
+    if (flag.meal_id) {
+      links.set(
+        `flag:${flag.id}:meal:${flag.meal_id}`,
+        meals.get(flag.meal_id)?.recipe_id === flag.recipe_id,
+      );
+    }
+  }
+  return links;
+}
+
+function mergeConcurrentDiaries(base, local, remote) {
+  const merged = structuredClone(remote);
+  const profile = mergeObject(base.profile, local.profile, remote.profile);
+  if (!profile) return null;
+  merged.profile = profile;
+
+  for (const name of diaryCollections) {
+    const collection = mergeCollection(
+      base[name] || [],
+      local[name] || [],
+      remote[name] || [],
+    );
+    if (!collection) return null;
+    merged[name] = collection;
+  }
+
+  const known = new Set(["profile", ...diaryCollections]);
+  const keys = new Set([
+    ...Object.keys(base),
+    ...Object.keys(local),
+    ...Object.keys(remote),
+  ]);
+  for (const key of keys) {
+    if (known.has(key)) continue;
+    const value = mergeObject(
+      { value: base[key] },
+      { value: local[key] },
+      { value: remote[key] },
+    );
+    if (!value) return null;
+    if (value.value === undefined) delete merged[key];
+    else merged[key] = value.value;
+  }
+
+  const existingLinks = diaryLinks(base);
+  for (const [link, exists] of diaryLinks(merged)) {
+    if (!exists && !existingLinks.has(link)) return null;
+  }
+  return merged;
+}
+
 // Serialize local mutations and encrypt each complete snapshot with a fresh
 // nonce. Mutators receive a private clone, so failed validation never changes
 // the visible diary or the last successfully saved vault.
@@ -471,6 +665,7 @@ export function transactDiary(mutator) {
     }
     const epoch = sessionEpoch;
     const current = mutableState.diary;
+    const base = structuredClone(current);
     const draft = structuredClone(current);
     const change = await mutator(draft);
     if (!change || !change.diary || typeof change.diary !== "object") {
@@ -494,15 +689,86 @@ export function transactDiary(mutator) {
         envelope: nextEnvelope,
       });
     } catch (error) {
-      if (error.status === 409) {
-        dataKey = null;
-        mutableState.diary = null;
-        mutableState.status = "conflict";
-        mutableState.error =
-          "Das Tagebuch wurde auf einem anderen Tab oder Gerät geändert. Bitte neu laden; deine noch nicht gespeicherte Eingabe bleibt im Formular.";
-        sessionEpoch++;
+      if (error.status !== 409) throw error;
+
+      try {
+        const latest = await requestVault();
+        if (
+          epoch !== sessionEpoch ||
+          mutableState.status !== "unlocked" ||
+          !dataKey
+        )
+          throw new Error(
+            "Das Tagebuch wurde während der Synchronisierung gesperrt.",
+          );
+        if (latest.revision <= mutableState.revision || !latest.envelope) {
+          throw new Error(
+            "Die aktuelle Tresorversion konnte nicht gelesen werden.",
+          );
+        }
+
+        const remoteDiary = await decryptVaultPayload(
+          dataKey,
+          latest.envelope.payload,
+        );
+        const mergedDiary = mergeConcurrentDiaries(
+          base,
+          change.diary,
+          remoteDiary,
+        );
+        if (!mergedDiary) {
+          const conflict = new Error(
+            "Ein Eintrag, eine Verknüpfung oder ein Feld wurde gleichzeitig auf einem anderen Gerät geändert. Dein bisher gespeicherter Tresor bleibt erhalten; diese Eingabe wurde nicht gespeichert. Bitte entsperre den aktuellen Tresor und gib die Änderung danach erneut ein.",
+          );
+          conflict.code = "vault_merge_conflict";
+          throw conflict;
+        }
+
+        if (epoch !== sessionEpoch || mutableState.status !== "unlocked") {
+          throw new Error(
+            "Das Tagebuch wurde während der Synchronisierung gesperrt.",
+          );
+        }
+        const mergedEnvelope = {
+          ...latest.envelope,
+          payload: await encryptVaultPayload(dataKey, mergedDiary),
+        };
+        saved = await requestVault("PUT", {
+          expected_revision: latest.revision,
+          envelope: mergedEnvelope,
+        });
+        if (
+          saved.revision !== latest.revision + 1 ||
+          !sameValue(saved.envelope, mergedEnvelope)
+        ) {
+          throw new Error(
+            "Die synchronisierte Tresorversion konnte nicht bestätigt werden.",
+          );
+        }
+        if (epoch !== sessionEpoch || mutableState.status !== "unlocked") {
+          mutableState.revision = saved.revision;
+          mutableState.envelope = saved.envelope;
+          return change.result;
+        }
+        mutableState.revision = saved.revision;
+        mutableState.envelope = saved.envelope;
+        mutableState.diary = mergedDiary;
+        return change.result;
+      } catch (syncError) {
+        if (epoch === sessionEpoch && mutableState.status === "unlocked") {
+          dataKey = null;
+          mutableState.diary = null;
+          mutableState.status = "conflict";
+          mutableState.error =
+            syncError.code === "vault_merge_conflict"
+              ? syncError.message
+              : syncError.status === 409
+                ? "Ein weiteres Gerät hat während der Synchronisierung gespeichert. Diese Eingabe wurde nicht gespeichert. Bitte entsperre den aktuellen Tresor und gib sie erneut ein."
+                : "Die Synchronisierung konnte nicht sicher abgeschlossen werden. Diese Eingabe wurde nicht gespeichert. Bitte entsperre den aktuellen Tresor und gib sie erneut ein.";
+          sessionEpoch++;
+        }
+        throw syncError;
       }
-      throw error;
     }
     if (
       saved.revision !== mutableState.revision + 1 ||

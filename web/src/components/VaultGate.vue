@@ -7,7 +7,7 @@ import {
   Copy,
   LoaderCircle,
   Download,
-} from "@lucide/vue";
+} from "../icons.js";
 import {
   acceptServerVault,
   commitPreparedVault,

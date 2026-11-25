@@ -51,6 +51,10 @@ func validatePublicAppURL(value string) error {
 	if !local && parsed.Scheme != "https" {
 		return NewAppError(500, ErrorCodeStartup, "Remote account access requires APP_URL to use HTTPS.")
 	}
+	if domain := strings.TrimSpace(os.Getenv("APP_DOMAIN")); domain != "" &&
+		(parsed.Scheme != "https" || !strings.EqualFold(parsed.Hostname(), domain) || (parsed.Port() != "" && parsed.Port() != "443")) {
+		return NewAppError(500, ErrorCodeStartup, "APP_URL must use https:// and match APP_DOMAIN when the remote proxy is enabled.")
+	}
 	return nil
 }
 

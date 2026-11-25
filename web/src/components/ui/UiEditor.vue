@@ -7,7 +7,7 @@ import {
   ref,
   useId,
 } from "vue";
-import { ArrowLeft } from "@lucide/vue";
+import { ArrowLeft } from "../../icons.js";
 import { workspace } from "../../ui/workspace";
 const props = defineProps({ title: String, busy: Boolean, tone: String });
 const emit = defineEmits(["close"]);

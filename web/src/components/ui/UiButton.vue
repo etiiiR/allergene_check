@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { LoaderCircle } from "@lucide/vue";
+import { LoaderCircle } from "../../icons.js";
 defineOptions({ inheritAttrs: false });
 const props = defineProps({
   variant: String,

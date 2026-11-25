@@ -1,5 +1,6 @@
 services:
   surrealdb:
+    restart: unless-stopped
     # Pin the tested stable line; upgrade deliberately after backup and integration checks.
     image: surrealdb/surrealdb:v3.3.0
     user: "0:0"
@@ -10,8 +11,6 @@ services:
       - --pass
       - "${SURREALDB_PASS:?Run sh setup-local-env.sh --new for a new database volume, or set existing credentials in .env}"
       - rocksdb:/data/database.db
-    ports:
-      - "127.0.0.1:${SURREALDB_HOST_PORT:-8000}:8000"
     volumes:
       - surrealdb-data:/data
     healthcheck:
@@ -24,6 +23,7 @@ services:
       - database
 
   app:
+    restart: unless-stopped
     build:
       context: .
     depends_on:
@@ -33,6 +33,7 @@ services:
       PORT: "3000"
       LISTEN_HOST: "0.0.0.0"
       APP_URL: ${APP_URL:-http://localhost:3000}
+      APP_DOMAIN: ${APP_DOMAIN:-}
       ML_SERVICE_URL: http://ml-service:8000
       SURREALDB_URL: ws://surrealdb:8000/rpc
       SURREALDB_NAMESPACE: ${SURREALDB_NAMESPACE:-main}
@@ -40,13 +41,24 @@ services:
       SURREALDB_USER: "${SURREALDB_USER:?Run sh setup-local-env.sh --new for a new database volume, or set existing credentials in .env}"
       SURREALDB_PASS: "${SURREALDB_PASS:?Run sh setup-local-env.sh --new for a new database volume, or set existing credentials in .env}"
       ACCOUNT_SETUP_TOKEN: "${ACCOUNT_SETUP_TOKEN:?Run sh setup-local-env.sh --new for a new install, or sh setup-auth-token.sh after configuring existing database credentials}"
+      TRUSTED_PROXIES: ${APP_NETWORK_PROXY_IP:-172.31.254.2}
     ports:
       - "127.0.0.1:${APP_HOST_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
     networks:
-      - database
-      - app-ml
+      app-loopback: {}
+      database: {}
+      app-ml: {}
+      reverse-proxy:
+        ipv4_address: ${APP_NETWORK_APP_IP:-172.31.254.3}
 
   ml-service:
+    restart: unless-stopped
     build:
       context: ./ml-service
     ports:
@@ -67,10 +79,41 @@ services:
       - app-ml
       - recipe-egress
 
+  caddy:
+    image: caddy:2.11.9-alpine
+    profiles: ["remote"]
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    healthcheck:
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      caddy-egress: {}
+      reverse-proxy:
+        ipv4_address: ${APP_NETWORK_PROXY_IP:-172.31.254.2}
+
 volumes:
   surrealdb-data:
+  caddy-data:
+  caddy-config:
 
 networks:
+  # The app's host port stays on loopback; no public-facing proxy joins here.
+  app-loopback: {}
   # The crawler must not share a network with the private database. Fiber is
   # the only service attached to both application networks.
   database:
@@ -80,3 +123,13 @@ networks:
   # Only the crawler gets outbound network access for explicitly requested
   # public recipe URLs.
   recipe-egress: {}
+  # Caddy uses this separate network for outbound certificate management.
+  # It does not share the app's host-binding network.
+  caddy-egress: {}
+  # A private app-to-proxy link with stable addresses lets Fiber trust forwarded
+  # client IP headers from Caddy only, without trusting arbitrary proxy headers.
+  reverse-proxy:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${APP_NETWORK_SUBNET:-172.31.254.0/24}

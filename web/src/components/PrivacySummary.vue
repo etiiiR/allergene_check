@@ -1,5 +1,5 @@
 <script setup>
-import { ShieldCheck } from "@lucide/vue";
+import { ShieldCheck } from "../icons.js";
 
 defineProps({
   compact: { type: Boolean, default: false },
@@ -15,11 +15,11 @@ defineProps({
     <div class="privacy-summary-main">
       <ShieldCheck :size="19" aria-hidden="true" />
       <div>
-        <strong>Pseudonym und Ende-zu-Ende-Verschlüsselung</strong>
+        <strong>Dein Tagebuch ist Ende-zu-Ende-verschlüsselt</strong>
         <p>
-          Dein Browser verschlüsselt Pseudonym und Tagebuch, bevor die Daten an
-          den App-Server gesendet werden. Dort liegt nur der verschlüsselte
-          Tresor.
+          Dein Browser verschlüsselt dein Profil-Pseudonym und Tagebuch, bevor
+          die Daten den Server erreichen. Dein Anmeldename und grobe Geräteinfos
+          werden separat gespeichert.
         </p>
       </div>
     </div>
@@ -31,6 +31,12 @@ defineProps({
           Ohne eine davon lässt sich der Tresor nicht öffnen.
         </li>
         <li>Ein Pseudonym ist keine Anonymität. Nutze keinen echten Namen.</li>
+        <li>
+          Der Server speichert separat deinen Anmeldenamen, einen Hash deines
+          Kontopassworts (nicht das Passwort selbst), optional einen Hash des
+          Wiederherstellungscodes und grobe Geräteinfos mit Anmeldezeiten. Diese
+          Angaben sind nicht Teil des Ende-zu-Ende-verschlüsselten Tagebuchs.
+        </li>
         <li>
           Verschlüsselung schützt nicht vor einem entsperrten oder
           kompromittierten Gerät oder vor verändertem App-Code.
@@ -53,6 +59,11 @@ defineProps({
           Alte Datenbank-Sicherungen oder Exporte können noch unverschlüsselte
           Einträge enthalten. Der Server sieht ausserdem Verbindungsdaten und
           die Grösse des Tresors.
+        </li>
+        <li>
+          Zur Begrenzung von Anmeldeversuchen nutzt der App-Server deine
+          IP-Adresse kurzzeitig im Arbeitsspeicher. Ein vorgeschalteter Hosting-
+          oder Proxy-Dienst kann eigene Verbindungsprotokolle führen.
         </li>
       </ul>
     </details>

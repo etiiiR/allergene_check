@@ -9,19 +9,20 @@ import {
 } from "./fixtures.js";
 
 const restoreURL = process.env.RESTORE_TEST_URL;
+const vaultSetupURL = process.env.VAULT_SETUP_TEST_URL;
 const headers = { "X-Diary-Request": "1" };
 
 test("new vault setup can generate a local passphrase without sending it to the server", async ({
   browser,
 }) => {
   test.skip(
-    !restoreURL,
-    "Set RESTORE_TEST_URL to a second app backed by a fresh disposable test database.",
+    !vaultSetupURL,
+    "Set VAULT_SETUP_TEST_URL to an app backed by a fresh disposable test database.",
   );
   const context = await browser.newContext();
-  await signInBrowserContext(context, restoreURL);
+  await signInBrowserContext(context, vaultSetupURL);
   await context.grantPermissions(["clipboard-read", "clipboard-write"], {
-    origin: restoreURL,
+    origin: vaultSetupURL,
   });
   const page = await context.newPage();
   const outgoingBodies = [];
@@ -30,7 +31,7 @@ test("new vault setup can generate a local passphrase without sending it to the 
     if (body) outgoingBodies.push(body);
   });
   try {
-    await page.goto(new URL("/", restoreURL).href);
+    await page.goto(new URL("/", vaultSetupURL).href);
     await expect(
       page.getByRole("heading", { name: "Dein Tagebuch bleibt bei dir" }),
     ).toBeVisible();
@@ -73,7 +74,7 @@ test("new vault setup can generate a local passphrase without sending it to the 
     );
     expect(browserStorage).not.toContain(generated);
     const vault = await (
-      await context.request.get(new URL("/api/vault", restoreURL).href)
+      await context.request.get(new URL("/api/vault", vaultSetupURL).href)
     ).json();
     expect(vault.revision).toBe(0);
     expect(vault.envelope).toBeNull();

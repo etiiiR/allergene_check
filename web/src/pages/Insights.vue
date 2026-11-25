@@ -9,7 +9,7 @@ import {
   CircleAlert,
   CalendarDays,
   HeartPulse,
-} from "@lucide/vue";
+} from "../icons.js";
 import AppShell from "../components/AppShell.vue";
 import { associationPresentation } from "../association-presentation.js";
 import { api, foodName } from "../lib";

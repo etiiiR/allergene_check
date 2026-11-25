@@ -1,17 +1,11 @@
 import { createApp, h } from "vue";
 import { createInertiaApp } from "@inertiajs/vue3";
-import "./tailwind.css";
-import "./style.css";
-import "./colors.css";
 import UiButton from "./components/ui/UiButton.vue";
 import UiCard from "./components/ui/UiCard.vue";
 import UiBadge from "./components/ui/UiBadge.vue";
 import UiSkeleton from "./components/ui/UiSkeleton.vue";
 import VaultGate from "./components/VaultGate.vue";
 import AccountSessionGate from "./components/AccountSessionGate.vue";
-import "@fontsource/dm-sans/latin-400.css";
-import "@fontsource/dm-sans/latin-500.css";
-import "@fontsource/dm-sans/latin-600.css";
 // Load only the current Inertia page. The former eager glob put every screen
 // and its icon imports in the first mobile request.
 const pages = import.meta.glob("./pages/*.vue");

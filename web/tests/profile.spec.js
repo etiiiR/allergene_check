@@ -111,12 +111,12 @@ test("profile explains the encrypted vault and its account/device limits", async
   await expect(
     page
       .getByLabel("Datenschutzinformationen")
-      .getByText("Pseudonym und Ende-zu-Ende-Verschlüsselung"),
+      .getByText("Dein Tagebuch ist Ende-zu-Ende-verschlüsselt"),
   ).toBeVisible();
   await expect(
     page
       .getByLabel("Datenschutzinformationen")
-      .getByText(/der verschlüsselte Tresor/u),
+      .getByText(/Profil-Pseudonym und Tagebuch/u),
   ).toBeVisible();
   await page
     .getByLabel("Datenschutzinformationen")
@@ -143,6 +143,16 @@ test("profile explains the encrypted vault and its account/device limits", async
     page
       .getByLabel("Datenschutzinformationen")
       .getByText(/Ein Pseudonym ist keine Anonymität/u),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Datenschutzinformationen")
+      .getByText(/Der Server speichert separat deinen Anmeldenamen/u),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Datenschutzinformationen")
+      .getByText(/IP-Adresse kurzzeitig im Arbeitsspeicher/u),
   ).toBeVisible();
   await expect(
     page.getByText(/Änderungen werden verschlüsselt im Tresor/u),
@@ -278,7 +288,7 @@ test("onboarding explains pseudonym and encryption without interrupting setup", 
   const privacy = page.getByLabel("Datenschutzinformationen");
   await expect(privacy).toBeVisible();
   await expect(
-    privacy.getByText(/verschlüsselt Pseudonym und Tagebuch/u),
+    privacy.getByText(/Profil-Pseudonym und Tagebuch/u),
   ).toBeVisible();
   await expect(
     privacy.getByText("Was das schützt – und was nicht"),

@@ -11,7 +11,7 @@ import {
   Sparkles,
   Flag,
   X,
-} from "@lucide/vue";
+} from "../icons.js";
 import AppShell from "../components/AppShell.vue";
 import RecipeModal from "../components/RecipeModal.vue";
 import EntryModal from "../components/EntryModal.vue";

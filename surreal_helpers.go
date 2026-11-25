@@ -14,6 +14,7 @@ import (
 // Generic CRUD helpers below are package functions because Go does not allow
 // type parameters on methods. Use Query when you need arbitrary SurrealQL.
 type SurrealStore struct {
+	mu sync.RWMutex
 	db *surrealdb.DB
 }
 
@@ -23,10 +24,41 @@ func NewSurrealStore(db *surrealdb.DB) *SurrealStore {
 }
 
 func (s *SurrealStore) client() (*surrealdb.DB, error) {
-	if s == nil || s.db == nil {
+	if s == nil {
 		return nil, ErrDatabaseNotConfigured
 	}
-	return s.db, nil
+	s.mu.RLock()
+	db := s.db
+	s.mu.RUnlock()
+	if db == nil {
+		return nil, ErrDatabaseNotConfigured
+	}
+	return db, nil
+}
+
+func (s *SurrealStore) configured() bool {
+	if s == nil {
+		return false
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.db != nil
+}
+
+func (s *SurrealStore) replaceClient(db *surrealdb.DB) *surrealdb.DB {
+	s.mu.Lock()
+	previous := s.db
+	s.db = db
+	s.mu.Unlock()
+	return previous
+}
+
+func (s *SurrealStore) close(ctx context.Context) error {
+	db, err := s.client()
+	if err != nil {
+		return nil
+	}
+	return db.Close(ctx)
 }
 
 // Query executes parameterized SurrealQL and returns one result per statement.

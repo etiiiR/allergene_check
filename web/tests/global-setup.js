@@ -91,6 +91,9 @@ export default async function globalSetup() {
   if (process.env.RESTORE_TEST_URL) {
     await establishTestAccount(process.env.RESTORE_TEST_URL);
   }
+  if (process.env.VAULT_SETUP_TEST_URL) {
+    await establishTestAccount(process.env.VAULT_SETUP_TEST_URL);
+  }
 
   const { response: vaultResponse, body: vault } = await jsonRequest("/api/vault");
   if (!vaultResponse.ok) throw new Error(`Could not load isolated test vault: ${vaultResponse.status}`);

@@ -3,12 +3,25 @@ package main
 import (
 	"net"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 const localContentSecurityPolicy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self'; style-src-elem 'self'; style-src-attr 'none'; img-src 'self'; font-src 'self'; connect-src 'self'"
+
+// trustedProxyAddresses returns only explicitly configured proxy addresses.
+// Fiber ignores forwarded client-IP headers from every other remote address.
+func trustedProxyAddresses() []string {
+	var addresses []string
+	for _, value := range strings.Split(os.Getenv("TRUSTED_PROXIES"), ",") {
+		if address := strings.TrimSpace(value); address != "" {
+			addresses = append(addresses, address)
+		}
+	}
+	return addresses
+}
 
 // Loopback binding alone does not stop DNS rebinding. Reject unexpected Host
 // headers before returning a personal diary or accepting its mutations.

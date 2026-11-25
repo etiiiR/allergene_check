@@ -40,4 +40,5 @@ umask 077
 } > .env
 
 printf '%s\n' "Created .env with random database and account setup secrets (private file permissions)."
-printf '%s\n' "Start the local stack with: docker-compose up --build"
+printf '%s\n' "Start the local stack with: docker compose up -d --build --wait"
+printf '%s\n' "For standalone Compose, use docker-compose in place of docker compose."

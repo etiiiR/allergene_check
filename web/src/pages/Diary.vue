@@ -11,7 +11,7 @@ import {
   Pencil,
   BookOpen,
   ClipboardCheck,
-} from "@lucide/vue";
+} from "../icons.js";
 import AppShell from "../components/AppShell.vue";
 import { useVaultDiary } from "../privacy/vault-session.js";
 import EntryModal from "../components/EntryModal.vue";
@@ -126,7 +126,7 @@ const groups = computed(() => {
         <h1>Mein Tagebuch</h1>
         <p>Mahlzeiten und Beobachtungen, nach Zeitpunkt geordnet.</p>
       </div>
-      <div class="actions">
+      <div class="actions diary-capture-actions">
         <UiButton
           class="button secondary"
           data-tone="symptom"
@@ -221,9 +221,7 @@ const groups = computed(() => {
       </template>
       <template v-else>
         <h2>Noch keine Einträge</h2>
-        <p>
-          Starte mit einer Mahlzeit oder einem kurzen Befinden-Check-in.
-        </p>
+        <p>Starte mit einer Mahlzeit oder einem kurzen Befinden-Check-in.</p>
         <div class="empty-state-actions">
           <UiButton
             class="button secondary"

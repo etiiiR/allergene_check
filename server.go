@@ -26,12 +26,25 @@ func runServer() error {
 	if err != nil {
 		return WrapAppError(503, ErrorCodeStartup, "could not start database connection", err)
 	}
-	defer db.Close(context.Background())
-	if err := (&DiaryRepository{store: NewSurrealStore(db)}).initialize(ctx); err != nil {
+	store := NewSurrealStore(db)
+	defer func() {
+		closeCtx, closeCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer closeCancel()
+		if store.close(closeCtx) != nil {
+			log.Printf("could not close SurrealDB client cleanly")
+		}
+	}()
+	if err := (&DiaryRepository{store: store}).initialize(ctx); err != nil {
 		return WrapAppError(503, ErrorCodeStartup, "could not initialize diary schema", err)
 	}
 
-	app := newApp(db)
+	supervisorCtx, stopSupervisor := context.WithCancel(context.Background())
+	supervisorDone := superviseDatabase(supervisorCtx, store, config)
+	defer func() {
+		stopSupervisor()
+		<-supervisorDone
+	}()
+	app := newAppWithStore(store)
 
 	log.Printf("server listening on http://localhost:%s", config.port)
 	if err := app.Listen(config.listenHost + ":" + config.port); err != nil && !errors.Is(err, http.ErrServerClosed) {

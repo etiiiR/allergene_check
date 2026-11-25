@@ -1,7 +1,7 @@
 <script setup>
 import { computed, reactive } from "vue";
 import { usePage } from "@inertiajs/vue3";
-import { Flag, Heart, Save } from "@lucide/vue";
+import { Flag, Heart, Save } from "../icons.js";
 import EntryPanel from "./EntryPanel.vue";
 import { symptomScoreFromIntensity, useMutation } from "../lib";
 import SymptomRating from "./SymptomRating.vue";

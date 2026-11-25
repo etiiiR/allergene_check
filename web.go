@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"embed"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -15,20 +18,33 @@ import (
 //go:embed web/app.gohtml
 var webTemplates embed.FS
 
+const webManifestPath = "web/dist/.vite/manifest.json"
+
+func webAssetVersion() string {
+	manifest, err := os.ReadFile(webManifestPath)
+	if err != nil {
+		// Route tests and backend development can run before building assets.
+		return envOrDefault("ASSET_VERSION", "development")
+	}
+	// Fingerprinted files change the manifest whenever a bundle is rebuilt.
+	// A stale Inertia client then reloads on its next navigation.
+	return fmt.Sprintf("%x", sha256.Sum256(manifest))
+}
+
 // The official community Go adapter handles the Inertia protocol. Fiber's
 // net/http bridge keeps database/ML services shared with the JSON endpoints.
 func registerWeb(app *fiber.App, repo *DiaryRepository, account *accountService) {
-	base, err := inertia.NewFromFileFS(webTemplates, "web/app.gohtml", inertia.WithVersion(envOrDefault("ASSET_VERSION", "development")), inertia.WithContainerID("app"))
+	base, err := inertia.NewFromFileFS(webTemplates, "web/app.gohtml", inertia.WithVersion(webAssetVersion()), inertia.WithContainerID("app"))
 	if err != nil {
 		log.Panicf("initialize Gonertia: %v", err)
 	}
 	manager, err := inertia.NewVite(base,
-		inertia.WithFallbackManifest("web/dist/.vite/manifest.json"),
+		inertia.WithFallbackManifest(webManifestPath),
 		// Vite's manifest already contains the "assets/" prefix. The public
 		// Fiber route is /assets, so adding another prefix would yield the
-		// broken /assets/assets/app.js URL.
+		// duplicate /assets/assets/ URL.
 		inertia.WithBuildDir("/"),
-		inertia.WithEntryPoints("src/main.js"),
+		inertia.WithEntryPoints("src/app.css", "src/main.js"),
 	)
 	if err != nil {
 		log.Panicf("initialize Gonertia Vite integration: %v", err)

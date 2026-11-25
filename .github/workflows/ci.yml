@@ -25,7 +25,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@v7.0.0
         with:
-          go-version: 1.27.1
+          go-version: 1.27.4
           cache-dependency-path: go.sum
       - name: Test guarded account setup-code rotation
         run: sh scripts/test-rotate-auth-token.sh
@@ -33,6 +33,8 @@ jobs:
         run: sh scripts/test-setup-auth-token.sh
       - name: Test non-executing Compose environment reader
         run: sh scripts/test-read-compose-env-value.sh
+      - name: Check reachable Go vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
       - run: go test -race ./...
       - run: go vet ./...
 
@@ -50,6 +52,10 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci --prefix web
+      - name: Audit locked npm dependencies
+        run: |
+          npm audit --prefix web --audit-level=moderate
+          npm audit --prefix pitch-deck --audit-level=moderate
       - run: npm --prefix web run test:unit
       - run: npm --prefix web run build
       - name: Enforce initial-route JavaScript budget
@@ -105,10 +111,16 @@ jobs:
           cache-dependency-glob: ml-service/uv.lock
       - run: uv python install 3.12.15
       - run: uv sync --locked --all-groups --python 3.12.15
+      - name: Audit locked Python dependencies
+        run: |
+          uvx --from pip-audit==2.10.1 pip-audit --no-deps --require-hashes -r requirements.lock
+          uvx --from pip-audit==2.10.1 pip-audit --no-deps --require-hashes -r requirements-dev.lock
+          uvx --from pip-audit==2.10.1 pip-audit --vulnerability-service osv --no-deps --require-hashes -r requirements.lock
+          uvx --from pip-audit==2.10.1 pip-audit --vulnerability-service osv --no-deps --require-hashes -r requirements-dev.lock
       - name: Cache NLTK data and pinned BERT model
         run: |
           uv run python -m nltk.downloader -d "$NLTK_DATA" stopwords
-          uv run python -c "from transformers import AutoModel, AutoTokenizer; name='prajjwal1/bert-tiny'; revision='6f75de8b60a9f8a2fdf7b69cbd86d9e64bcb3837'; AutoTokenizer.from_pretrained(name, revision=revision); AutoModel.from_pretrained(name, revision=revision)"
+          uv run python -c "from transformers import BertModel, BertTokenizer; name='prajjwal1/bert-tiny'; revision='6f75de8b60a9f8a2fdf7b69cbd86d9e64bcb3837'; BertTokenizer.from_pretrained(name, revision=revision); BertModel.from_pretrained(name, revision=revision)"
       - name: Run all tests, including CPU-only BERT
         env:
           RUN_BERT_TESTS: "1"
@@ -204,7 +216,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@v7.0.0
         with:
-          go-version: 1.27.1
+          go-version: 1.27.4
           cache-dependency-path: go.sum
       - uses: actions/setup-node@v7.0.0
         with:
@@ -259,12 +271,27 @@ jobs:
           done
           sed -n '1,240p' "$RUNNER_TEMP/gutfeeling-restore-app.log"
           exit 1
+      - name: Start a separate blank-vault app for first-time setup tests
+        run: |
+          nohup env PORT=3003 LISTEN_HOST=127.0.0.1 APP_URL=http://localhost:3003 \
+            SURREALDB_NAMESPACE=gutfeeling_setup_tests \
+            SURREALDB_DATABASE=gutfeeling_setup_tests \
+            go run . >"$RUNNER_TEMP/gutfeeling-setup-app.log" 2>&1 </dev/null &
+          for attempt in $(seq 1 45); do
+            if curl --silent --fail http://127.0.0.1:3003/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          sed -n '1,240p' "$RUNNER_TEMP/gutfeeling-setup-app.log"
+          exit 1
       - name: Run UX, accessibility, encrypted-vault, and backup-recovery browser tests
         working-directory: web
         env:
           ALLOW_E2E_VAULT_MUTATION: "1"
           APP_TEST_URL: http://localhost:3001
           RESTORE_TEST_URL: http://localhost:3002
+          VAULT_SETUP_TEST_URL: http://localhost:3003
         run: npm test
       - name: Show service logs on failure
         if: failure()
@@ -274,5 +301,8 @@ jobs:
           fi
           if [ -f "$RUNNER_TEMP/gutfeeling-restore-app.log" ]; then
             sed -n '1,240p' "$RUNNER_TEMP/gutfeeling-restore-app.log"
+          fi
+          if [ -f "$RUNNER_TEMP/gutfeeling-setup-app.log" ]; then
+            sed -n '1,240p' "$RUNNER_TEMP/gutfeeling-setup-app.log"
           fi
           docker logs gutfeeling-ci-surrealdb || true

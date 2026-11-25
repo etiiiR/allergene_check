@@ -1,7 +1,7 @@
 <script setup>
 import { ref, reactive } from "vue";
 import { usePage } from "@inertiajs/vue3";
-import { Globe, Sparkles, Plus, Trash2, ChevronDown } from "@lucide/vue";
+import { Globe, Sparkles, Plus, Trash2, ChevronDown } from "../icons.js";
 import EntryPanel from "./EntryPanel.vue";
 import { api, useMutation, allergenLabels } from "../lib";
 const props = defineProps({ recipe: Object, inline: Boolean }),

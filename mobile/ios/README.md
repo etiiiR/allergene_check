@@ -29,10 +29,9 @@ generierte Xcode-Projekte und lokale Signierungseinstellungen werden nicht einge
 ## Server und Datenschutz
 
 Beim ersten Start den **eigenen, abgesicherten HTTPS-Tagebuch-Server** eintragen. `localhost`
-auf dem iPhone ist nicht der Mac. Die vorhandene Compose-App ist absichtlich nur an Loopback
-gebunden und enthält noch keine Benutzeranmeldung. Sie darf nicht einfach öffentlich
-freigegeben werden. Ein abgesicherter privater Zugang mit TLS und Zugriffsschutz muss separat
-eingerichtet werden; diese Änderung veröffentlicht keinen Server und schaltet keine Ports frei.
+auf dem iPhone bezeichnet das iPhone selbst. Die Compose-App ist an Loopback gebunden.
+Für den Zugriff vom iPhone richte einen privaten HTTPS-Zugang ein und melde dich mit dem
+gemeinsamen Tagebuchkonto an. Danach entsperrst du den Tresor separat.
 
 Keine globale ATS-Ausnahme und kein eingebauter Bearer-Token. Externe HTTPS-Links werden aus
 der HealthKit-fähigen WebView heraus geöffnet. Nur Nachrichten aus dem Hauptframe des
@@ -45,8 +44,8 @@ konfigurierten Origins erreichen HealthKit; fremde Frames bekommen keine Gesundh
 3. „Apple Health freigeben & synchronisieren“ antippen.
 4. Die **echte iOS-Systemfreigabe** wählen. Sie ist vom Betriebssystem vorgeschrieben,
    nicht ein weiterer App-Dialog.
-5. Höchstens die neuesten 500 Messungen je Typ aus sieben Tagen werden gelesen und direkt
-   über den vorhandenen Same-Origin-Endpunkt gespeichert. Keine JSON-Datei auswählen.
+5. Die App liest bis zu 500 Messungen je Typ aus sieben Tagen. Der Browser verschlüsselt
+   sie im Tagebuchtresor vor der Synchronisierung. Eine JSON-Datei ist dafür nicht nötig.
 
 Gelesen werden Puls, Ruhepuls und HRV-SDNN; keine Schreibrechte, keine Hintergrundabfragen,
 keine erfundene Stress-Skala. Rohwerte werden als Kontext gespeichert, nicht als normalisierter

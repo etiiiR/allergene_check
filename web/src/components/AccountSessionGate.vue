@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { usePage } from "@inertiajs/vue3";
-import { KeyRound, ShieldCheck } from "@lucide/vue";
+import { KeyRound, ShieldCheck } from "../icons.js";
 import { lockVaultSession } from "../privacy/vault-session.js";
 
 const props = defineProps({
@@ -137,7 +137,8 @@ async function recoverAccount() {
   const nextPassword = recoveryPassword.value?.value || "";
   const confirmation = recoveryPasswordConfirmation.value?.value || "";
   if (nextPassword.length < 12 || nextPassword.length > 1024) {
-    recoveryError.value = "Das neue Kontopasswort muss mindestens 12 Zeichen lang sein.";
+    recoveryError.value =
+      "Das neue Kontopasswort muss mindestens 12 Zeichen lang sein.";
     return;
   }
   if (nextPassword !== confirmation) {
@@ -198,6 +199,30 @@ async function recoverAccount() {
             : "Erstelle das einmalige Konto für deine Geräte. Verwende einen frei gewählten Namen statt deiner E-Mail-Adresse."
         }}
       </p>
+      <p class="account-privacy-lead">
+        Dein Browser verschlüsselt das Tagebuch vor der Synchronisierung. Zum
+        Entschlüsseln brauchst du deine separate Tresor-Passphrase oder
+        Wiederherstellungsphrase.
+      </p>
+      <details class="account-privacy-note">
+        <summary>Welche Angaben speichert der Server?</summary>
+        <p>
+          Dein Browser verschlüsselt Profil-Pseudonym und Tagebuch, bevor sie
+          den Server erreichen. Separat gespeichert werden dein Benutzername,
+          ein Hash des Kontopassworts und grobe Geräteinfos. Das Kontopasswort
+          meldet dich an, kann den Tresor aber nicht entschlüsseln.
+        </p>
+        <p>
+          Für ein neues Gerät brauchst du zusätzlich deine Tresor-Passphrase
+          oder Wiederherstellungsphrase. Bei Fernzugriff muss die Verbindung
+          HTTPS verwenden.
+        </p>
+        <p>
+          Die IP-Adresse nutzt der App-Server kurzzeitig, um Anmeldeversuche zu
+          begrenzen. Ein Hosting- oder Proxy-Dienst kann eigene Verbindungslogs
+          führen.
+        </p>
+      </details>
       <form class="vault-form" @submit.prevent="submit">
         <label v-if="!accountConfigured" class="vault-field">
           Einrichtungscode
@@ -319,7 +344,9 @@ async function recoverAccount() {
               class="button primary account-submit"
               :disabled="recoveryBusy"
             >
-              {{ recoveryBusy ? "Wird zurückgesetzt …" : "Passwort zurücksetzen" }}
+              {{
+                recoveryBusy ? "Wird zurückgesetzt …" : "Passwort zurücksetzen"
+              }}
             </button>
             <button
               type="button"

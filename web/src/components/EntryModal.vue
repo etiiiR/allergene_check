@@ -1,7 +1,7 @@
 <script setup>
 import { computed, reactive, ref, nextTick } from "vue";
 import { usePage } from "@inertiajs/vue3";
-import { Check, ChevronDown, Plus } from "@lucide/vue";
+import { Check, ChevronDown, Plus } from "../icons.js";
 import EntryPanel from "./EntryPanel.vue";
 import RecipeModal from "./RecipeModal.vue";
 import RecipePicker from "./RecipePicker.vue";

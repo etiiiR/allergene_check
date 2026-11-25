@@ -1,27 +1,60 @@
-import { test, expect, E2E_ACCOUNT_PASSWORD, E2E_ACCOUNT_USERNAME, E2E_PASSPHRASE } from "./fixtures.js";
+import {
+  test,
+  expect,
+  E2E_ACCOUNT_PASSWORD,
+  E2E_ACCOUNT_USERNAME,
+  E2E_PASSPHRASE,
+} from "./fixtures.js";
 
-test("a second device signs in before it can fetch or unlock the encrypted vault", async ({ browser, baseURL }) => {
+test("a second device signs in before it can fetch or unlock the encrypted vault", async ({
+  browser,
+  baseURL,
+}) => {
   const context = await browser.newContext();
-  const appBaseURL = baseURL || process.env.APP_TEST_URL || "http://localhost:3001";
+  const appBaseURL =
+    baseURL || process.env.APP_TEST_URL || "http://localhost:3001";
   try {
     const page = await context.newPage();
     await page.goto(new URL("/", appBaseURL).href);
     await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByRole("heading", { name: "Auf deinen Tresor zugreifen" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Auf deinen Tresor zugreifen" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/verschlüsselt das Tagebuch vor der Synchronisierung/u),
+    ).toBeVisible();
+    const privacyNote = page.getByText("Welche Angaben speichert der Server?");
+    await expect(privacyNote).toBeVisible();
+    await privacyNote.click();
+    await expect(page.getByText(/Hash des Kontopassworts/u)).toBeVisible();
+    await expect(
+      page.getByText(/kann den Tresor aber nicht entschlüsseln/u),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/IP-Adresse nutzt der App-Server kurzzeitig/u),
+    ).toBeVisible();
     await page.getByText("Kontopasswort vergessen?", { exact: true }).click();
     await expect(
-      page.getByRole("button", { name: "Mit Wiederherstellungscode zurücksetzen" }),
+      page.getByRole("button", {
+        name: "Mit Wiederherstellungscode zurücksetzen",
+      }),
     ).toBeVisible();
-    await expect(page.getByText(/setzt nur die Anmeldung zurück/u)).toBeVisible();
+    await expect(
+      page.getByText(/setzt nur die Anmeldung zurück/u),
+    ).toBeVisible();
 
-    const privateVault = await context.request.get(new URL("/api/vault", appBaseURL).href);
+    const privateVault = await context.request.get(
+      new URL("/api/vault", appBaseURL).href,
+    );
     expect(privateVault.status()).toBe(401);
 
     await page.getByLabel("Benutzername").fill(E2E_ACCOUNT_USERNAME);
     await page.getByLabel("Kontopasswort").fill(E2E_ACCOUNT_PASSWORD);
     await page.getByRole("button", { name: "Anmelden" }).click();
     await expect(page).toHaveURL(new URL("/", appBaseURL).href);
-    await expect(page.getByRole("heading", { name: "Tagebuch entsperren" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Tagebuch entsperren" }),
+    ).toBeVisible();
 
     await page.getByLabel("Passphrase").fill(E2E_PASSPHRASE);
     await page.getByRole("button", { name: "Tagebuch entsperren" }).click();
@@ -37,7 +70,8 @@ test("revoking other devices preserves this session and locks the revoked browse
   baseURL,
 }) => {
   const context = await browser.newContext();
-  const appBaseURL = baseURL || process.env.APP_TEST_URL || "http://localhost:3001";
+  const appBaseURL =
+    baseURL || process.env.APP_TEST_URL || "http://localhost:3001";
   try {
     const cleanup = await page.request.delete(
       new URL("/api/auth/sessions/others", appBaseURL).href,
@@ -50,18 +84,33 @@ test("revoking other devices preserves this session and locks the revoked browse
     await otherPage.getByLabel("Kontopasswort").fill(E2E_ACCOUNT_PASSWORD);
     await otherPage.getByRole("button", { name: "Anmelden" }).click();
     await expect(otherPage).toHaveURL(new URL("/", appBaseURL).href);
-    expect((await context.request.get(new URL("/api/vault", appBaseURL).href)).status()).toBe(200);
+    expect(
+      (
+        await context.request.get(new URL("/api/vault", appBaseURL).href)
+      ).status(),
+    ).toBe(200);
 
     await page.goto("/profile");
     await page.getByRole("button", { name: "Sicherheit" }).click();
     await page.getByRole("button", { name: "Andere Geräte abmelden" }).click();
-    await expect(page.getByRole("status")).toContainText(/\d+ weitere Anmeldung(?:en)? abgemeldet/u);
+    await expect(page.locator(".alert.success[role='status']")).toContainText(
+      /\d+ weitere Anmeldung(?:en)? abgemeldet/u,
+    );
+    await expect(page.getByText("Anmeldungen werden geladen …")).toHaveCount(0);
 
-    expect((await page.request.get(new URL("/api/vault", appBaseURL).href)).status()).toBe(200);
-    expect((await context.request.get(new URL("/api/vault", appBaseURL).href)).status()).toBe(401);
+    expect(
+      (await page.request.get(new URL("/api/vault", appBaseURL).href)).status(),
+    ).toBe(200);
+    expect(
+      (
+        await context.request.get(new URL("/api/vault", appBaseURL).href)
+      ).status(),
+    ).toBe(401);
     await otherPage.evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect(otherPage).toHaveURL(/\/login$/);
-    await expect(otherPage.getByRole("heading", { name: "Auf deinen Tresor zugreifen" })).toBeVisible();
+    await expect(
+      otherPage.getByRole("heading", { name: "Auf deinen Tresor zugreifen" }),
+    ).toBeVisible();
   } finally {
     await context.close();
   }
@@ -76,7 +125,8 @@ test("device inventory can revoke one selected sign-in without affecting this de
     userAgent:
       "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1",
   });
-  const appBaseURL = baseURL || process.env.APP_TEST_URL || "http://localhost:3001";
+  const appBaseURL =
+    baseURL || process.env.APP_TEST_URL || "http://localhost:3001";
   try {
     const cleanup = await page.request.delete(
       new URL("/api/auth/sessions/others", appBaseURL).href,
@@ -94,14 +144,24 @@ test("device inventory can revoke one selected sign-in without affecting this de
     await page.getByRole("button", { name: "Sicherheit" }).click();
     const sessions = page.getByTestId("device-session");
     await expect(sessions).toHaveCount(2);
-    await expect(sessions.filter({ hasText: "Dieses Gerät · aktuell" })).toHaveCount(1);
+    await expect(
+      sessions.filter({ hasText: "Dieses Gerät · aktuell" }),
+    ).toHaveCount(1);
     const target = sessions.filter({ hasText: "Safari auf iPhone / iPad" });
     await expect(target).toBeVisible();
-    await target.getByRole("button", { name: "Safari auf iPhone / iPad abmelden" }).click();
+    await target
+      .getByRole("button", { name: "Safari auf iPhone / iPad abmelden" })
+      .click();
     await expect(sessions).toHaveCount(1);
 
-    expect((await page.request.get(new URL("/api/vault", appBaseURL).href)).status()).toBe(200);
-    expect((await context.request.get(new URL("/api/vault", appBaseURL).href)).status()).toBe(401);
+    expect(
+      (await page.request.get(new URL("/api/vault", appBaseURL).href)).status(),
+    ).toBe(200);
+    expect(
+      (
+        await context.request.get(new URL("/api/vault", appBaseURL).href)
+      ).status(),
+    ).toBe(401);
   } finally {
     await context.close();
   }

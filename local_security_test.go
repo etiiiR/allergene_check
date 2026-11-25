@@ -1,12 +1,49 @@
 package main
 
 import (
+	"net"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/valyala/fasthttp"
 )
+
+func TestTrustedProxyAddressConfigurationIsExplicit(t *testing.T) {
+	t.Setenv("TRUSTED_PROXIES", "172.31.254.2, 10.8.0.4")
+	got := trustedProxyAddresses()
+	if len(got) != 2 || got[0] != "172.31.254.2" || got[1] != "10.8.0.4" {
+		t.Fatalf("unexpected trusted proxies: %#v", got)
+	}
+	t.Setenv("TRUSTED_PROXIES", " ")
+	if got := trustedProxyAddresses(); len(got) != 0 {
+		t.Fatalf("empty configuration trusted a proxy: %#v", got)
+	}
+}
+
+func TestForwardedClientIPIsTrustedOnlyFromConfiguredProxy(t *testing.T) {
+	app := fiber.New(fiber.Config{
+		EnableTrustedProxyCheck: true,
+		TrustedProxies:          []string{"172.31.254.2"},
+		ProxyHeader:             fiber.HeaderXForwardedFor,
+		EnableIPValidation:      true,
+	})
+	clientIP := func(remote string) string {
+		ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
+		ctx.Context().SetRemoteAddr(&net.TCPAddr{IP: net.ParseIP(remote)})
+		ctx.Request().Header.Set(fiber.HeaderXForwardedFor, "198.51.100.77")
+		got := ctx.IP()
+		app.ReleaseCtx(ctx)
+		return got
+	}
+	if got := clientIP("172.31.254.2"); got != "198.51.100.77" {
+		t.Fatalf("trusted proxy client IP = %q, want forwarded client", got)
+	}
+	if got := clientIP("203.0.113.18"); got != "203.0.113.18" {
+		t.Fatalf("untrusted forwarded header changed client IP to %q", got)
+	}
+}
 
 func TestLocalHostGuardSetsBrowserSecurityHeaders(t *testing.T) {
 	t.Setenv("APP_URL", "http://localhost:3000")
@@ -15,7 +52,7 @@ func TestLocalHostGuardSetsBrowserSecurityHeaders(t *testing.T) {
 	app.Use(localHostGuard)
 	app.Get("/", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusNoContent) })
 
-	request := httptest.NewRequest("GET", "http://localhost:3000/", nil)
+	request := httptest.NewRequest("GET", "/", nil)
 	request.Host = "localhost:3000"
 	response, err := app.Test(request)
 	if err != nil {
@@ -60,7 +97,7 @@ func TestSameOriginUsesParsedRequestAuthority(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	request := httptest.NewRequest("GET", "http://localhost:3000/same-origin", nil)
+	request := httptest.NewRequest("GET", "/same-origin", nil)
 	request.Host = "localhost:3000"
 	request.Header.Set("Origin", "http://localhost:3000")
 	response, err := app.Test(request)
@@ -72,7 +109,7 @@ func TestSameOriginUsesParsedRequestAuthority(t *testing.T) {
 		t.Fatalf("same-origin request rejected: %d", response.StatusCode)
 	}
 
-	request = httptest.NewRequest("GET", "http://localhost:3000/cross-origin", nil)
+	request = httptest.NewRequest("GET", "/cross-origin", nil)
 	request.Host = "localhost:3000"
 	request.Header.Set("Origin", "http://attacker.example")
 	response, err = app.Test(request)
@@ -95,7 +132,7 @@ func TestSameOriginRejectsDifferentSchemeButAllowsConfiguredHTTPSProxyOrigin(t *
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	request := httptest.NewRequest("POST", "http://journal.example/same-origin", nil)
+	request := httptest.NewRequest("POST", "/same-origin", nil)
 	request.Host = "journal.example"
 	request.Header.Set("Origin", "http://journal.example")
 	response, err := app.Test(request)
@@ -107,7 +144,7 @@ func TestSameOriginRejectsDifferentSchemeButAllowsConfiguredHTTPSProxyOrigin(t *
 		t.Fatalf("cross-scheme origin accepted: %d", response.StatusCode)
 	}
 
-	request = httptest.NewRequest("POST", "http://journal.example/same-origin", nil)
+	request = httptest.NewRequest("POST", "/same-origin", nil)
 	request.Host = "journal.example"
 	request.Header.Set("Origin", "https://journal.example")
 	response, err = app.Test(request)
@@ -126,7 +163,7 @@ func TestLocalHostGuardRejectsUnexpectedHost(t *testing.T) {
 	app.Use(localHostGuard)
 	app.Get("/", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusNoContent) })
 
-	request := httptest.NewRequest("GET", "http://attacker.example/", nil)
+	request := httptest.NewRequest("GET", "/", nil)
 	request.Host = "attacker.example"
 	response, err := app.Test(request)
 	if err != nil {

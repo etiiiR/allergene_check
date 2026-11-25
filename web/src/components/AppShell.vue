@@ -12,7 +12,7 @@ import {
   FileText,
   Activity,
   LockKeyhole,
-} from "@lucide/vue";
+} from "../icons.js";
 import ToastHost from "./ui/ToastHost.vue";
 import { workspace } from "../ui/workspace";
 import {

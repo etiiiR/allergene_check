@@ -4,9 +4,11 @@ COPY web/package*.json ./
 RUN npm ci
 COPY web/ ./
 COPY ml-service/app/data/ /src/ml-service/app/data/
-RUN npm run build
+ARG VITE_E2E_TESTS=false
+# Bound frontend build memory on small Docker VMs.
+RUN VITE_E2E_TESTS=${VITE_E2E_TESTS} NODE_OPTIONS=--max-old-space-size=384 RAYON_NUM_THREADS=2 npm run build
 
-FROM golang:1.27.1-alpine3.24 AS build
+FROM golang:1.27.4-alpine3.24 AS build
 
 WORKDIR /src
 

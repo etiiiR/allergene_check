@@ -4,13 +4,14 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
 
@@ -176,7 +177,7 @@ func TestInertiaPageProtocolAndSafeRoot(t *testing.T) {
 	for _, path := range []string{"/", "/onboarding", "/diary", "/recipes", "/insights", "/report", "/calendar", "/foods", "/profile"} {
 		req := httptest.NewRequest("GET", path, nil)
 		req.Header.Set("X-Inertia", "true")
-		req.Header.Set("X-Inertia-Version", fmt.Sprintf("%x", md5.Sum([]byte("development"))))
+		req.Header.Set("X-Inertia-Version", fmt.Sprintf("%x", md5.Sum([]byte(webAssetVersion()))))
 		res, err := app.Test(req)
 		if err != nil {
 			t.Fatal(err)
@@ -208,8 +209,19 @@ func TestInertiaPageProtocolAndSafeRoot(t *testing.T) {
 	}
 	b, _ := io.ReadAll(res.Body)
 	res.Body.Close()
-	if !strings.Contains(string(b), "/assets/app.js") || !strings.Contains(string(b), "data-page=") {
+	if !strings.Contains(string(b), "data-page=") {
 		t.Fatalf("HTML shell missing: %s", b)
+	}
+	stale := httptest.NewRequest("GET", "/diary", nil)
+	stale.Header.Set("X-Inertia", "true")
+	stale.Header.Set("X-Inertia-Version", "previous-build")
+	res, err = app.Test(stale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusConflict || res.Header.Get("X-Inertia-Location") != "/diary" {
+		t.Fatalf("stale Inertia client did not get a reload response: %d %q", res.StatusCode, res.Header.Get("X-Inertia-Location"))
 	}
 }
 func TestDiaryRejectsCrossOriginAndUnconfirmedMutations(t *testing.T) {

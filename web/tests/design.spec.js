@@ -88,25 +88,24 @@ const routes = [
   "/report",
 ];
 
-test(
-  "an empty filter offers a one-tap reset instead of suggesting the diary is new",
-  async ({ page }) => {
-    await page.goto("/diary");
-    await page.getByLabel("Datum").fill("2099-01-01");
+test("an empty filter offers a one-tap reset instead of suggesting the diary is new", async ({
+  page,
+}) => {
+  await page.goto("/diary");
+  await page.getByLabel("Datum").fill("2099-01-01");
 
-    const emptyState = page.locator(".empty-state");
-    await expect(
-      emptyState.getByRole("heading", {
-        name: "Keine Einträge für diese Auswahl",
-      }),
-    ).toBeVisible();
-    await emptyState
-      .getByRole("button", { name: "Alle Einträge zeigen" })
-      .click();
-    await expect(emptyState).toHaveCount(0);
-    await expect(page.locator(".diary-entry").first()).toBeVisible();
-  },
-);
+  const emptyState = page.locator(".empty-state");
+  await expect(
+    emptyState.getByRole("heading", {
+      name: "Keine Einträge für diese Auswahl",
+    }),
+  ).toBeVisible();
+  await emptyState
+    .getByRole("button", { name: "Alle Einträge zeigen" })
+    .click();
+  await expect(emptyState).toHaveCount(0);
+  await expect(page.locator(".diary-entry").first()).toBeVisible();
+});
 
 for (const route of routes) {
   test(`responsive and accessible: ${route}`, async ({ page }, testInfo) => {
@@ -198,6 +197,38 @@ test("manual vault lock stays in the header and does not cover mobile diary cont
   await expect(
     page.getByRole("heading", { name: "Tagebuch entsperren" }),
   ).toBeVisible();
+});
+
+test("diary capture actions stay equal and readable on narrow phones", async ({
+  page,
+}) => {
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/diary");
+    const group = page.locator(".diary-capture-actions");
+    await expect(group).toHaveCSS("display", "grid");
+    const buttons = group.getByRole("button");
+    await expect(buttons).toHaveCount(4);
+    const boxes = await buttons.evaluateAll((elements) =>
+      elements.map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+          contentFits: element.scrollWidth <= element.clientWidth,
+        };
+      }),
+    );
+    expect(boxes.every((box) => box.contentFits)).toBeTruthy();
+    expect(boxes.every((box) => box.height >= 48)).toBeTruthy();
+    expect(Math.abs(boxes[0].width - boxes[1].width)).toBeLessThan(1);
+    expect(Math.abs(boxes[2].width - boxes[3].width)).toBeLessThan(1);
+    expect(Math.abs(boxes[0].y - boxes[1].y)).toBeLessThan(1);
+    expect(Math.abs(boxes[2].y - boxes[3].y)).toBeLessThan(1);
+    expect(boxes[2].y).toBeGreaterThan(boxes[0].y);
+  }
 });
 
 test("automatic vault lock warns first and offers a non-modal way to continue", async ({

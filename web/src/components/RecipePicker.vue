@@ -1,6 +1,6 @@
 <script setup>
 import { computed, nextTick, ref, useId, watch } from "vue";
-import { Check, Search, X } from "@lucide/vue";
+import { Check, Search, X } from "../icons.js";
 import { findRecipes, recipeIndex } from "../recipe-search";
 
 const props = defineProps({

@@ -10,15 +10,7 @@ export default defineConfig({
   build: {
     manifest: true,
     rollupOptions: {
-      input: "src/main.js",
-      output: {
-        entryFileNames: "assets/app.js",
-        chunkFileNames: "assets/[name]-[hash].js",
-        assetFileNames: (asset) =>
-          asset.names?.some((n) => n.endsWith(".css"))
-            ? "assets/app.css"
-            : "assets/[name]-[hash][extname]",
-      },
+      input: ["src/main.js", "src/app.css"],
     },
   },
 });

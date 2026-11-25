@@ -133,6 +133,7 @@ func TestConfigRejectsWhitespaceDatabaseCredentials(t *testing.T) {
 }
 
 func TestRemoteAccountOriginsRequireHTTPS(t *testing.T) {
+	t.Setenv("APP_DOMAIN", "")
 	for _, test := range []struct {
 		name string
 		url  string
@@ -143,6 +144,28 @@ func TestRemoteAccountOriginsRequireHTTPS(t *testing.T) {
 		{name: "remote HTTPS", url: "https://gut.example", want: true},
 		{name: "remote HTTP", url: "http://gut.example", want: false},
 		{name: "missing scheme", url: "gut.example", want: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := validatePublicAppURL(test.url)
+			if (err == nil) != test.want {
+				t.Fatalf("validatePublicAppURL(%q) error=%v; want success=%v", test.url, err, test.want)
+			}
+		})
+	}
+}
+
+func TestRemoteOriginMustMatchConfiguredProxyDomain(t *testing.T) {
+	t.Setenv("APP_DOMAIN", "diary.example.net")
+	for _, test := range []struct {
+		name string
+		url  string
+		want bool
+	}{
+		{name: "matching HTTPS domain", url: "https://diary.example.net", want: true},
+		{name: "default HTTPS port", url: "https://diary.example.net:443", want: true},
+		{name: "wrong domain", url: "https://other.example.net", want: false},
+		{name: "non-HTTPS origin", url: "http://diary.example.net", want: false},
+		{name: "non-default port", url: "https://diary.example.net:8443", want: false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			err := validatePublicAppURL(test.url)

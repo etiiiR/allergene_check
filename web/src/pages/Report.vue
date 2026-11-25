@@ -11,7 +11,7 @@ import {
   Share2,
   ShieldCheck,
   Utensils,
-} from "@lucide/vue";
+} from "../icons.js";
 import AppShell from "../components/AppShell.vue";
 import {
   api,

@@ -15,7 +15,7 @@ import {
   Settings,
   ShieldCheck,
   Upload,
-} from "@lucide/vue";
+} from "../icons.js";
 import AppShell from "../components/AppShell.vue";
 import PrivacySummary from "../components/PrivacySummary.vue";
 import { api } from "../lib";
@@ -294,10 +294,11 @@ async function revokeOtherDevices() {
       );
     }
     const revoked = Number(result?.revoked) || 0;
-    revokeOtherStatus.value = revoked
+    const status = revoked
       ? `${revoked} weitere Anmeldung${revoked === 1 ? "" : "en"} abgemeldet.`
       : "Es waren keine weiteren Anmeldungen aktiv.";
     await loadDeviceSessions();
+    revokeOtherStatus.value = status;
   } catch (cause) {
     revokeOtherError.value = cause.message;
   } finally {
@@ -320,7 +321,9 @@ async function loadDeviceSessions() {
         result?.error?.message || "Anmeldungen konnten nicht geladen werden.",
       );
     }
-    deviceSessions.value = Array.isArray(result.sessions) ? result.sessions : [];
+    deviceSessions.value = Array.isArray(result.sessions)
+      ? result.sessions
+      : [];
   } catch (cause) {
     deviceSessionsError.value = cause.message;
   } finally {
@@ -345,7 +348,8 @@ async function revokeDeviceSession(session) {
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Error(
-        result?.error?.message || "Dieses Gerät konnte nicht abgemeldet werden.",
+        result?.error?.message ||
+          "Dieses Gerät konnte nicht abgemeldet werden.",
       );
     }
     deviceSessions.value = deviceSessions.value.filter(
@@ -970,7 +974,11 @@ onBeforeUnmount(clearRotation);
             :aria-pressed="rotationPassphraseVisible"
             @click="rotationPassphraseVisible = !rotationPassphraseVisible"
           >
-            {{ rotationPassphraseVisible ? "Passphrase verbergen" : "Passphrase anzeigen" }}
+            {{
+              rotationPassphraseVisible
+                ? "Passphrase verbergen"
+                : "Passphrase anzeigen"
+            }}
           </button>
           <label class="vault-field">
             Neue Passphrase wiederholen
@@ -1127,8 +1135,8 @@ onBeforeUnmount(clearRotation);
             <h2>Kontopasswort wiederherstellen</h2>
             <p class="helper">
               Richte vorsorglich einen einmaligen Code ein. Er kann nur die
-              Geräte-Anmeldung zurücksetzen – zum Entschlüsseln deines
-              Tagebuchs brauchst du weiterhin die Tresor-Passphrase oder
+              Geräte-Anmeldung zurücksetzen – zum Entschlüsseln deines Tagebuchs
+              brauchst du weiterhin die Tresor-Passphrase oder
               Wiederherstellungsphrase. Ohne Code bleibt die Wiederherstellung
               über die Serverbetreuung.
             </p>
@@ -1208,11 +1216,10 @@ onBeforeUnmount(clearRotation);
           <h2>Angemeldete Geräte</h2>
           <p class="helper">
             Prüfe deine aktiven Anmeldungen und melde einzelne Geräte oder alle
-            anderen ab. Online
-            geöffnete Tagebücher werden spätestens bei der nächsten Prüfung in
-            etwa 30 Sekunden gesperrt. Offlinegeräte werden beim nächsten
-            Verbindungsversuch abgewiesen. Deine Daten bleiben verschlüsselt;
-            dieses Gerät kann angemeldet bleiben.
+            anderen ab. Online geöffnete Tagebücher werden spätestens bei der
+            nächsten Prüfung in etwa 30 Sekunden gesperrt. Offlinegeräte werden
+            beim nächsten Verbindungsversuch abgewiesen. Deine Daten bleiben
+            verschlüsselt; dieses Gerät kann angemeldet bleiben.
           </p>
         </div>
         <div class="device-session-list" aria-label="Aktive Anmeldungen">
@@ -1256,7 +1263,7 @@ onBeforeUnmount(clearRotation);
         <UiButton
           type="button"
           class="button secondary"
-          :disabled="revokeOtherBusy"
+          :disabled="revokeOtherBusy || deviceSessionsBusy"
           :loading="revokeOtherBusy"
           @click="revokeOtherDevices"
         >

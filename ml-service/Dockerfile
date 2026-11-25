@@ -19,7 +19,7 @@ RUN python -m nltk.downloader -d /usr/local/share/nltk_data stopwords
 ENV NLTK_DATA=/usr/local/share/nltk_data
 
 # Cache the small model in the image so runtime inference does not require model downloads.
-RUN python -c "from transformers import AutoModel, AutoTokenizer; name='prajjwal1/bert-tiny'; revision='6f75de8b60a9f8a2fdf7b69cbd86d9e64bcb3837'; AutoTokenizer.from_pretrained(name, revision=revision); AutoModel.from_pretrained(name, revision=revision)"
+RUN python -c "from transformers import BertModel, BertTokenizer; name='prajjwal1/bert-tiny'; revision='6f75de8b60a9f8a2fdf7b69cbd86d9e64bcb3837'; BertTokenizer.from_pretrained(name, revision=revision); BertModel.from_pretrained(name, revision=revision)"
 RUN apt-get update \
     && apt-get install -y --no-install-recommends adduser \
     && addgroup --system --gid 10001 mlservice \

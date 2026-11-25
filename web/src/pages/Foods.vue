@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from "vue";
 import { Head } from "@inertiajs/vue3";
-import { Search, Leaf, ArrowUpRight } from "@lucide/vue";
+import { Search, Leaf, ArrowUpRight } from "../icons.js";
 import AppShell from "../components/AppShell.vue";
 defineProps({ foods: Array });
 const search = ref(""),

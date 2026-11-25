@@ -11,8 +11,6 @@ from nltk.stem import PorterStemmer
 from nltk.tokenize import wordpunct_tokenize
 from pydantic import BaseModel, Field, model_validator
 from sklearn.linear_model import LinearRegression, LogisticRegression
-import torch
-from transformers import AutoModel, AutoTokenizer
 from app.diary_analysis import router as diary_router
 from app.recipe_scraper import router as recipe_scraper_router
 
@@ -22,12 +20,12 @@ BERT_MODEL_REVISION = os.getenv(
     "BERT_MODEL_REVISION", "6f75de8b60a9f8a2fdf7b69cbd86d9e64bcb3837"
 )
 BERT_LOCAL_FILES_ONLY = os.getenv("BERT_LOCAL_FILES_ONLY", "false").lower() == "true"
-BERT_DEVICE = torch.device("cpu")
-torch.set_num_threads(int(os.getenv("TORCH_NUM_THREADS", "1")))
+BERT_DEVICE = "cpu"
 
 _bert_lock = threading.Lock()
 _bert_tokenizer = None
 _bert_model = None
+_torch = None
 _stemmer = PorterStemmer()
 try:
     _stop_words = set(stopwords.words("english"))
@@ -189,24 +187,37 @@ def _cosine_similarity(left: np.ndarray, right: np.ndarray) -> float:
 def _load_bert():
     """Load the tiny BERT tokenizer/model once and pin inference to CPU."""
 
-    global _bert_model, _bert_tokenizer
-    if _bert_model is not None and _bert_tokenizer is not None:
+    global _bert_model, _bert_tokenizer, _torch
+    if _bert_model is not None and _bert_tokenizer is not None and _torch is not None:
         return _bert_tokenizer, _bert_model
 
     with _bert_lock:
-        if _bert_model is None or _bert_tokenizer is None:
-            _bert_tokenizer = AutoTokenizer.from_pretrained(
+        if _bert_model is None or _bert_tokenizer is None or _torch is None:
+            # Keep the light API and health endpoints responsive without
+            # importing Torch and Transformers until BERT is actually requested.
+            import torch
+            from transformers import BertModel, BertTokenizer
+
+            torch.set_num_threads(int(os.getenv("TORCH_NUM_THREADS", "1")))
+            # The tiny BERT repository contains vocab.txt but no tokenizer.json.
+            # Load BertTokenizer directly so Transformers 5 builds its WordPiece
+            # backend from that pinned vocabulary rather than guessing a fast
+            # tokenizer class from incomplete repository metadata.
+            _bert_tokenizer = BertTokenizer.from_pretrained(
                 BERT_MODEL_NAME,
                 revision=BERT_MODEL_REVISION,
                 local_files_only=BERT_LOCAL_FILES_ONLY,
             )
-            _bert_model = AutoModel.from_pretrained(
+            # This pinned model's config predates the required `model_type`
+            # field, so load its known BERT architecture directly.
+            _bert_model = BertModel.from_pretrained(
                 BERT_MODEL_NAME,
                 revision=BERT_MODEL_REVISION,
                 local_files_only=BERT_LOCAL_FILES_ONLY,
             )
-            _bert_model.to(BERT_DEVICE)
+            _bert_model.to(torch.device(BERT_DEVICE))
             _bert_model.eval()
+            _torch = torch
     return _bert_tokenizer, _bert_model
 
 
@@ -221,11 +232,11 @@ def _bert_embedding(text: str) -> np.ndarray:
         max_length=256,
     )
     encoded = {key: value.to(BERT_DEVICE) for key, value in encoded.items()}
-    with torch.inference_mode():
+    with _torch.inference_mode():
         output = model(**encoded)
         attention_mask = encoded["attention_mask"].unsqueeze(-1).expand(output.last_hidden_state.size()).float()
         pooled = (output.last_hidden_state * attention_mask).sum(dim=1) / attention_mask.sum(dim=1).clamp(min=1e-9)
-        normalized = torch.nn.functional.normalize(pooled, p=2, dim=1)
+        normalized = _torch.nn.functional.normalize(pooled, p=2, dim=1)
     return normalized[0].cpu().numpy()
 
 

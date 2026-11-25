@@ -1,10 +1,12 @@
 # Bauchgefühl — recipe & symptom diary
 
-A German-language personal food diary built with Go Fiber, the [Gonertia Go adapter](https://github.com/romsar/gonertia), Vue 3, SurrealDB, and a local Python analysis service. The server rendering follows the linked [Gonertia Vue example](https://github.com/henrriusdev/gonertia_vue_example).
+A German-language personal food and symptom diary built with Go Fiber, the [Gonertia Go adapter](https://github.com/romsar/gonertia), Vue 3, SurrealDB, and a local Python service.
+
+[Start the app](#run-the-stack-with-docker-compose) · [Deployment and recovery](docs/DEPLOYMENT.md) · [10-slide presentation](pitch-deck/README.md)
 
 ## What you can do
 
-- Save and edit recipes; paste ingredient lines for NLTK recognition, then confirm food mappings and allergens.
+- Save and edit recipes. Paste ingredient lines for local suggestions, then confirm food mappings and allergens.
 - Log a recipe as a timestamped meal with portions and notes. Every meal retains a snapshot of the recipe's ingredients.
 - Record six symptom types with a 0–5 star-style scale (kept in the existing 0–10 analysis format), stress, sleep, or an explicit symptom-free check-in. Add multiple moments on the same day and optionally describe when symptoms started after a meal.
 - Filter the diary by date, symptom, or symptom-free entries and sort by severity.
@@ -23,11 +25,13 @@ A German-language personal food diary built with Go Fiber, the [Gonertia Go adap
 
 This is a **single-person diary** with one pseudonymous account to sign in across devices; it is not a multi-user service. Keep Docker Compose ports bound to `127.0.0.1` for local use. Remote access is an MVP and must go through an HTTPS reverse proxy; do not expose the app directly. Browser responses set a restrictive same-origin Content Security Policy and basic anti-framing/content-type headers, but these are defense-in-depth. The encrypted vault protects diary content at rest and during vault synchronization, not against a compromised device, a malicious app update, XSS, or access to an unlocked browser. No cloud AI service receives diary text. Recipe import sends the chosen URL to the local crawler service. Fonts are bundled locally.
 
-After setup, diary records and the personal profile (including the display pseudonym) are encrypted in the browser with AES-GCM before the server stores them in the `diary_vault` table. The pseudonymous account password only controls access to the encrypted vault; it cannot decrypt it. Each new device also needs the vault passphrase or recovery key. Neither key is sent to the server. Sessions last 30 days; Profile → Sicherheit lists active devices with a coarse browser/platform label and sign-in time, and lets you revoke one device or every other device while keeping this one signed in. Raw User-Agent and IP values are not stored for this inventory. Open, online tabs check their session about every 30 seconds and lock after learning that access was revoked; offline devices are rejected when they reconnect. You may optionally set a one-time account recovery code in Profile → Sicherheit. It only resets sign-in, is consumed on use, and revokes all device sessions; it cannot decrypt the vault. If you did not set a code or have lost it, the self-hosted operator can reset sign-in using the [account recovery runbook](docs/ACCOUNT_RECOVERY.md), but that still does not restore vault access. A forgotten vault passphrase can only be replaced with the vault recovery key. While unlocked, the diary is present in browser memory; lock it when leaving the device. Store the account recovery code and vault recovery phrase separately; losing both vault keys means permanent data loss. In Profile → Sicherheit, you can replace both vault credentials; the diary is re-encrypted on the device with a fresh data key, and the replacement is committed only after you confirm the new recovery phrase. Previously downloaded backups remain unchanged and continue to require the credentials that were active when each backup was made. The profile page downloads an encrypted JSON backup containing only the ciphertext envelope; it can be restored only into an empty vault after local verification with the passphrase or recovery key. Existing plaintext records require the explicit first-run migration; after the encrypted copy is verified, the primary legacy rows are removed transactionally. Historical database snapshots and old exports are not automatically erased. The display pseudonym is not anonymity or an account credential. The legacy plaintext API is disabled except for this one-time migration route. The vault uses revision checks backed by a database transaction to prevent silent concurrent overwrite. Review retention of old database/volume backups before changing deployments.
+After setup, diary records and the personal profile (including the display pseudonym) are encrypted in the browser with AES-GCM before the server stores them in the `diary_vault` table. The pseudonymous account password only controls access to the encrypted vault; it cannot decrypt it. Each new device also needs the vault passphrase or recovery key. Neither key is sent to the server. Sessions last 30 days; Profile → Sicherheit lists active devices with a coarse browser/platform label and sign-in time, and lets you revoke one device or every other device while keeping this one signed in. Raw User-Agent and IP values are not stored for this inventory. Open, online tabs check their session about every 30 seconds and lock after learning that access was revoked; offline devices are rejected when they reconnect. You may optionally set a one-time account recovery code in Profile → Sicherheit. It only resets sign-in, is consumed on use, and revokes all device sessions; it cannot decrypt the vault. If you did not set a code or have lost it, the self-hosted operator can reset sign-in using the [account recovery runbook](docs/ACCOUNT_RECOVERY.md), but that still does not restore vault access. A forgotten vault passphrase can only be replaced with the vault recovery key. While unlocked, the diary is present in browser memory; lock it when leaving the device. Store the account recovery code and vault recovery phrase separately; losing both vault keys means permanent data loss. In Profile → Sicherheit, you can replace both vault credentials; the diary is re-encrypted on the device with a fresh data key, and the replacement is committed only after you confirm the new recovery phrase. Previously downloaded backups remain unchanged and continue to require the credentials that were active when each backup was made. The profile page downloads an encrypted JSON backup containing only the ciphertext envelope; it can be restored only into an empty vault after local verification with the passphrase or recovery key. Existing plaintext records require the explicit first-run migration; after the encrypted copy is verified, the primary legacy rows are removed transactionally. Historical database snapshots and old exports are not automatically erased. The display pseudonym is not anonymity or an account credential. The legacy plaintext API is disabled except for this one-time migration route. The vault uses revision checks backed by a database transaction to prevent silent concurrent overwrite. Independent edits to different diary records or fields on multiple devices merge automatically. If both devices change the same field, the server copy is kept and the unsaved edit must be entered again after unlocking. Review retention of old database/volume backups before changing deployments.
+
+The server also keeps sign-in records outside the encrypted diary: the username, a salted password verifier, an optional recovery-code hash, one-way session-token hashes, and a coarse device label with its sign-in time. The app uses the request IP briefly in memory to limit repeated sign-in attempts. A hosting provider or reverse proxy may keep separate connection logs, so configure its retention deliberately.
 
 ## How analysis works
 
-NLTK tokenization matches curated aliases using whole tokens and longest matches; almond milk must not be misidentified as cow's milk. Unknown and ambiguous lines need review. Unknown ingredients are compared by their exact lowercased, whitespace-normalized text; use consistent naming or a catalog mapping when quantities change. Allergens must be explicitly confirmed from ingredient labels. Missing allergen tags never mean allergen-free. Tiny BERT remains available for text similarity, but its embedding scores do not establish ingredient identity, allergy, or FODMAP content.
+The diary's browser-side ingredient normalizer removes quantities, matches curated aliases and keeps ambiguous lines reviewable. The Python service separately offers NLTK text matching and Tiny BERT text similarity. In the diary, review ingredient suggestions and confirm allergen tags from the source labels. Missing tags leave allergen status unknown.
 
 The analysis keeps each documented check-in moment in the browser's local timezone; multiple moments on one day remain separate, and a later symptom-free moment does not erase earlier symptoms. Symptoms can use a direct, 30-minute–2-hour, 2–6-hour, 6–24-hour/following-day, or unknown timing window, with an optional reference to a specific meal. The general 4/8/12/24-hour setting applies only when the timing is unknown. A day without a check-in is **missing**, not symptom-free. A selected symptom score of at least 3/10 is the exploratory outcome; comparison moments can include milder symptoms and are labelled separately from strictly symptom-free entries.
 
@@ -74,45 +78,43 @@ modelling; ordinary missing follow-ups are never treated as symptom-free.
 ### Direct Apple Health (iOS first)
 
 The native SwiftUI/HealthKit wrapper is prepared in [mobile/ios](mobile/ios/README.md).
-It requests actual iOS read permission for heart rate, resting heart rate and HRV and uses the
-existing same-origin import API without a user-supplied file. Profile → Health enables this
+It requests iOS read permission for heart rate, resting heart rate and HRV. The bridge passes the
+measurements to the browser vault for encryption and sync. Profile → Health enables this
 only inside that native wrapper. Safari/PWA cannot grant HealthKit access. Android and Samsung
 are not implemented. The wrapper still needs full Xcode, signing, a protected HTTPS server and
 a real-device test; it has not been built or installed here.
 
 ## Run the stack with Docker Compose
 
-Docker Compose builds the Vue assets and starts Fiber, persistent SurrealDB, and the Python ML service. For a **new, empty database volume**, create private database and account setup secrets; the helper writes them to the ignored `.env` file with owner-only permissions and never replaces an existing file:
+From the repository root, use Docker with Compose. A container run needs no separate Go, Node, or Python installation. For a new, empty installation, create the private `.env` and start all three services:
 
 ```sh
 sh setup-local-env.sh --new
-docker-compose up --build
+docker compose --parallel 1 up -d --build --wait
+docker compose ps
 ```
 
 If you already have a SurrealDB volume, do **not** use `--new`: its database password is stored inside that volume and is not changed by Compose. Keep your existing database credentials, then run `sh setup-auth-token.sh` to add an account setup code without replacing `.env`. For a manually created `.env`, set the existing database credentials and `chmod 600 .env` before starting. If you start Go outside Compose, keep the values as single-line, unquoted entries for the safe local environment reader. Using the wrong credentials will keep the app from connecting, but will not delete the existing data.
 
-Open the app at `http://localhost:3000`. On first visit, create the one account for this installation with the setup code from `.env`, then choose a pseudonymous username and a separate account password. Every new device signs in with those account credentials and then unlocks the encrypted diary with its own copy of the vault passphrase or recovery phrase. SurrealDB is at `http://localhost:8000`, and Python API docs are at `http://localhost:8001/docs`.
+With standalone Compose, replace `docker compose` with `docker-compose` in the commands.
+
+Open **http://localhost:3000**. Use `ACCOUNT_SETUP_TOKEN` from your local `.env` to create the account. Pick a pseudonymous username and account password. Then create the separate vault passphrase and save the vault recovery phrase somewhere safe. The Today screen is ready for your first recipe and meal after setup.
 SurrealDB `v3.3.0` is pinned rather than following the moving `latest` tag. Data is stored in the named `surrealdb-data` volume. Before changing the database version, take a backup and verify restore plus the integration tests against that version.
 
 If the account sign-in password is lost, the self-hosted operator can recreate sign-in without touching the encrypted diary. Follow the carefully scoped [account recovery runbook](docs/ACCOUNT_RECOVERY.md); vault access still requires the user's vault passphrase or recovery phrase.
 
-The app and ML container base images also use explicit runtime and OS versions (Node `24.21.0`, Go `1.27.1`, Python `3.12.15`, Alpine `3.24.2`, and Debian Bookworm). Refresh these pins deliberately, then rebuild and run the full test suite; a version tag still needs regular security updates.
+The app and ML container base images also use explicit runtime and OS versions (Node `24.21.0`, Go `1.27.4`, Python `3.12.15`, Alpine `3.24.2`, and Debian Bookworm). Refresh these pins deliberately, then rebuild and run the full test suite; a version tag still needs regular security updates.
 
 The Python container runs as an unprivileged UID and forces Hugging Face model access offline after the pinned tiny-BERT files are included in the image. Docker places SurrealDB on an isolated internal network; only Fiber connects both to that database and the Python service. The crawler has outbound access for explicitly requested public recipe URLs but cannot resolve or reach the database network. It pins each fetch to a validated public IP, retains the original TLS hostname, checks redirects, disables ambient proxies, and caps response sizes. Recipe URL importing remains an explicit network operation; diary analysis does not send personal diary data to that service.
 
-For a quick manual test:
+For remote multi-device access, the optional Caddy profile provides HTTPS. Set `APP_DOMAIN` and the matching `APP_URL=https://...` in `.env`, point public DNS to the host, and run `docker-compose --parallel 1 --profile remote up -d --build --wait`. See the [HTTPS deployment steps](docs/DEPLOYMENT.md#https-for-another-device); the account app remains loopback-bound and SurrealDB stays private.
+
+Check readiness or stop the stack while keeping the database volume:
 
 ```sh
-cd /Users/etiiir/Documents/Codex/2026-09-15/cre/fiber-api
-docker-compose up --build
-```
-
-Use `docker-compose up -d --build` to run in the background, `docker-compose ps` to check service health, and `docker-compose logs -f app` to follow Fiber logs. Stop everything with `docker-compose down`.
-
-Stop the stack with:
-
-```sh
-docker-compose down
+curl -fsS http://localhost:3000/health
+docker compose logs --tail=100 app
+docker compose down
 ```
 
 Compose refuses to start if database credentials or `ACCOUNT_SETUP_TOKEN` are missing; there is no `root` / `root` fallback. `.env.example` documents the variables, but its secrets are intentionally blank. The setup code can create only the first account. Keep `.env` private and do not publish the application port directly. Remote multi-device access is an MVP: put an HTTPS reverse proxy in front of the loopback-bound app, set `APP_URL` to the exact `https://` origin, and forward the original `Host` header. The server refuses a non-local `APP_URL` without HTTPS and issues `HttpOnly`, `SameSite=Strict`, `Secure` cookies for HTTPS. Sessions expire after 30 days; Profile → Sicherheit lists active devices and can revoke one session or every other device while preserving the current session. Users can optionally configure a one-time account recovery code in Profile → Sicherheit. It resets sign-in only, consumes the code, and revokes all sessions; it never unlocks or changes the separate encrypted diary vault. If the code is unavailable, the operator-only reset procedure in `docs/ACCOUNT_RECOVERY.md` remains a fallback and must be drilled on a disposable database. Do not treat this MVP as a production security review.
@@ -135,7 +137,7 @@ go run .
 
 For frontend changes, run `npm --prefix web run dev` in another terminal and reload the page. This watches production assets; it is not a Vite HMR server. Set `APP_URL` alongside `PORT` if changing the browser URL, and `ML_SERVICE_URL` if using a different Python endpoint.
 
-The server connects to SurrealDB at `ws://localhost:8000/rpc` by default and direct Go startup binds to `127.0.0.1:3000` only. Start SurrealDB separately before running the API locally. Database credentials and a 32-character account setup secret are required; helpers create them in the ignored `.env`. The setup secret is accepted only while no account exists and remains valid until rotated. The command above reads only the required values without executing `.env` as shell code; those entries must be single-line and unquoted. Set `PORT` to use a different port. `LISTEN_HOST` defaults to loopback; only override it for a private container network or behind a verified HTTPS proxy. Compose binds the app inside its container but publishes the host port only on `127.0.0.1`:
+The server connects to SurrealDB at `ws://localhost:8000/rpc` by default and direct Go startup binds to `127.0.0.1:3000` only. Start a separate development SurrealDB instance before running Go directly. The Compose database is reachable inside Docker only. Database credentials and a 32-character account setup secret are required; helpers create them in the ignored `.env`. The setup secret is accepted only while no account exists and remains valid until rotated. The command above reads only the required values without executing `.env` as shell code; those entries must be single-line and unquoted. Set `PORT` to use a different port. `LISTEN_HOST` defaults to loopback; only override it for a private container network or behind a verified HTTPS proxy. Compose binds the app inside its container but publishes the host port only on `127.0.0.1`:
 
 ```sh
 PORT=8080 go run .
@@ -362,20 +364,20 @@ Tests: `npm --prefix web run test:unit` prüft die Suchregeln; `web/tests/recipe
 
 ### Tests ausführen
 
-Run the browser-independent regression checks with `GOCACHE=/private/tmp/gutfeeling-go-cache go test ./...` and `npm --prefix web run test:unit`. For Playwright, use a dedicated SurrealDB database and port 3001; the browser suite seeds and inspects data through an encrypted test vault and must never target the personal app on port 3000.
+Run the browser-independent regression checks with `go test -race ./...`, `go vet ./...` and `npm --prefix web run test:unit`. Playwright seeds an encrypted test vault, so use a dedicated SurrealDB instance and app port. The [CI workflow](.github/workflows/ci.yml) shows the full isolated setup.
 
 GitHub Actions is configured to run the Go race detector and `go vet`, frontend unit tests and a production asset build, the Python suite including CPU-only BERT, a full Compose runtime smoke test, plus the Playwright UX/accessibility suite and SurrealDB transaction tests against an ephemeral test database. The workflow uses read-only repository permissions and dedicated disposable test databases; it never targets a personal database.
 
-Build the test-only event bridge, then start the isolated app:
+After exporting the disposable instance's `SURREALDB_URL`, `SURREALDB_USER`, `SURREALDB_PASS` and `ACCOUNT_SETUP_TOKEN`, build the test assets and start the isolated app:
 
 ```sh
 npm --prefix web run test:e2e:build
-PORT=3001 APP_URL=http://localhost:3001 SURREALDB_DATABASE=ux_tests go run .
+PORT=3001 APP_URL=http://localhost:3001 SURREALDB_NAMESPACE=ux_tests SURREALDB_DATABASE=ux_tests go run .
 ```
 
 In another terminal run `ALLOW_E2E_VAULT_MUTATION=1 APP_TEST_URL=http://localhost:3001 npm --prefix web test`. The browser fixture uses a test-only passphrase and encrypted vault. The explicit opt-in is required because the suite updates vault contents; never set it for a patient's database.
 
-The end-to-end backup recovery test also needs a second app on port 3002 connected to a separate, fresh disposable `*_tests` namespace/database. Set `RESTORE_TEST_URL=http://localhost:3002` when running Playwright to include it. Without that variable, the recovery test is skipped; it never clears or overwrites the shared test vault.
+The end-to-end backup recovery checks need two more apps: a fresh destination on port 3002 and a separate blank-vault setup app on port 3003. Give each its own disposable `*_tests` namespace/database, then set `RESTORE_TEST_URL=http://localhost:3002` and `VAULT_SETUP_TEST_URL=http://localhost:3003`. Keeping these targets separate prevents the first-time setup flow from filling the restore destination before the restore test runs. Build normal assets with `npm --prefix web run build` after the browser tests.
 
 Python tests cover alias specificity, unknown ingredients, meal-before-symptom ordering, missing check-ins, duplicate-day handling, symptom filters, co-occurring allergens and ingredients, and the model's data thresholds.
 

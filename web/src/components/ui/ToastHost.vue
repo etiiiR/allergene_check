@@ -1,5 +1,5 @@
 <script setup>
-import { Check, CircleAlert, X } from "@lucide/vue";
+import { Check, CircleAlert, X } from "../../icons.js";
 import { feedback, dismiss } from "../../ui/feedback";
 </script>
 <template>
