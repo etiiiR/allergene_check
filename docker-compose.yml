@@ -53,6 +53,7 @@ services:
 
   app:
     restart: unless-stopped
+    stop_grace_period: 35s
     build:
       context: .
     depends_on:

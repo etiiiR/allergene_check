@@ -119,6 +119,12 @@ docker compose logs --tail=100 app
 docker compose down
 ```
 
+Stopping the app sends `SIGTERM`. Fiber stops accepting new requests, finishes
+bounded in-flight requests, closes live-query WebSockets, then closes its shared
+SurrealDB client. Compose gives this shutdown up to 35 seconds. If you run the
+binary under another supervisor, configure a stop grace period of at least 35
+seconds so it does not kill the process before cleanup finishes.
+
 Compose refuses to start if database credentials or `ACCOUNT_SETUP_TOKEN` are missing; there is no `root` / `root` fallback. `.env.example` documents the variables, but its secrets are intentionally blank. The setup code can create only the first account. Keep `.env` private and do not publish the application port directly. Remote multi-device access is an MVP: put an HTTPS reverse proxy in front of the loopback-bound app, set `APP_URL` to the exact `https://` origin, and forward the original `Host` header. The server refuses a non-local `APP_URL` without HTTPS and issues `HttpOnly`, `SameSite=Strict`, `Secure` cookies for HTTPS. Sessions expire after 30 days; Profile → Sicherheit lists active devices and can revoke one session or every other device while preserving the current session. Users can optionally configure a one-time account recovery code in Profile → Sicherheit. It resets sign-in only, consumes the code, and revokes all sessions; it never unlocks or changes the separate encrypted diary vault. If the code is unavailable, the operator-only reset procedure in `docs/ACCOUNT_RECOVERY.md` remains a fallback and must be drilled on a disposable database. Do not treat this MVP as a production security review.
 
 ## Run

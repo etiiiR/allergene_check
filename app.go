@@ -20,12 +20,23 @@ func newApp(db *surrealdb.DB) *fiber.App {
 }
 
 func newAppWithStore(store *SurrealStore) *fiber.App {
+	return newAppWithLifecycleContext(store, context.Background())
+}
+
+// newAppWithLifecycleContext ties long-lived connections to the process
+// lifecycle so shutdown can release them before closing the shared DB client.
+func newAppWithLifecycleContext(store *SurrealStore, lifecycleCtx context.Context) *fiber.App {
+	if lifecycleCtx == nil {
+		lifecycleCtx = context.Background()
+	}
 	// Match the vault endpoint's explicit ciphertext limit while allowing room
 	// for the surrounding JSON request. Individual routes still validate their
 	// own payload sizes and shapes.
 	app := fiber.New(fiber.Config{
 		ErrorHandler:            AppErrorHandler,
 		BodyLimit:               maxVaultEnvelopeBytes + (64 << 10),
+		ReadTimeout:             15 * time.Second,
+		WriteTimeout:            30 * time.Second,
 		EnableTrustedProxyCheck: true,
 		TrustedProxies:          trustedProxyAddresses(),
 		ProxyHeader:             fiber.HeaderXForwardedFor,
@@ -46,7 +57,7 @@ func newAppWithStore(store *SurrealStore) *fiber.App {
 	registerDiaryAPI(app, repo, newAnalysisClient())
 	registerWeb(app, repo, account)
 	app.Get("/health", healthHandler(store, databaseConfigured))
-	registerLiveQueryRoutes(app, store, databaseConfigured)
+	registerLiveQueryRoutes(app, store, databaseConfigured, lifecycleCtx)
 
 	return app
 }
@@ -77,7 +88,7 @@ func healthHandler(store *SurrealStore, databaseConfigured bool) fiber.Handler {
 	}
 }
 
-func registerLiveQueryRoutes(app *fiber.App, store *SurrealStore, databaseConfigured bool) {
+func registerLiveQueryRoutes(app *fiber.App, store *SurrealStore, databaseConfigured bool, lifecycleCtx context.Context) {
 	app.Use("/ws", func(c *fiber.Ctx) error {
 		if !sameOrigin(c) {
 			return NewAppError(403, "origin_rejected", "WebSocket-Verbindung von einer fremden Webseite abgelehnt.")
@@ -89,6 +100,10 @@ func registerLiveQueryRoutes(app *fiber.App, store *SurrealStore, databaseConfig
 	})
 
 	app.Get("/ws/live/:table", websocket.New(func(conn *websocket.Conn) {
+		if lifecycleCtx.Err() != nil {
+			_ = conn.Close()
+			return
+		}
 		if !databaseConfigured {
 			writeWebSocketError(conn, ErrDatabaseNotConfigured)
 			return
@@ -101,12 +116,18 @@ func registerLiveQueryRoutes(app *fiber.App, store *SurrealStore, databaseConfig
 		}
 
 		diff := conn.Query("diff") == "true"
-		subscription, err := store.WatchTable(context.Background(), models.Table(tableName), diff)
+		subscription, err := store.WatchTable(lifecycleCtx, models.Table(tableName), diff)
 		if err != nil {
 			writeWebSocketError(conn, WrapAppError(fiber.StatusServiceUnavailable, ErrorCodeLiveQuery, "could not start live query", err))
 			return
 		}
-		defer subscription.Close(context.Background())
+		defer func() {
+			closeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			if err := subscription.Close(closeCtx); err != nil {
+				log.Printf("websocket subscription cleanup error: %v", err)
+			}
+		}()
 
 		if err := conn.WriteJSON(fiber.Map{
 			"type":  "subscribed",
@@ -119,13 +140,19 @@ func registerLiveQueryRoutes(app *fiber.App, store *SurrealStore, databaseConfig
 		}
 
 		clientClosed := make(chan struct{})
+		readerDone := make(chan struct{})
 		go func() {
+			defer close(readerDone)
 			for {
 				if _, _, err := conn.ReadMessage(); err != nil {
 					close(clientClosed)
 					return
 				}
 			}
+		}()
+		defer func() {
+			_ = conn.Close()
+			<-readerDone
 		}()
 
 		for {
@@ -144,6 +171,8 @@ func registerLiveQueryRoutes(app *fiber.App, store *SurrealStore, databaseConfig
 					return
 				}
 			case <-clientClosed:
+				return
+			case <-lifecycleCtx.Done():
 				return
 			}
 		}
