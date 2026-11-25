@@ -3,7 +3,7 @@ import { test, expect } from "./fixtures.js";
 test("recipe → meal → symptom-free check-in → patterns; persistence and cleanup", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const ids = [];
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -134,12 +134,12 @@ test("recipe → meal → symptom-free check-in → patterns; persistence and cl
       ),
     ).toBeTruthy();
     await page.screenshot({
-      path: "/private/tmp/bauchgefuehl-mobile.png",
+      path: testInfo.outputPath("bauchgefuehl-mobile.png"),
       fullPage: true,
     });
     await page.setViewportSize({ width: 1440, height: 1050 });
     await page.screenshot({
-      path: "/private/tmp/bauchgefuehl-desktop.png",
+      path: testInfo.outputPath("bauchgefuehl-desktop.png"),
       fullPage: true,
     });
     expect(errors).toEqual([]);
