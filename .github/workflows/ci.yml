@@ -96,8 +96,6 @@ jobs:
       run:
         working-directory: ml-service
     env:
-      HF_HOME: ${{ runner.temp }}/gutfeeling-hf-cache
-      NLTK_DATA: ${{ runner.temp }}/gutfeeling-nltk-data
       HF_HUB_DISABLE_TELEMETRY: "1"
       TOKENIZERS_PARALLELISM: "false"
     steps:
@@ -118,6 +116,9 @@ jobs:
           uvx --from pip-audit==2.10.1 pip-audit --vulnerability-service osv --no-deps --require-hashes -r requirements.lock
           uvx --from pip-audit==2.10.1 pip-audit --vulnerability-service osv --no-deps --require-hashes -r requirements-dev.lock
       - name: Cache NLTK data and pinned BERT model
+        env:
+          HF_HOME: ${{ runner.temp }}/gutfeeling-hf-cache
+          NLTK_DATA: ${{ runner.temp }}/gutfeeling-nltk-data
         run: |
           uv run python -m nltk.downloader -d "$NLTK_DATA" stopwords
           uv run python -c "from transformers import BertModel, BertTokenizer; name='prajjwal1/bert-tiny'; revision='6f75de8b60a9f8a2fdf7b69cbd86d9e64bcb3837'; BertTokenizer.from_pretrained(name, revision=revision); BertModel.from_pretrained(name, revision=revision)"
@@ -125,6 +126,8 @@ jobs:
         env:
           RUN_BERT_TESTS: "1"
           BERT_LOCAL_FILES_ONLY: "true"
+          HF_HOME: ${{ runner.temp }}/gutfeeling-hf-cache
+          NLTK_DATA: ${{ runner.temp }}/gutfeeling-nltk-data
         run: uv run python -m pytest -q
 
   compose-smoke:
@@ -230,11 +233,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-go@v7.0.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: 1.27.4
           cache-dependency-path: go.sum
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24.21.0
           cache: npm
