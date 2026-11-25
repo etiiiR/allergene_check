@@ -1394,7 +1394,7 @@ onBeforeUnmount(clearRotation);
             @submit.prevent="deleteAccountAndDiary"
           >
             <label class="vault-field">
-              Aktuelles Kontopasswort
+              Kontopasswort zur Löschung
               <input
                 ref="deleteAccountPasswordField"
                 class="d-input"

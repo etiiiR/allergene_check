@@ -1,8 +1,25 @@
-import { test, expect, E2E_ACCOUNT_PASSWORD } from "./fixtures.js";
+import {
+  test,
+  expect,
+  E2E_ACCOUNT_PASSWORD,
+  E2E_ACCOUNT_USERNAME,
+} from "./fixtures.js";
 
 test("account deletion asks for deliberate confirmation and exits the profile", async ({
   page,
 }) => {
+  const baseURL = process.env.APP_TEST_URL || "http://localhost:3001";
+  const freshSession = await page
+    .context()
+    .request.post(new URL("/api/auth/login", baseURL).href, {
+      headers: { "X-Diary-Request": "1" },
+      data: {
+        username: E2E_ACCOUNT_USERNAME,
+        password: E2E_ACCOUNT_PASSWORD,
+      },
+    });
+  expect(freshSession.ok()).toBeTruthy();
+
   await page.goto("/profile");
   await page.getByRole("button", { name: "Sicherheit" }).click();
 
@@ -10,9 +27,10 @@ test("account deletion asks for deliberate confirmation and exits the profile", 
   await expect(
     page.getByRole("heading", { name: "Konto und Tagebuch löschen" }),
   ).toBeVisible();
-  await deletionForm
-    .getByLabel("Aktuelles Kontopasswort")
-    .fill(E2E_ACCOUNT_PASSWORD);
+  const deletionPassword = deletionForm.getByLabel(
+    "Kontopasswort zur Löschung",
+  );
+  await deletionPassword.fill(E2E_ACCOUNT_PASSWORD);
   await deletionForm
     .getByLabel("Tippe LÖSCHEN zur Bestätigung")
     .fill("LÖSCHEN");
