@@ -17,6 +17,10 @@ const testSessionCookies = new Map();
 const resolvedTestURL = (value) =>
   value || process.env.APP_TEST_URL || "http://localhost:3001";
 
+export function clearCachedTestSession(baseURL) {
+  testSessionCookies.delete(new URL(resolvedTestURL(baseURL)).origin);
+}
+
 function readSessionCookie(value, baseURL) {
   const [pair] = (value || "").split(";", 1);
   const separator = pair?.indexOf("=") ?? -1;

@@ -4,6 +4,7 @@ import {
   E2E_ACCOUNT_PASSWORD,
   E2E_ACCOUNT_USERNAME,
   E2E_PASSPHRASE,
+  clearCachedTestSession,
 } from "./fixtures.js";
 
 test("a second device signs in before it can fetch or unlock the encrypted vault", async ({
@@ -248,6 +249,7 @@ test("device inventory can revoke one selected sign-in without affecting this de
 
 test("signing out locks the diary and browser Back cannot reopen it", async ({
   page,
+  baseURL,
 }) => {
   await page.goto("/");
   await expect(page.locator(".app-shell")).toBeVisible();
@@ -258,6 +260,7 @@ test("signing out locks the diary and browser Back cannot reopen it", async ({
   await page.getByRole("button", { name: "Sicherheit" }).click();
 
   await page.getByRole("button", { name: "Dieses Gerät abmelden" }).click();
+  clearCachedTestSession(baseURL);
   await expect(page).toHaveURL(/\/login$/u);
   await expect(
     page.getByRole("heading", { name: "Auf deinen Tresor zugreifen" }),
