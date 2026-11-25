@@ -245,3 +245,41 @@ test("device inventory can revoke one selected sign-in without affecting this de
     await context.close();
   }
 });
+
+test("signing out locks the diary and browser Back cannot reopen it", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".app-shell")).toBeVisible();
+  await page
+    .locator(".desktop-sidebar")
+    .getByRole("link", { name: "Profil und Zyklus", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Sicherheit" }).click();
+
+  const logoutResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/auth/logout") &&
+      response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Dieses Gerät abmelden" }).click();
+  expect((await logoutResponse).ok()).toBeTruthy();
+  await expect(page).toHaveURL(/\/login$/u);
+  await expect(
+    page.getByRole("heading", { name: "Auf deinen Tresor zugreifen" }),
+  ).toBeVisible();
+
+  await page.goBack();
+  await expect(page.locator(".app-shell")).toHaveCount(0);
+  await expect
+    .poll(async () => {
+      const signIn = await page
+        .getByRole("heading", { name: "Auf deinen Tresor zugreifen" })
+        .count();
+      const unlock = await page
+        .getByRole("heading", { name: "Tagebuch entsperren" })
+        .count();
+      return signIn + unlock;
+    })
+    .toBe(1);
+});
