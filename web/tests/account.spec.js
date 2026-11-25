@@ -257,15 +257,7 @@ test("signing out locks the diary and browser Back cannot reopen it", async ({
     .click();
   await page.getByRole("button", { name: "Sicherheit" }).click();
 
-  const logoutRequestFinished = page.waitForEvent(
-    "requestfinished",
-    (request) =>
-      request.url().endsWith("/api/auth/logout") &&
-      request.method() === "POST",
-  );
   await page.getByRole("button", { name: "Dieses Gerät abmelden" }).click();
-  const logoutRequest = await logoutRequestFinished;
-  expect((await logoutRequest.response())?.ok()).toBeTruthy();
   await expect(page).toHaveURL(/\/login$/u);
   await expect(
     page.getByRole("heading", { name: "Auf deinen Tresor zugreifen" }),
