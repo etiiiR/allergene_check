@@ -24,7 +24,13 @@ test("account deletion asks for deliberate confirmation and exits the profile", 
     expect(requestBody.confirmation).toBe("LÖSCHEN");
     expect(requestBody.current_password).toBe(E2E_ACCOUNT_PASSWORD);
     deletionRequestObserved = true;
-    await route.fulfill({ status: 204 });
+    await route.fulfill({
+      status: 204,
+      headers: {
+        "Set-Cookie":
+          "gutfeeling_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict",
+      },
+    });
   });
 
   await deletionForm
