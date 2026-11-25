@@ -222,7 +222,10 @@ test("diary capture actions stay equal and readable on narrow phones", async ({
       }),
     );
     expect(boxes.every((box) => box.contentFits)).toBeTruthy();
-    expect(boxes.every((box) => box.height >= 48)).toBeTruthy();
+    expect(
+      boxes.every((box) => box.height >= 48),
+      `${width}px capture target sizes: ${JSON.stringify(boxes)}`,
+    ).toBeTruthy();
     expect(Math.abs(boxes[0].width - boxes[1].width)).toBeLessThan(1);
     expect(Math.abs(boxes[2].width - boxes[3].width)).toBeLessThan(1);
     expect(Math.abs(boxes[0].y - boxes[1].y)).toBeLessThan(1);

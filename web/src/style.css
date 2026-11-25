@@ -2345,7 +2345,7 @@ td strong {
   .page-heading .diary-capture-actions > .button {
     width: 100%;
     min-width: 0;
-    min-height: 48px;
+    min-height: 50px;
     padding-inline: 8px;
     gap: 6px;
     font-size: 12px;

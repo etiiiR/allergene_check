@@ -245,7 +245,7 @@ curl -X POST http://localhost:8001/nlp/bert-similarity \
   -d '{"text_a":"This product contains peanuts.","text_b":"Peanuts are present in this product."}'
 ```
 
-The BERT endpoint uses `prajjwal1/bert-tiny` at a pinned [Hugging Face commit](https://huggingface.co/prajjwal1/bert-tiny/commit/6f75de8b60a9f8a2fdf7b69cbd86d9e64bcb3837), forces inference to CPU, mean-pools its hidden states, and returns cosine similarity. The model revision and local-only loading status are visible in `/health`; Docker caches that exact revision and refuses runtime model downloads.
+The BERT endpoint uses `prajjwal1/bert-tiny` at a pinned [Hugging Face commit](https://huggingface.co/prajjwal1/bert-tiny/commit/6f75de8b60a9f8a2fdf7b69cbd86d9e64bcb3837), forces inference to CPU, mean-pools its hidden states, and returns cosine similarity. Docker caches that exact revision and refuses runtime model downloads. Torch, Transformers, and the model load only when BERT is requested, keeping the health and ordinary API routes light; `/health` reports whether the model has loaded.
 
 `ml-service/pyproject.toml` and `uv.lock` define the Python dependency set. The generated `requirements.lock` and `requirements-dev.lock` pin every package with hashes for pip/Docker. PyTorch is explicitly sourced from its CPU index on Linux; ordinary packages resolve from PyPI, avoiding the old shared extra-index resolution. `requirements-cpu.txt` and `requirements-dev.txt` remain compatibility entry points.
 

@@ -600,3 +600,16 @@ die Sperrfrist nicht abgelaufen ist. Das beweist noch nicht, dass iOS oder Andro
 Version den App-Switcher-Screenshot rechtzeitig aktualisiert. Dafür sind Installations- und
 Gerätetests mit Bildschirmwechsel, Gerätesperre, App-Unterbrechung und abgelaufener Sperrfrist
 offen. Assistive-Technik und echte Nutzende sind weiterhin separat zu prüfen.
+
+## 16. Abschlussprüfung der implementierten UX
+
+Nachtrag 25. November 2026. Der aktuelle Frontend-Build und 64 Unit-Tests bestanden. Alle
+66 Playwright-Regressionen liefen gegen drei isolierte In-Memory-Datenbanken und decken unter
+anderem die Synchronisierung zwischen zwei angemeldeten Browsern, mobile Ansichten,
+Tastaturbedienung, Tagebuchbearbeitung, Rezeptsuche, Tresorzugriff und Geräte-Sitzungen ab.
+Die täglichen Erfassungsaktionen wurden bei 320px und 390px geprüft; ihre mobilen Buttons sind
+mindestens 50px hoch, damit Rundung sie nicht unter das 48px-Touchziel verkleinert. Die
+Slidev-Projektpräsentation wurde ebenfalls gebaut. Diese automatisierten
+Prüfungen stützen die implementierte Richtung; sie belegen keine bessere Bedienbarkeit bei
+echten Personen. Die moderierte Runde mit mindestens fünf Nutzenden, manuelle Tests mit
+Assistenztechnik sowie Tests auf iOS- und Android-Geräten bleiben offen.

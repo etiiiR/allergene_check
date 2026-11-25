@@ -64,6 +64,85 @@ test("a second device signs in before it can fetch or unlock the encrypted vault
   }
 });
 
+test("a separately signed-in device unlocks the latest encrypted diary revision", async ({
+  page,
+  browser,
+  baseURL,
+  request,
+}) => {
+  const secondDevice = await browser.newContext();
+  const secondPage = await secondDevice.newPage();
+  const appBaseURL =
+    baseURL || process.env.APP_TEST_URL || "http://localhost:3001";
+  const recipeName = `Cross-device recipe ${Date.now()}`;
+  let recipe;
+
+  try {
+    await page.goto("/recipes");
+    await page.getByRole("button", { name: "Rezept hinzufügen" }).click();
+    await page.getByLabel("Rezeptname").fill(recipeName);
+    await page.getByRole("button", { name: "Zutat manuell hinzufügen" }).click();
+    await page.getByLabel("Zutat 1", { exact: true }).fill("1 Prise Salz");
+
+    const recipeResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/recipes") &&
+        response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Rezept speichern", exact: true }).click();
+    const saved = await recipeResponse;
+    expect(saved.ok()).toBeTruthy();
+    recipe = await saved.json();
+    const persistedDiary = await request.get("/api/diary");
+    expect((await persistedDiary.json()).recipes).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: recipe.id })]),
+    );
+
+    await secondPage.goto(new URL("/", appBaseURL).href);
+    await expect(secondPage).toHaveURL(/\/login$/);
+    await secondPage.getByLabel("Benutzername").fill(E2E_ACCOUNT_USERNAME);
+    await secondPage.getByLabel("Kontopasswort").fill(E2E_ACCOUNT_PASSWORD);
+    await secondPage.getByRole("button", { name: "Anmelden" }).click();
+    await expect(secondPage).toHaveURL(new URL("/", appBaseURL).href);
+    const firstVaultResponse = await request.get("/api/vault");
+    const secondVaultResponse = await secondDevice.request.get(
+      new URL("/api/vault", appBaseURL).href,
+    );
+    expect(firstVaultResponse.ok()).toBeTruthy();
+    expect(secondVaultResponse.ok()).toBeTruthy();
+    expect((await secondVaultResponse.json()).revision).toBe(
+      (await firstVaultResponse.json()).revision,
+    );
+    await expect(
+      secondPage.getByRole("heading", { name: "Tagebuch entsperren" }),
+    ).toBeVisible();
+
+    await secondPage.getByLabel("Passphrase").fill(E2E_PASSPHRASE);
+    await secondPage
+      .getByRole("button", { name: "Tagebuch entsperren" })
+      .click();
+    await expect(secondPage.locator(".app-shell")).toBeVisible();
+    await secondPage
+      .locator(".desktop-sidebar")
+      .getByRole("link", { name: "Rezepte", exact: true })
+      .click();
+    await expect(
+      secondPage.getByRole("heading", { name: "Meine Rezepte" }),
+    ).toBeVisible();
+    await expect(
+      secondPage.getByTestId("recipe-card").filter({ hasText: recipeName }),
+    ).toBeVisible();
+  } finally {
+    if (recipe?.id) {
+      const cleanup = await request.delete(`/api/recipes/${recipe.id}`, {
+        headers: { "X-Diary-Request": "1" },
+      });
+      expect(cleanup.ok()).toBeTruthy();
+    }
+    await secondDevice.close();
+  }
+});
+
 test("revoking other devices preserves this session and locks the revoked browser", async ({
   page,
   browser,

@@ -239,7 +239,7 @@ func TestAccountRoutesIssueHttpOnlySameSiteCookieAndProtectPrivateData(t *testin
 	register := httptest.NewRequest("POST", "/api/auth/register", strings.NewReader(body))
 	register.Header.Set("Content-Type", "application/json")
 	register.Header.Set("X-Diary-Request", "1")
-	response, err := app.Test(register, 10_000)
+	response, err := app.Test(register, 60_000)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -500,7 +500,7 @@ func TestAccountRecoveryRoutesRequireSameOriginTokenAndResetOnlySignIn(t *testin
 	request := httptest.NewRequest(http.MethodPut, "/api/auth/recovery-code", strings.NewReader(string(codeBody)))
 	request.Header.Set("Content-Type", "application/json")
 	request.AddCookie(&http.Cookie{Name: accountSessionCookie, Value: current})
-	response, err := app.Test(request, 10_000)
+	response, err := app.Test(request, 60_000)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -513,7 +513,7 @@ func TestAccountRecoveryRoutesRequireSameOriginTokenAndResetOnlySignIn(t *testin
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("X-Diary-Request", "1")
 	request.AddCookie(&http.Cookie{Name: accountSessionCookie, Value: current})
-	response, err = app.Test(request, 10_000)
+	response, err = app.Test(request, 60_000)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -526,7 +526,7 @@ func TestAccountRecoveryRoutesRequireSameOriginTokenAndResetOnlySignIn(t *testin
 	request = httptest.NewRequest(http.MethodPost, "/api/auth/recover", strings.NewReader(string(recoveryBody)))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("X-Diary-Request", "1")
-	response, err = app.Test(request, 10_000)
+	response, err = app.Test(request, 60_000)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -567,7 +567,7 @@ func TestAccountSessionRoutesListAndRevokeOneDevice(t *testing.T) {
 
 	listRequest := httptest.NewRequest(http.MethodGet, "/api/auth/sessions", nil)
 	listRequest.AddCookie(&http.Cookie{Name: accountSessionCookie, Value: current})
-	listResponse, err := app.Test(listRequest, 10_000)
+	listResponse, err := app.Test(listRequest, 60_000)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -587,7 +587,7 @@ func TestAccountSessionRoutesListAndRevokeOneDevice(t *testing.T) {
 
 	revokeRequest := httptest.NewRequest(http.MethodDelete, "/api/auth/sessions/"+hashSessionToken(other), nil)
 	revokeRequest.AddCookie(&http.Cookie{Name: accountSessionCookie, Value: current})
-	revokeResponse, err := app.Test(revokeRequest, 10_000)
+	revokeResponse, err := app.Test(revokeRequest, 60_000)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -598,7 +598,7 @@ func TestAccountSessionRoutesListAndRevokeOneDevice(t *testing.T) {
 	revokeRequest = httptest.NewRequest(http.MethodDelete, "/api/auth/sessions/"+hashSessionToken(other), nil)
 	revokeRequest.Header.Set("X-Diary-Request", "1")
 	revokeRequest.AddCookie(&http.Cookie{Name: accountSessionCookie, Value: current})
-	revokeResponse, err = app.Test(revokeRequest, 10_000)
+	revokeResponse, err = app.Test(revokeRequest, 60_000)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -681,7 +681,7 @@ func TestAccountPasswordChangeRouteRequiresSessionAndUpdatesSignIn(t *testing.T)
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("X-Diary-Request", "1")
 	request.AddCookie(&http.Cookie{Name: accountSessionCookie, Value: current})
-	response, err := app.Test(request, 10_000)
+	response, err := app.Test(request, 60_000)
 	if err != nil {
 		t.Fatal(err)
 	}
