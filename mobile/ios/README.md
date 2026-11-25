@@ -9,16 +9,24 @@ HTTPS-Adresse zeigen. Die bestehende Same-Origin-Prüfung bleibt aktiv.
 ## Aktueller Stand und Voraussetzungen
 
 Quellcode, HealthKit-Entitlement, Zweckbeschreibung und XcodeGen-Projektdefinition vorhanden.
-Noch **nicht mit dem iOS-SDK gebaut, signiert oder auf einem iPhone getestet**. Auf dem
-Entwicklungsrechner sind bislang nur die Command Line Tools vorhanden, nicht die vollständige Xcode-App.
+GitHub Actions erzeugt das Xcode-Projekt und baut die App regelmässig unsigniert für den
+iOS-Simulator. Dieser Build prüft Swift, Projektdefinition und HealthKit-Verknüpfung, ersetzt
+aber weder Signierung noch den Test der Apple-Freigabe auf einem iPhone. Auf diesem
+Entwicklungsrechner sind bislang nur die Command Line Tools vorhanden, nicht die vollständige
+Xcode-App; ein lokaler iOS-SDK-Build und ein Geräte- oder HealthKit-Lauf sind daher offen.
 
 Benötigt: vollständiges Xcode mit iOS-SDK, XcodeGen, ein Signing-Team mit HealthKit-Capability
 und ein iPhone für den Test mit echten Daten. Deployment-Ziel iOS 16+.
 
 ```sh
-# Nach Installation von Xcode und XcodeGen:
+# Nach Installation von Xcode und XcodeGen: Simulator-Build
 cd mobile/ios
 xcodegen generate
+xcodebuild -project Bauchgefuehl.xcodeproj -scheme Bauchgefuehl \
+  -configuration Debug -destination 'generic/platform=iOS Simulator' \
+  CODE_SIGNING_ALLOWED=NO build
+
+# Für Installation und HealthKit-Test auf einem eigenen iPhone:
 open Bauchgefuehl.xcodeproj
 ```
 
