@@ -20,6 +20,7 @@ import {
   unlockVaultWithRecoveryKey,
   vaultSessionState,
 } from "../src/privacy/vault-session.js";
+import { logoutCurrentDevice } from "../src/privacy/account-session.js";
 
 const passphrase = "Kiesel!Wolke!Abendlicht";
 
@@ -27,9 +28,12 @@ function mockVaultServer() {
   const originalFetch = globalThis.fetch;
   const calls = [];
   const server = { vault: { revision: 0, envelope: null } };
-  globalThis.fetch = async (_url, options = {}) => {
+  globalThis.fetch = async (url, options = {}) => {
     const method = options.method || "GET";
     calls.push({ method, body: options.body });
+    if (url === "/api/auth/logout") {
+      return new Response(null, { status: server.failLogout ? 503 : 204 });
+    }
     if (method === "GET") {
       return new Response(JSON.stringify(server.vault), { status: 200 });
     }
@@ -213,6 +217,47 @@ test("a lock made during passphrase verification cannot be undone by the pending
     assert.equal(vaultSessionState.status, "locked");
     assert.equal(vaultSessionState.diary, null);
     assert.equal(isVaultUnlocked(), false);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("confirmed sign-out locks the in-memory diary before navigation", async () => {
+  const mock = mockVaultServer();
+  try {
+    await loadVaultSession();
+    const prepared = await prepareVault(
+      { profile: { display_name: "Private" }, recipes: [], checkins: [] },
+      passphrase,
+    );
+    await commitPreparedVault(prepared);
+    assert.equal(isVaultUnlocked(), true);
+
+    await logoutCurrentDevice();
+
+    assert.equal(vaultSessionState.status, "locked");
+    assert.equal(vaultSessionState.diary, null);
+    assert.equal(isVaultUnlocked(), false);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("failed sign-out keeps the unlocked diary available for a retry", async () => {
+  const mock = mockVaultServer();
+  try {
+    await loadVaultSession();
+    const prepared = await prepareVault(
+      { profile: { display_name: "Private" }, recipes: [], checkins: [] },
+      passphrase,
+    );
+    await commitPreparedVault(prepared);
+    mock.server.failLogout = true;
+
+    await assert.rejects(logoutCurrentDevice(), /konnte nicht abgemeldet werden/u);
+    assert.equal(isVaultUnlocked(), true);
+    assert.equal(vaultSessionState.status, "unlocked");
+    assert.equal(vaultSessionState.diary.profile.display_name, "Private");
   } finally {
     mock.restore();
   }

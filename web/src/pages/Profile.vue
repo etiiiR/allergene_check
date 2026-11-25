@@ -23,6 +23,7 @@ import { notify } from "../ui/feedback";
 import { nativeHealthAvailable, syncAppleHealth } from "../ui/health";
 import { generatePseudonym } from "../privacy/pseudonym";
 import { generateVaultPassphrase } from "../privacy/passphrase-generator.js";
+import { logoutCurrentDevice } from "../privacy/account-session.js";
 import {
   commitVaultCredentialRotation,
   prepareVaultCredentialRotation,
@@ -255,15 +256,7 @@ async function logoutThisDevice() {
   logoutBusy.value = true;
   logoutError.value = "";
   try {
-    const response = await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "same-origin",
-      cache: "no-store",
-      headers: { "X-Diary-Request": "1" },
-    });
-    if (!response.ok) {
-      throw new Error("Dieses Gerät konnte nicht abgemeldet werden.");
-    }
+    await logoutCurrentDevice();
     window.location.replace("/login");
   } catch (cause) {
     logoutError.value = cause.message;
