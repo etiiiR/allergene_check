@@ -67,6 +67,7 @@ func TestLocalHostGuardSetsBrowserSecurityHeaders(t *testing.T) {
 		"X-Content-Type-Options":  "nosniff",
 		"X-Frame-Options":         "DENY",
 		"Referrer-Policy":         "no-referrer",
+		"Permissions-Policy":      localPermissionsPolicy,
 	} {
 		if got := response.Header.Get(header); got != want {
 			t.Errorf("%s = %q, want %q", header, got, want)

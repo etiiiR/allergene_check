@@ -10,6 +10,7 @@ import (
 )
 
 const localContentSecurityPolicy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self'; style-src-elem 'self'; style-src-attr 'none'; img-src 'self'; font-src 'self'; connect-src 'self'"
+const localPermissionsPolicy = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=()"
 
 // trustedProxyAddresses returns only explicitly configured proxy addresses.
 // Fiber ignores forwarded client-IP headers from every other remote address.
@@ -45,6 +46,7 @@ func localSecurityHeaders(c *fiber.Ctx) error {
 	c.Set("X-Content-Type-Options", "nosniff")
 	c.Set("X-Frame-Options", "DENY")
 	c.Set("Referrer-Policy", "no-referrer")
+	c.Set("Permissions-Policy", localPermissionsPolicy)
 	c.Set("Content-Security-Policy", localContentSecurityPolicy)
 	return c.Next()
 }
