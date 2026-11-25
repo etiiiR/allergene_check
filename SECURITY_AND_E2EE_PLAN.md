@@ -98,6 +98,8 @@ Browser-based encryption cannot protect against a compromised device, keylogger,
 
 **Dependency security update (2026-11-25):** Go now builds with 1.27.4 and refreshed FastHTTP, compression, and networking modules. `govulncheck v1.10.0` reports no reachable Go vulnerabilities. `npm audit` reports no known vulnerabilities in either app or Slidev locks. Python locks were refreshed for the NLTK, BeautifulSoup, and Transformers issues found in the first scan; PyPI and OSV scans report no known production dependency vulnerabilities. PyTorch's CPU wheel is served from the PyTorch index rather than PyPI, so the OSV scan covers it. CI now audits production and development Python locks with both PyPI and OSV, along with both npm lockfiles and reachable Go code. Local test and container rebuild results are tracked in [the deployment guide](docs/DEPLOYMENT.md).
 
+**Database container hardening (2026-11-25):** Compose now runs SurrealDB 3.3 as UID/GID 65532 with all Linux capabilities dropped and `no-new-privileges`. A network-isolated one-shot helper migrates an existing root-owned named volume while the database is stopped; a marker makes later starts a no-op. An isolated Compose run verified Fiber schema setup and `/health` against this non-root database. A second disposable volume test seeded a root-owned sentinel, then verified the migration preserved its contents and changed ownership to 65532. The test projects and volumes were removed afterwards. The hosted Compose workflow now seeds and checks the same upgrade path; hosted CI still needs to execute its jobs.
+
 ## References
 
 - [OWASP Cryptographic Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html)

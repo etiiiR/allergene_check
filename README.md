@@ -101,6 +101,8 @@ With standalone Compose, replace `docker compose` with `docker-compose` in the c
 Open **http://localhost:3000**. Use `ACCOUNT_SETUP_TOKEN` from your local `.env` to create the account. Pick a pseudonymous username and account password. Then create the separate vault passphrase and save the vault recovery phrase somewhere safe. The Today screen is ready for your first recipe and meal after setup.
 SurrealDB `v3.3.0` is pinned rather than following the moving `latest` tag. Data is stored in the named `surrealdb-data` volume. Before changing the database version, take a backup and verify restore plus the integration tests against that version.
 
+SurrealDB itself runs as UID/GID `65532` with Linux capabilities dropped. Before the first update of an existing SurrealDB 3.x volume to this non-root setup, stop `app` and `surrealdb` before running `docker compose up`; a network-isolated, one-shot helper adjusts volume ownership while the database is offline. It changes file owners only, and its marker avoids repeating the recursive migration on later starts. See [the deployment and recovery guide](docs/DEPLOYMENT.md#start-or-update).
+
 If the account sign-in password is lost, the self-hosted operator can recreate sign-in without touching the encrypted diary. Follow the carefully scoped [account recovery runbook](docs/ACCOUNT_RECOVERY.md); vault access still requires the user's vault passphrase or recovery phrase.
 
 The app and ML container base images also use explicit runtime and OS versions (Node `24.21.0`, Go `1.27.4`, Python `3.12.15`, Alpine `3.24.2`, and Debian Bookworm). Refresh these pins deliberately, then rebuild and run the full test suite; a version tag still needs regular security updates.

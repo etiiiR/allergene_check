@@ -143,8 +143,24 @@ jobs:
           persist-credentials: false
       - name: Validate Compose configuration
         run: docker compose config --quiet
+      - name: Seed a legacy root-owned database volume
+        run: |
+          docker compose run --rm --no-deps --entrypoint /bin/sh surrealdb-volume-owner -ec '
+            mkdir -p /data/legacy-test
+            printf legacy-data > /data/legacy-test/sentinel
+            test "$(stat -c %u /data/legacy-test/sentinel)" = 0
+          '
       - name: Build and start the complete stack
         run: docker compose up --detach --build
+      - name: Verify SurrealDB runs without root privileges
+        run: |
+          db_container="$(docker compose ps --quiet surrealdb)"
+          test -n "$db_container"
+          test "$(docker inspect --format '{{.Config.User}}' "$db_container")" = "65532:65532"
+          docker compose run --rm --no-deps --entrypoint /bin/sh surrealdb-volume-owner -ec '
+            test "$(stat -c %u /data/legacy-test/sentinel)" = 65532
+            test "$(cat /data/legacy-test/sentinel)" = legacy-data
+          '
       - name: Wait for Fiber, SurrealDB, and ML service health
         run: |
           ready=false

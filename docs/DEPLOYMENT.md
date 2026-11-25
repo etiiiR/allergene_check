@@ -4,7 +4,13 @@ GutFeeling serves one personal diary per installation and supports sign-in from 
 
 ## Start or update
 
-From this checkout, the existing database credentials are already in the private `.env`. Start the stack from the repository root with:
+From this checkout, the existing database credentials are already in the private `.env`. For an existing SurrealDB 3.x volume, make an encrypted backup first, then stop Fiber and SurrealDB before the first update that switches the database to its non-root user. The ownership migration must run while SurrealDB is stopped:
+
+```sh
+docker-compose stop app surrealdb
+```
+
+Start or update the stack from the repository root with:
 
 ```sh
 docker-compose --parallel 1 up -d --build --wait
@@ -13,6 +19,8 @@ curl -fsS http://localhost:3000/health
 ```
 
 This machine has the standalone `docker-compose` client; if your Docker installation provides the Compose plugin, use `docker compose` in its place. `--parallel 1` builds the Go app and ML image one at a time to keep peak memory lower. For a **new, empty** database volume only, first run `sh setup-local-env.sh --new`. Never run that setup for an existing volume. If a build is still OOM-killed, increase Docker's memory allocation. Check `docker-compose logs --tail=100 app surrealdb ml-service` if services fail their health checks. The app log identifies startup stages such as configuration, database authentication, or schema setup.
+
+The one-shot `surrealdb-volume-owner` service changes existing volume files to UID/GID 65532 once, then SurrealDB runs with no Linux capabilities as that non-root user. The migration changes filesystem ownership only, not database contents. Its image has no network connection and only receives the database volume. The pinned SurrealDB 3.x image uses root-owned new named volumes; the official [SurrealDB Docker guide](https://surrealdb.com/docs/running/docker) documents that behavior and the newer image's non-root volume ownership.
 
 Open http://localhost:3000. If no account exists yet, copy `ACCOUNT_SETUP_TOKEN` from the local `.env` into the first account setup form, then choose a pseudonym, account password, and separate vault passphrase. Save the displayed vault recovery phrase securely. Keep `.env` private. If an existing installation needs a bootstrap code, `sh setup-auth-token.sh` adds one without replacing its database credentials.
 
