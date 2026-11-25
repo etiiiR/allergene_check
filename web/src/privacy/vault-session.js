@@ -220,10 +220,24 @@ export async function commitPreparedVault(prepared) {
       "Der Tresor wurde gespeichert und bleibt gesperrt. Bitte entsperre ihn erneut.",
     );
   }
-  const verifiedDiary = await decryptVaultPayload(
-    prepared.dataKey,
-    saved.envelope.payload,
-  );
+  let verifiedDiary;
+  try {
+    verifiedDiary = await decryptVaultPayload(
+      prepared.dataKey,
+      saved.envelope.payload,
+    );
+  } catch {
+    installLocked(saved);
+    throw new Error(
+      "Der Tresor wurde gespeichert, konnte aber nicht geöffnet werden. Bitte entsperre ihn erneut.",
+    );
+  }
+  if (epoch !== sessionEpoch || mutableState.status !== "setup") {
+    installLocked(saved);
+    throw new Error(
+      "Der Tresor wurde gespeichert und bleibt gesperrt. Bitte entsperre ihn erneut.",
+    );
+  }
   if (JSON.stringify(verifiedDiary) !== JSON.stringify(prepared.diary)) {
     installLocked(saved);
     throw new Error(
@@ -332,6 +346,12 @@ export function commitVaultCredentialRotation(prepared) {
         "Die neue Verschlüsselung konnte nicht geprüft werden. Entsperre den Tresor mit den neuen Zugangsdaten.",
       );
     }
+    if (prepared.epoch !== sessionEpoch || mutableState.status !== "unlocked") {
+      installLocked(saved);
+      throw new Error(
+        "Die Zugangsdaten wurden gespeichert. Bitte entsperre den Tresor erneut.",
+      );
+    }
     if (JSON.stringify(verifiedDiary) !== JSON.stringify(prepared.diary)) {
       installLocked(saved);
       throw new Error(
@@ -355,8 +375,21 @@ async function unlockWith(unlocker, secret) {
   if (mutableState.status !== "locked" || !mutableState.envelope) {
     throw new Error("Es gibt keinen gesperrten Tresor zum Öffnen.");
   }
+  const epoch = sessionEpoch;
+  const envelope = mutableState.envelope;
+  const revision = mutableState.revision;
   mutableState.error = "";
-  const unlocked = await unlocker(mutableState.envelope, secret);
+  const unlocked = await unlocker(envelope, secret);
+  if (
+    epoch !== sessionEpoch ||
+    mutableState.status !== "locked" ||
+    mutableState.envelope !== envelope ||
+    mutableState.revision !== revision
+  ) {
+    throw new Error(
+      "Der Tresorstatus hat sich während des Öffnens geändert. Bitte versuche es erneut.",
+    );
+  }
   dataKey = unlocked.dataKey;
   mutableState.diary = unlocked.diary;
   mutableState.status = "unlocked";
@@ -432,10 +465,24 @@ export async function restoreEncryptedVault(
       "Die Sicherung wurde gespeichert. Bitte entsperre den Tresor erneut.",
     );
   }
-  const verifiedDiary = await decryptVaultPayload(
-    opened.dataKey,
-    saved.envelope.payload,
-  );
+  let verifiedDiary;
+  try {
+    verifiedDiary = await decryptVaultPayload(
+      opened.dataKey,
+      saved.envelope.payload,
+    );
+  } catch {
+    installLocked(saved);
+    throw new Error(
+      "Die Sicherung wurde gespeichert, aber nicht verifiziert. Bitte entsperre den Tresor erneut.",
+    );
+  }
+  if (epoch !== sessionEpoch || mutableState.status !== "setup") {
+    installLocked(saved);
+    throw new Error(
+      "Die Sicherung wurde gespeichert und bleibt gesperrt. Bitte entsperre den Tresor erneut.",
+    );
+  }
   if (JSON.stringify(verifiedDiary) !== JSON.stringify(opened.diary)) {
     installLocked(saved);
     throw new Error(

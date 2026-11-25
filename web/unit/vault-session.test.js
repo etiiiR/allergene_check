@@ -69,6 +69,37 @@ function mockVaultServer() {
   };
 }
 
+function pausePlaintextAfterDecryptCall(callToPause = 1) {
+  const subtle = globalThis.crypto.subtle;
+  const originalDecrypt = subtle.decrypt;
+  let calls = 0;
+  let announceStarted;
+  let releaseDecrypt;
+  const started = new Promise((resolve) => {
+    announceStarted = resolve;
+  });
+  const paused = new Promise((resolve) => {
+    releaseDecrypt = resolve;
+  });
+  subtle.decrypt = function (...args) {
+    calls++;
+    const result = originalDecrypt.apply(this, args);
+    if (calls !== callToPause) return result;
+    return result.then(async (plaintext) => {
+      announceStarted();
+      await paused;
+      return plaintext;
+    });
+  };
+  return {
+    started,
+    release: () => releaseDecrypt(),
+    restore: () => {
+      subtle.decrypt = originalDecrypt;
+    },
+  };
+}
+
 test("initial encrypted page props select setup or locked mode without plaintext", async () => {
   lockVaultSession();
   await acceptServerVault({ revision: 0, envelope: null });
@@ -159,6 +190,112 @@ test("vault session creates, verifies, saves, locks and reopens only ciphertext"
     await unlockVaultWithPassphrase(passphrase);
     assert.equal(vaultSessionState.diary.checkins.length, 2);
     assert.equal(isVaultUnlocked(), true);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("a lock made during passphrase verification cannot be undone by the pending unlock", async () => {
+  const mock = mockVaultServer();
+  try {
+    const { envelope } = await createEncryptedVault(
+      { profile: { display_name: "Private" }, recipes: [], checkins: [] },
+      passphrase,
+    );
+    await loadVaultSession();
+    mock.server.vault = { revision: 1, envelope };
+    await acceptServerVault(mock.server.vault);
+
+    const pendingUnlock = unlockVaultWithPassphrase(passphrase);
+    lockVaultSession();
+
+    await assert.rejects(pendingUnlock, /status hat sich während des Öffnens/u);
+    assert.equal(vaultSessionState.status, "locked");
+    assert.equal(vaultSessionState.diary, null);
+    assert.equal(isVaultUnlocked(), false);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("locking after initial-vault verification leaves the saved vault locked", async () => {
+  const mock = mockVaultServer();
+  const pause = pausePlaintextAfterDecryptCall();
+  try {
+    await loadVaultSession();
+    const prepared = await prepareVault(
+      { profile: { display_name: "Private" }, recipes: [], checkins: [] },
+      passphrase,
+    );
+    const committing = commitPreparedVault(prepared);
+    await pause.started;
+    lockVaultSession();
+    pause.release();
+
+    await assert.rejects(committing, /bleibt gesperrt/u);
+    assert.equal(mock.server.vault.revision, 1);
+    assert.equal(vaultSessionState.status, "locked");
+    assert.equal(vaultSessionState.diary, null);
+    assert.equal(isVaultUnlocked(), false);
+  } finally {
+    pause.restore();
+    mock.restore();
+  }
+});
+
+test("locking after backup verification leaves the restored vault locked", async () => {
+  const mock = mockVaultServer();
+  const pause = pausePlaintextAfterDecryptCall(2);
+  try {
+    const { envelope } = await createEncryptedVault(
+      { profile: { display_name: "Private backup" }, recipes: [], checkins: [] },
+      passphrase,
+    );
+    await loadVaultSession();
+    const restoring = restoreEncryptedVault(envelope, passphrase);
+    await pause.started;
+    lockVaultSession();
+    pause.release();
+
+    await assert.rejects(restoring, /bleibt gesperrt/u);
+    assert.equal(mock.server.vault.revision, 1);
+    assert.equal(vaultSessionState.status, "locked");
+    assert.equal(vaultSessionState.diary, null);
+    assert.equal(isVaultUnlocked(), false);
+  } finally {
+    pause.restore();
+    mock.restore();
+  }
+});
+
+test("locking after credential-rotation verification keeps the new vault locked", async () => {
+  const mock = mockVaultServer();
+  const nextPassphrase = "Neue!Passphrase!Abendsonne";
+  try {
+    await loadVaultSession();
+    const initial = await prepareVault(
+      { profile: { display_name: "Private" }, recipes: [], checkins: [] },
+      passphrase,
+    );
+    await commitPreparedVault(initial);
+    const prepared = await prepareVaultCredentialRotation(nextPassphrase);
+    const pause = pausePlaintextAfterDecryptCall();
+    try {
+      const committing = commitVaultCredentialRotation(prepared);
+      await pause.started;
+      lockVaultSession();
+      pause.release();
+
+      await assert.rejects(committing, /entsperre den Tresor erneut/u);
+      assert.equal(mock.server.vault.revision, 2);
+      assert.equal(vaultSessionState.status, "locked");
+      assert.equal(vaultSessionState.diary, null);
+      assert.equal(isVaultUnlocked(), false);
+      await unlockVaultWithPassphrase(nextPassphrase);
+      assert.equal(vaultSessionState.status, "unlocked");
+    } finally {
+      pause.restore();
+    }
   } finally {
     mock.restore();
   }
