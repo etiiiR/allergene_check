@@ -1,6 +1,6 @@
 # Bauchgefühl — UX-Studie und implementierte Richtung
 
-Stand: 23. September 2026. Diese Fassung ersetzt die ursprüngliche Übergabeplanung.
+Stand: 25. November 2026. Die Forschungsziele bleiben offen, bis echte Nutzertests durchgeführt wurden.
 
 ## 1. Grundlage und Grenzen
 
@@ -529,7 +529,7 @@ bestehenden internen Datenbereich abgebildet, damit keine Backend-Migration erfo
 Das ist ein Kompatibilitätsdetail, keine Zahlenskala in der Bedienoberfläche. Stresswerte aus
 manueller Eingabe oder Health-Anbietern bleiben eine getrennte Funktion.
 
-### Aktueller Prüfstand — 2026-10-09
+### Historischer Prüfstand — 2026-10-09
 
 Im aktuellen Workspace bestanden 48 Frontend-Unit-Tests, alle 53 Playwright-Browsertests,
 `go test -race ./...`, `go vet ./...` und der Produktionsbuild. Die Browser-Suite lief gegen
@@ -603,7 +603,7 @@ offen. Assistive-Technik und echte Nutzende sind weiterhin separat zu prüfen.
 
 ## 16. Abschlussprüfung der implementierten UX
 
-Nachtrag 25. November 2026. Der aktuelle Frontend-Build und 64 Unit-Tests bestanden. Alle
+Nachtrag 25. November 2026. Der aktuelle Frontend-Build und 68 Unit-Tests bestanden. Alle
 66 Playwright-Regressionen liefen gegen drei isolierte In-Memory-Datenbanken und decken unter
 anderem die Synchronisierung zwischen zwei angemeldeten Browsern, mobile Ansichten,
 Tastaturbedienung, Tagebuchbearbeitung, Rezeptsuche, Tresorzugriff und Geräte-Sitzungen ab.
@@ -611,5 +611,9 @@ Die täglichen Erfassungsaktionen wurden bei 320px und 390px geprüft; ihre mobi
 mindestens 50px hoch, damit Rundung sie nicht unter das 48px-Touchziel verkleinert. Die
 Slidev-Projektpräsentation wurde ebenfalls gebaut. Diese automatisierten
 Prüfungen stützen die implementierte Richtung; sie belegen keine bessere Bedienbarkeit bei
-echten Personen. Die moderierte Runde mit mindestens fünf Nutzenden, manuelle Tests mit
-Assistenztechnik sowie Tests auf iOS- und Android-Geräten bleiben offen.
+echten Personen. Gehosteter [CI-Lauf 42](https://github.com/etiiiR/allergene_check/actions/runs/45634762032)
+bestätigt den aktuellen Stand mit Go Race-/Static-Checks, Compose, SurrealDB-Integration, Python
+und Browser-Regressionen. Ein zusätzlicher Sicherheitstest bestätigt, dass laufende Entsperr-,
+Einrichtungs-, Wiederherstellungs- und Schlüsselwechselvorgänge einen zwischenzeitlich gesperrten
+Tresor nicht wieder öffnen. Die moderierte Runde mit mindestens fünf Nutzenden, manuelle Tests
+mit Assistenztechnik sowie Tests auf iOS- und Android-Geräten bleiben offen.
