@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -108,8 +109,15 @@ func TestVaultRoutesStoreOpaqueEnvelopeAndCheckRevision(t *testing.T) {
 	if err != nil || initial.StatusCode != 200 {
 		t.Fatalf("initial vault request: status=%v err=%v", initial.StatusCode, err)
 	}
+	initialBody, err := io.ReadAll(initial.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(initialBody), `"legacy_available":false`) {
+		t.Fatalf("empty vault response must explicitly report legacy_available=false: %s", initialBody)
+	}
 	var current EncryptedVault
-	if err := json.NewDecoder(initial.Body).Decode(&current); err != nil {
+	if err := json.Unmarshal(initialBody, &current); err != nil {
 		t.Fatal(err)
 	}
 	if current.Revision != 0 || string(current.Envelope) != "null" {

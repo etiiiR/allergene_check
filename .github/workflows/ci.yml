@@ -61,6 +61,7 @@ jobs:
       - name: Enforce initial-route JavaScript budget
         working-directory: web
         run: |
+          # shellcheck disable=SC2016 # Keep shell expansion out of the JavaScript source.
           node --input-type=module -e '
             import { readFileSync, statSync } from "node:fs";
             import { gzipSync } from "node:zlib";
@@ -178,6 +179,7 @@ jobs:
             sleep 5
           done
           if [ "$ready" != true ]; then
+            echo "Health endpoints did not become ready after $attempt attempts."
             docker compose ps
             docker compose logs --tail=200
             exit 1
@@ -261,6 +263,7 @@ jobs:
             fi
             sleep 2
           done
+          echo "SurrealDB did not become ready after $attempt attempts."
           docker logs gutfeeling-ci-surrealdb
           exit 1
       - name: Verify transactions, live query, vault concurrency, and legacy migration against SurrealDB
@@ -276,6 +279,7 @@ jobs:
             fi
             sleep 2
           done
+          echo "The isolated app did not become ready after $attempt attempts."
           sed -n '1,240p' "$RUNNER_TEMP/gutfeeling-ci-app.log"
           exit 1
       - name: Start an empty-vault app for backup recovery tests
@@ -290,6 +294,7 @@ jobs:
             fi
             sleep 2
           done
+          echo "The backup recovery app did not become ready after $attempt attempts."
           sed -n '1,240p' "$RUNNER_TEMP/gutfeeling-restore-app.log"
           exit 1
       - name: Start a separate blank-vault app for first-time setup tests
@@ -304,6 +309,7 @@ jobs:
             fi
             sleep 2
           done
+          echo "The first-time setup app did not become ready after $attempt attempts."
           sed -n '1,240p' "$RUNNER_TEMP/gutfeeling-setup-app.log"
           exit 1
       - name: Run UX, accessibility, encrypted-vault, and backup-recovery browser tests

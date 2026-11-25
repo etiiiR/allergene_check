@@ -15,7 +15,7 @@ import (
 type EncryptedVault struct {
 	Revision        int64           `json:"revision"`
 	Envelope        json.RawMessage `json:"envelope"`
-	LegacyAvailable bool            `json:"legacy_available,omitempty"`
+	LegacyAvailable bool            `json:"legacy_available"`
 }
 
 // VaultRepository is deliberately opaque so HTTP behavior can be tested
