@@ -98,13 +98,20 @@ func TestSurrealVaultConcurrentRevisionCAS(t *testing.T) {
 	}
 	defer db.Close(context.Background())
 	store := NewSurrealStore(db)
-	if _, err := Query[any](ctx, store, `
-		DEFINE TABLE IF NOT EXISTS diary_vault SCHEMALESS;
-		DEFINE FIELD IF NOT EXISTS revision ON diary_vault TYPE int;
-		DEFINE FIELD IF NOT EXISTS payload ON diary_vault TYPE string;
-	`, nil); err != nil {
-		t.Fatalf("define isolated vault table: %v", err)
+	if err := (&DiaryRepository{store: store}).initialize(ctx); err != nil {
+		t.Fatalf("initialize isolated vault schema: %v", err)
 	}
+	accountRepository := &surrealAccountRepository{store: store}
+	accountID := models.NewRecordID("diary_account", accountRecordKey)
+	if _, err := Delete[any](ctx, store, accountID); err != nil {
+		t.Fatalf("clear the isolated account record: %v", err)
+	}
+	if err := accountRepository.CreateAccount(ctx, accountRecord{
+		Username: "vault-cas-test", Salt: "dGVzdHNhbHQ=", PasswordHash: "dGVzdGhhc2g=",
+	}); err != nil {
+		t.Fatalf("seed account for encrypted-vault writes: %v", err)
+	}
+	defer Delete[any](context.Background(), store, accountID)
 	db2, err := connectDatabase(ctx, requireIsolatedIntegrationConfig(t))
 	if err != nil {
 		t.Fatalf("connect second SurrealDB client: %v", err)
@@ -156,6 +163,23 @@ func TestSurrealVaultConcurrentRevisionCAS(t *testing.T) {
 	if current.Revision != 1 || !json.Valid(current.Envelope) {
 		t.Fatalf("unexpected committed vault: %#v", current)
 	}
+	if err := accountRepository.DeleteAccountAndDiary(ctx); err != nil {
+		t.Fatalf("delete account before checking vault write guard: %v", err)
+	}
+	if account, err := accountRepository.Account(ctx); err != nil || account != nil {
+		t.Fatalf("account remains after deletion: account=%#v err=%v", account, err)
+	}
+	if _, err := first.SaveVault(ctx, current.Revision, json.RawMessage(`{"writer":"after-delete"}`), false); err == nil {
+		t.Fatal("encrypted-vault write recreated personal data after account deletion")
+	} else {
+		var appErr *AppError
+		if !errors.As(err, &appErr) || appErr.Status != 401 || appErr.Code != "account_sign_in_required" {
+			t.Fatalf("post-deletion vault write returned %v; want account-session rejection", err)
+		}
+	}
+	if rows, err := Select[[]any](ctx, store, models.Table("diary_vault")); err != nil || (rows != nil && len(*rows) != 0) {
+		t.Fatalf("vault data reappeared after account deletion: rows=%#v err=%v", rows, err)
+	}
 }
 
 // TestSurrealVaultMigrationCommitsCiphertextAndRemovesLegacyRows verifies the
@@ -178,6 +202,17 @@ func TestSurrealVaultMigrationCommitsCiphertextAndRemovesLegacyRows(t *testing.T
 	if err := diary.initialize(ctx); err != nil {
 		t.Fatalf("initialize isolated diary schema: %v", err)
 	}
+	accountRepository := &surrealAccountRepository{store: store}
+	accountID := models.NewRecordID("diary_account", accountRecordKey)
+	if _, err := Delete[any](ctx, store, accountID); err != nil {
+		t.Fatalf("clear the isolated account record: %v", err)
+	}
+	if err := accountRepository.CreateAccount(ctx, accountRecord{
+		Username: "migration-test", Salt: "dGVzdHNhbHQ=", PasswordHash: "dGVzdGhhc2g=",
+	}); err != nil {
+		t.Fatalf("seed account for vault setup: %v", err)
+	}
+	defer Delete[any](context.Background(), store, accountID)
 
 	sentinel := "legacy-migration-" + uuid.NewString()
 	legacyKinds := []string{"recipes", "meals", "checkins", "recipe_flags", "stools", "stress"}
@@ -248,6 +283,18 @@ func TestSurrealVaultMigrationCommitsCiphertextAndRemovesLegacyRows(t *testing.T
 	legacyAvailable, err = vaultRepo.LegacyDataAvailable(ctx)
 	if err != nil || legacyAvailable {
 		t.Fatalf("expected no primary legacy rows after commit, available=%t err=%v", legacyAvailable, err)
+	}
+	if err := accountRepository.DeleteAccountAndDiary(ctx); err != nil {
+		t.Fatalf("atomically delete account and diary records: %v", err)
+	}
+	if current, err := accountRepository.Account(ctx); err != nil || current != nil {
+		t.Fatalf("deleted account is still present: account=%#v err=%v", current, err)
+	}
+	if remaining, err := vaultRepo.LoadVault(ctx); err != nil || remaining.Revision != 0 || string(remaining.Envelope) != "null" {
+		t.Fatalf("encrypted vault remains after account deletion: vault=%#v err=%v", remaining, err)
+	}
+	if available, err := vaultRepo.LegacyDataAvailable(ctx); err != nil || available {
+		t.Fatalf("legacy diary records remain after account deletion: available=%v err=%v", available, err)
 	}
 }
 
@@ -438,6 +485,54 @@ func TestAccountAndHashedDeviceSessionsPersistInSurrealDB(t *testing.T) {
 	unchangedVault, err = Select[surrealVaultRecord](ctx, store, vaultID)
 	if err != nil || unchangedVault == nil || unchangedVault.Payload != ciphertextSentinel || unchangedVault.Revision != 9 {
 		t.Fatalf("account reset changed the encrypted vault: vault=%#v err=%v", unchangedVault, err)
+	}
+
+	if err := repository.CreateAccount(ctx, accountRecord{
+		Username: "delete-test", Salt: "dGVzdHNhbHQ=", PasswordHash: "dGVzdGhhc2g=",
+	}); err != nil {
+		t.Fatalf("create account before deletion drill: %v", err)
+	}
+	deletionSessionID := "delete-test-" + uuid.NewString()
+	if err := repository.CreateSession(ctx, deletionSessionID, expiry); err != nil {
+		t.Fatalf("create session before deletion drill: %v", err)
+	}
+	deletionRecordID := "delete-sentinel-" + uuid.NewString()
+	for _, table := range []string{
+		"diary_recipes", "diary_meals", "diary_checkins", "diary_profile",
+		"diary_recipe_flags", "diary_stools", "diary_stress", "diary_vault",
+	} {
+		id := "default"
+		if table != "diary_profile" && table != "diary_vault" {
+			id = deletionRecordID
+		}
+		row := map[string]any{
+			"payload": "sensitive deletion sentinel",
+		}
+		if table == "diary_vault" {
+			row["revision"] = 1
+		}
+		if _, err := Create[map[string]any](ctx, store, models.NewRecordID(table, id), row); err != nil {
+			t.Fatalf("seed %s before deletion drill: %v", table, err)
+		}
+	}
+	if err := repository.DeleteAccountAndDiary(ctx); err != nil {
+		t.Fatalf("atomically delete primary account and diary records: %v", err)
+	}
+	if current, err := repository.Account(ctx); err != nil || current != nil {
+		t.Fatalf("account remains after deletion drill: account=%#v err=%v", current, err)
+	}
+	if got, err := repository.SessionExpiry(ctx, deletionSessionID); err != nil || got != 0 {
+		t.Fatalf("deletion left a device session: expiry=%d err=%v", got, err)
+	}
+	for _, table := range []string{
+		"diary_account_sessions", "diary_account", "diary_vault", "diary_recipes",
+		"diary_meals", "diary_checkins", "diary_profile", "diary_recipe_flags",
+		"diary_stools", "diary_stress",
+	} {
+		rows, err := Select[[]any](ctx, store, models.Table(table))
+		if err != nil || (rows != nil && len(*rows) != 0) {
+			t.Fatalf("primary table %s still contains rows: %#v err=%v", table, rows, err)
+		}
 	}
 }
 

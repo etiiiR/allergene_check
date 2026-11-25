@@ -60,6 +60,12 @@ When devices save at the same time, independent diary records and fields merge a
 
 When sharing a doctor report, review what is included. PDFs and copied reports contain readable health data outside the vault.
 
+## Delete an account and diary
+
+In **Profil → Sicherheit**, enter the current account password and type `LÖSCHEN`. The app removes the account, all device sessions, the encrypted vault, and any remaining legacy diary rows from primary SurrealDB storage in one transaction. A pending vault save checks that the account still exists, so it cannot recreate the diary after deletion. The browser locks the local vault and returns to sign-in when deletion succeeds.
+
+This does not erase encrypted backups downloaded to devices, readable doctor reports, database snapshots, host-level backups, or copies held in reverse-proxy and hosting logs. The operator must apply the documented retention and deletion process to those copies. Confirm that any backup is no longer needed before deleting it; the app cannot recover data after its primary vault and every backup are gone.
+
 ## Release gates
 
 **Verification update (2026-11-25):** local `go test -race ./...`, `go test ./...`, and `go vet ./...` passed. The ML service passed 110 tests and 52 subtests, including CPU BERT. PyPI and OSV audits reported no known vulnerabilities in the production and development Python locks; npm audits reported zero vulnerabilities, and `govulncheck` reported no reachable Go vulnerabilities. The frontend passed 70 unit tests; production Vite and Slidev builds passed. Compose rebuilt the app and ML images and reported the app, SurrealDB 3.3.0, and CPU-only ML service healthy; `http://localhost:3000/health` returned `{"database":"ok","status":"ok"}`. Hosted CI passed all 67 Playwright browser tests against disposable namespaces, including separate-device encrypted-vault sync, backup restore, session revocation, accessibility, 200-recipe search, diary editing/concurrent changes, ciphertext-only storage, 320/390px capture targets, and logout/browser-Back locking. The HealthKit app also generated and built as an unsigned iOS Simulator app. These checks do not include public DNS/certificate issuance, distribution signing, a physical iPhone HealthKit run, or a physical second-device sync.

@@ -604,6 +604,30 @@ textarea:focus-visible {
 .account-recovery-confirm-form {
   max-width: 560px;
 }
+.account-delete-section {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  padding: clamp(16px, 3vw, 24px);
+  border: 1px solid color-mix(in srgb, var(--danger) 24%, var(--line));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--danger-soft) 58%, var(--surface));
+}
+.account-delete-section h2 {
+  margin: 0 0 8px;
+  color: var(--danger);
+  font-size: 18px;
+}
+.account-delete-section .helper {
+  max-width: 72ch;
+}
+.account-delete-form {
+  max-width: 560px;
+  gap: 14px;
+}
+.account-delete-form .button {
+  justify-self: start;
+}
 .account-recovery-actions {
   display: flex;
   flex-wrap: wrap;

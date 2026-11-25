@@ -124,6 +124,15 @@ func (r *memoryAccountRepository) UpdatePasswordAndDeleteOtherSessions(_ context
 	return deleted, nil
 }
 
+func (r *memoryAccountRepository) DeleteAccountAndDiary(context.Context) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.account = nil
+	r.sessions = make(map[string]int64)
+	r.sessionMetadata = make(map[string]accountSessionRecord)
+	return nil
+}
+
 func (r *memoryAccountRepository) SetRecoveryCodeHash(_ context.Context, hash string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -709,5 +718,103 @@ func TestAccountPasswordChangeRouteRequiresSessionAndUpdatesSignIn(t *testing.T)
 		if (err != nil) != attempt.wantErr {
 			t.Fatalf("login with replacement password: err=%v wantErr=%v", err, attempt.wantErr)
 		}
+	}
+}
+
+func TestDeleteAccountAndDiaryRequiresReauthenticationAndRevokesEverySession(t *testing.T) {
+	repository := newMemoryAccountRepository()
+	service := newAccountService(repository, strings.Repeat("s", 32), "https://gut.example")
+	ctx := context.Background()
+	const password = "a separate account password 123"
+	if err := service.Register(ctx, strings.Repeat("s", 32), "gut-user", password); err != nil {
+		t.Fatalf("register account: %v", err)
+	}
+	current, err := service.Login(ctx, "192.0.2.1", "gut-user", password)
+	if err != nil {
+		t.Fatalf("create current session: %v", err)
+	}
+	other, err := service.Login(ctx, "192.0.2.2", "gut-user", password)
+	if err != nil {
+		t.Fatalf("create other session: %v", err)
+	}
+
+	if err := service.DeleteAccountAndDiary(ctx, "192.0.2.1", current, password, ""); err == nil {
+		t.Fatal("account deletion accepted a missing typed confirmation")
+	}
+	if err := service.DeleteAccountAndDiary(ctx, "192.0.2.1", current, "wrong password", "LÖSCHEN"); err == nil {
+		t.Fatal("account deletion accepted an incorrect password")
+	}
+	if account, _ := repository.Account(ctx); account == nil {
+		t.Fatal("a rejected deletion removed the account")
+	}
+
+	if err := service.DeleteAccountAndDiary(ctx, "192.0.2.1", current, password, "LÖSCHEN"); err != nil {
+		t.Fatalf("delete account and diary: %v", err)
+	}
+	if account, err := repository.Account(ctx); err != nil || account != nil {
+		t.Fatalf("account remains after deletion: account=%#v err=%v", account, err)
+	}
+	for _, token := range []string{current, other} {
+		if valid, err := service.ValidSession(ctx, token); err != nil || valid {
+			t.Fatalf("account deletion left a device session active: valid=%v err=%v", valid, err)
+		}
+	}
+	if _, err := service.Login(ctx, "192.0.2.3", "gut-user", password); err == nil {
+		t.Fatal("deleted account could still sign in")
+	}
+}
+
+func TestDeleteAccountRouteRequiresRequestMarkerAndExpiresCookie(t *testing.T) {
+	repository := newMemoryAccountRepository()
+	service := newAccountService(repository, strings.Repeat("s", 32), "http://localhost:3000")
+	ctx := context.Background()
+	const password = "a separate account password 123"
+	if err := service.Register(ctx, strings.Repeat("s", 32), "gut-user", password); err != nil {
+		t.Fatalf("register account: %v", err)
+	}
+	current, err := service.Login(ctx, "192.0.2.1", "gut-user", password)
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	app := fiber.New(fiber.Config{ErrorHandler: AppErrorHandler})
+	app.Use(accountGateMiddleware(service))
+	registerAccountRoutes(app, service)
+	request := func(marker string) *http.Response {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodDelete, "/api/auth/account", strings.NewReader(
+			`{"current_password":"a separate account password 123","confirmation":"LÖSCHEN"}`,
+		))
+		req.Header.Set("Content-Type", "application/json")
+		if marker != "" {
+			req.Header.Set("X-Diary-Request", marker)
+		}
+		req.AddCookie(&http.Cookie{Name: accountSessionCookie, Value: current})
+		response, err := app.Test(req, 60_000)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return response
+	}
+
+	response := request("")
+	response.Body.Close()
+	if response.StatusCode != http.StatusForbidden {
+		t.Fatalf("delete without request marker returned %d, want 403", response.StatusCode)
+	}
+	if account, _ := repository.Account(ctx); account == nil {
+		t.Fatal("a request without the anti-CSRF marker deleted the account")
+	}
+
+	response = request("1")
+	response.Body.Close()
+	if response.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete account returned %d, want 204", response.StatusCode)
+	}
+	cookies := response.Cookies()
+	if len(cookies) != 1 || cookies[0].Name != accountSessionCookie || cookies[0].MaxAge >= 0 {
+		t.Fatalf("account deletion did not expire its session cookie: %#v", cookies)
+	}
+	if valid, err := service.ValidSession(ctx, current); err != nil || valid {
+		t.Fatalf("deleted account session remains valid: valid=%v err=%v", valid, err)
 	}
 }

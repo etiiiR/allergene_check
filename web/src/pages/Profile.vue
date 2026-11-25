@@ -26,6 +26,7 @@ import { generateVaultPassphrase } from "../privacy/passphrase-generator.js";
 import { logoutCurrentDevice } from "../privacy/account-session.js";
 import {
   commitVaultCredentialRotation,
+  lockVaultSession,
   prepareVaultCredentialRotation,
   useVaultDiary,
   vaultSessionState,
@@ -80,6 +81,10 @@ const accountRecoveryPasswordField = ref(null);
 const accountRecoveryBusy = ref(false);
 const accountRecoveryError = ref("");
 const accountRecoveryStatus = ref("");
+const deleteAccountPasswordField = ref(null);
+const deleteAccountConfirmationField = ref(null);
+const deleteAccountBusy = ref(false);
+const deleteAccountError = ref("");
 let preparedRotation = null;
 let rotationRecoveryKey = "";
 let settingGeneratedRotationPassphrase = false;
@@ -434,6 +439,55 @@ async function changeAccountPassword() {
   }
 }
 
+async function deleteAccountAndDiary() {
+  if (deleteAccountBusy.value) return;
+  deleteAccountError.value = "";
+  const password = fieldValue(deleteAccountPasswordField);
+  const confirmation = fieldValue(deleteAccountConfirmationField);
+  if (confirmation !== "LÖSCHEN") {
+    deleteAccountError.value = "Gib zur Bestätigung genau LÖSCHEN ein.";
+    return;
+  }
+  deleteAccountBusy.value = true;
+  try {
+    const response = await fetch("/api/auth/account", {
+      method: "DELETE",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Diary-Request": "1",
+      },
+      body: JSON.stringify({
+        current_password: password,
+        confirmation,
+      }),
+    });
+    let result;
+    try {
+      result = await response.json();
+    } catch {}
+    if (!response.ok) {
+      throw new Error(
+        result?.error?.message ||
+          "Konto und Tagebuch konnten nicht gelöscht werden.",
+      );
+    }
+    if (deleteAccountPasswordField.value)
+      deleteAccountPasswordField.value.value = "";
+    if (deleteAccountConfirmationField.value)
+      deleteAccountConfirmationField.value.value = "";
+    lockVaultSession();
+    window.location.replace("/login");
+  } catch (cause) {
+    deleteAccountError.value = cause.message;
+    if (deleteAccountPasswordField.value)
+      deleteAccountPasswordField.value.value = "";
+  } finally {
+    deleteAccountBusy.value = false;
+  }
+}
+
 function generateAccountRecoveryCode() {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   accountRecoveryCode.value = btoa(String.fromCharCode(...bytes))
@@ -661,155 +715,182 @@ onBeforeUnmount(clearRotation);
         >Sicherheit</UiButton
       >
     </div>
-    <form
-      class="profile-settings compact-profile"
-      @submit.prevent="saveProfile"
-    >
-      <section
+    <div class="profile-settings compact-profile">
+      <form
         v-if="tab === 'person'"
-        class="panel profile-card"
-        data-tone="well"
+        class="form compact-profile"
+        @submit.prevent="saveProfile"
       >
-        <div class="section-heading">
-          <h2>Deine Person</h2>
-          <Link href="/onboarding?edit=1" class="text-button">{{
-            stored.onboarding_completed
-              ? "Profil-Assistent öffnen"
-              : "Geführt einrichten"
-          }}</Link>
-        </div>
-        <label
-          >Pseudonym<input
-            class="d-input"
-            v-model="form.display_name"
-            maxlength="80"
-            autocomplete="nickname"
-            :required="Boolean(form.onboarding_completed)"
-            @input="saved = false"
-        /></label>
-        <UiButton
-          type="button"
-          class="text-button"
-          @click="
-            form.display_name = generatePseudonym();
-            saved = false;
-          "
-          >Neues Pseudonym erstellen</UiButton
-        >
-        <p class="helper">
-          Ein Pseudonym ist nur ein Anzeigename und macht dich nicht anonym.
-          Auch der Name liegt im verschlüsselten Tagebuch.
-        </p>
-        <div class="profile-backup">
-          <div>
-            <strong>Verschlüsselte Sicherung</strong>
-            <p class="helper">
-              Lädt eine Datei mit verschlüsselten Daten herunter. Für eine
-              Wiederherstellung brauchst du deine Passphrase oder Phrase.
-            </p>
+        <section class="panel profile-card" data-tone="well">
+          <div class="section-heading">
+            <h2>Deine Person</h2>
+            <Link href="/onboarding?edit=1" class="text-button">{{
+              stored.onboarding_completed
+                ? "Profil-Assistent öffnen"
+                : "Geführt einrichten"
+            }}</Link>
           </div>
+          <label
+            >Pseudonym<input
+              class="d-input"
+              v-model="form.display_name"
+              maxlength="80"
+              autocomplete="nickname"
+              :required="Boolean(form.onboarding_completed)"
+              @input="saved = false"
+          /></label>
           <UiButton
             type="button"
-            class="button secondary"
-            @click="downloadEncryptedBackup"
+            class="text-button"
+            @click="
+              form.display_name = generatePseudonym();
+              saved = false;
+            "
+            >Neues Pseudonym erstellen</UiButton
           >
-            <Download :size="16" /> Sicherung herunterladen
-          </UiButton>
-          <p v-if="backupError" class="alert error" role="alert">
-            {{ backupError }}
+          <p class="helper">
+            Ein Pseudonym ist nur ein Anzeigename und macht dich nicht anonym.
+            Auch der Name liegt im verschlüsselten Tagebuch.
           </p>
-          <p v-if="backupStatus" class="alert success" role="status">
-            {{ backupStatus }}
-          </p>
-        </div>
-        <PrivacySummary />
-      </section>
-      <section
-        v-show="tab === 'body'"
-        class="panel profile-card"
-        data-tone="cycle"
-      >
-        <div class="section-heading">
-          <div>
-            <h2>Optionaler Körperkontext</h2>
+          <div class="profile-backup">
+            <div>
+              <strong>Verschlüsselte Sicherung</strong>
+              <p class="helper">
+                Lädt eine Datei mit verschlüsselten Daten herunter. Für eine
+                Wiederherstellung brauchst du deine Passphrase oder Phrase.
+              </p>
+            </div>
+            <UiButton
+              type="button"
+              class="button secondary"
+              @click="downloadEncryptedBackup"
+            >
+              <Download :size="16" /> Sicherung herunterladen
+            </UiButton>
+            <p v-if="backupError" class="alert error" role="alert">
+              {{ backupError }}
+            </p>
+            <p v-if="backupStatus" class="alert success" role="status">
+              {{ backupStatus }}
+            </p>
           </div>
-          <Info :size="18" class="muted" />
-        </div>
-        <label class="profile-field">
-          Körperkontext
-          <select
-            class="d-select"
-            v-model="form.body_group"
-            aria-label="Körperkontext"
-            @change="chooseBodyGroup"
-          >
-            <option value="unspecified">Nicht angegeben</option>
-            <option value="male">Männlicher Körperkontext</option>
-            <option value="female">Weiblicher Körperkontext</option>
-            <option value="other">Anderer Körperkontext</option>
-          </select>
-        </label>
-        <p class="helper">
-          Männer-, Frauen- und andere Kontexte werden nicht in ein gemeinsames
-          Zyklusmodell gemischt. Die Einstellung ist optional.
+          <PrivacySummary />
+        </section>
+        <p v-if="error" class="alert error" role="alert">{{ error }}</p>
+        <p v-if="saved" class="alert success" role="status">
+          <Check :size="16" /> Profil gespeichert.
         </p>
-      </section>
-
-      <section
-        v-if="tab === 'body' && form.body_group === 'female'"
-        class="panel profile-card cycle-card"
-        data-tone="cycle"
+        <UiButton
+          type="submit"
+          class="button primary profile-save"
+          :disabled="busy"
+          :loading="busy"
+        >
+          <Save :size="16" />
+          {{ busy ? "Wird gespeichert …" : "Profil speichern" }}
+        </UiButton>
+      </form>
+      <form
+        v-else-if="tab === 'body'"
+        class="form compact-profile"
+        @submit.prevent="saveProfile"
       >
-        <div class="section-heading">
-          <div>
-            <h2>Zyklusbeobachtung</h2>
-            <small
-              >Nur aktivieren, wenn du diesen Kontext nutzen möchtest.</small
-            >
+        <section class="panel profile-card" data-tone="cycle">
+          <div class="section-heading">
+            <div>
+              <h2>Optionaler Körperkontext</h2>
+            </div>
+            <Info :size="18" class="muted" />
           </div>
-          <CalendarDays :size="19" class="muted" />
-        </div>
-        <label class="toggle-row">
-          <span>
-            <strong>Zyklus in Check-ins berücksichtigen</strong>
-            <small
-              >Symptome können zusätzlich nach Phase verglichen werden.</small
+          <label class="profile-field">
+            Körperkontext
+            <select
+              class="d-select"
+              v-model="form.body_group"
+              aria-label="Körperkontext"
+              @change="chooseBodyGroup"
             >
-          </span>
-          <input
-            class="d-input"
-            v-model="form.cycle_tracking"
-            type="checkbox"
-          />
-        </label>
-        <div v-if="form.cycle_tracking" class="cycle-fields">
-          <label class="profile-field">
-            Beginn der letzten Periode
-            <input class="d-input" v-model="form.period_start" type="date" />
+              <option value="unspecified">Nicht angegeben</option>
+              <option value="male">Männlicher Körperkontext</option>
+              <option value="female">Weiblicher Körperkontext</option>
+              <option value="other">Anderer Körperkontext</option>
+            </select>
           </label>
-          <label class="profile-field">
-            Übliche Zykluslänge
-            <span class="inline-input">
-              <input
-                class="d-input"
-                v-model.number="form.cycle_length_days"
-                type="number"
-                min="21"
-                max="45"
-                required
-              />
-              <small>Tage</small>
+          <p class="helper">
+            Männer-, Frauen- und andere Kontexte werden nicht in ein gemeinsames
+            Zyklusmodell gemischt. Die Einstellung ist optional.
+          </p>
+        </section>
+
+        <section
+          v-if="form.body_group === 'female'"
+          class="panel profile-card cycle-card"
+          data-tone="cycle"
+        >
+          <div class="section-heading">
+            <div>
+              <h2>Zyklusbeobachtung</h2>
+              <small
+                >Nur aktivieren, wenn du diesen Kontext nutzen möchtest.</small
+              >
+            </div>
+            <CalendarDays :size="19" class="muted" />
+          </div>
+          <label class="toggle-row">
+            <span>
+              <strong>Zyklus in Check-ins berücksichtigen</strong>
+              <small
+                >Symptome können zusätzlich nach Phase verglichen werden.</small
+              >
             </span>
+            <input
+              class="d-input"
+              v-model="form.cycle_tracking"
+              type="checkbox"
+            />
           </label>
-        </div>
-        <p class="helper">
-          Die Phasen werden nur grob aus deinen Angaben abgeleitet. Sie sind
-          keine Fruchtbarkeits-, Verhütungs- oder Diagnosefunktion.
+          <div v-if="form.cycle_tracking" class="cycle-fields">
+            <label class="profile-field">
+              Beginn der letzten Periode
+              <input class="d-input" v-model="form.period_start" type="date" />
+            </label>
+            <label class="profile-field">
+              Übliche Zykluslänge
+              <span class="inline-input">
+                <input
+                  class="d-input"
+                  v-model.number="form.cycle_length_days"
+                  type="number"
+                  min="21"
+                  max="45"
+                  required
+                />
+                <small>Tage</small>
+              </span>
+            </label>
+          </div>
+          <p class="helper">
+            Die Phasen werden nur grob aus deinen Angaben abgeleitet. Sie sind
+            keine Fruchtbarkeits-, Verhütungs- oder Diagnosefunktion.
+          </p>
+        </section>
+        <p v-if="error" class="alert error" role="alert">{{ error }}</p>
+        <p v-if="saved" class="alert success" role="status">
+          <Check :size="16" /> Profil gespeichert.
         </p>
-      </section>
+        <UiButton
+          type="submit"
+          class="button primary profile-save"
+          :disabled="busy"
+          :loading="busy"
+        >
+          <Save :size="16" />
+          {{ busy ? "Wird gespeichert …" : "Profil speichern" }}
+        </UiButton>
+      </form>
 
       <section
-        v-show="tab === 'health'"
+        v-if="tab === 'health'"
         class="panel profile-card health-card"
         data-tone="stress"
       >
@@ -1289,21 +1370,66 @@ onBeforeUnmount(clearRotation);
         <p v-if="logoutError" class="alert error" role="alert">
           {{ logoutError }}
         </p>
+        <hr class="session-divider" />
+        <section
+          class="account-delete-section"
+          aria-labelledby="delete-account-title"
+        >
+          <div>
+            <h2 id="delete-account-title">Konto und Tagebuch löschen</h2>
+            <p class="helper">
+              Löscht dein Konto, alle Geräte-Anmeldungen und die aktiven
+              Tagebuchdaten aus dieser Datenbank. Dieser Schritt lässt sich
+              nicht rückgängig machen. Lade vorher bei Bedarf eine
+              verschlüsselte Sicherung herunter.
+            </p>
+            <p class="helper">
+              Bereits heruntergeladene Sicherungen, Arztberichte und ältere
+              Server-Backups oder Datenbank-Snapshots werden dadurch nicht
+              gelöscht. Bitte lösche solche Kopien separat.
+            </p>
+          </div>
+          <form
+            class="form account-delete-form"
+            @submit.prevent="deleteAccountAndDiary"
+          >
+            <label class="vault-field">
+              Aktuelles Kontopasswort
+              <input
+                ref="deleteAccountPasswordField"
+                class="d-input"
+                type="password"
+                autocomplete="current-password"
+                maxlength="1024"
+                required
+              />
+            </label>
+            <label class="vault-field">
+              Tippe <strong>LÖSCHEN</strong> zur Bestätigung
+              <input
+                ref="deleteAccountConfirmationField"
+                class="d-input"
+                type="text"
+                autocomplete="off"
+                autocapitalize="characters"
+                spellcheck="false"
+                required
+              />
+            </label>
+            <UiButton
+              type="submit"
+              class="button danger"
+              :disabled="deleteAccountBusy"
+              :loading="deleteAccountBusy"
+            >
+              Konto und Tagebuch endgültig löschen
+            </UiButton>
+          </form>
+          <p v-if="deleteAccountError" class="alert error" role="alert">
+            {{ deleteAccountError }}
+          </p>
+        </section>
       </section>
-
-      <p v-if="error" class="alert error" role="alert">{{ error }}</p>
-      <p v-if="saved" class="alert success" role="status">
-        <Check :size="16" /> Profil gespeichert.
-      </p>
-      <UiButton
-        v-if="tab === 'person' || tab === 'body'"
-        class="button primary profile-save"
-        :disabled="busy"
-        :loading="busy"
-      >
-        <Save :size="16" />
-        {{ busy ? "Wird gespeichert …" : "Profil speichern" }}
-      </UiButton>
-    </form>
+    </div>
   </AppShell>
 </template>

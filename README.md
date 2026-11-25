@@ -19,7 +19,7 @@ A German-language personal food and symptom diary built with Go Fiber, the [Gone
 - Mark a recipe as personally suspicious or mark a specific reaction manually. Add a simple next-day stool observation; the pattern summary can combine these personal signals with timing and ingredient associations.
 - Import provider-normalized stress scores plus raw HRV/pulse/sleep metrics from an iOS HealthKit or Android Health Connect bridge, watch export, or ring adapter. The analysis never turns raw HRV or pulse into a guessed stress score.
 - Create a compact doctor-facing full-data overview at `/report`. It summarizes the documented period, symptoms, ingredient associations and overlaps, timing windows, stool observations, stress comparison, and possible non-food factors. The browser print dialog can save it as a one-page PDF; the share button uses the device's native share sheet or copies a text summary as a fallback.
-- Download and restore an encrypted vault backup; backups contain ciphertext, not a readable diary. Delete individual records; recipe deletion does not erase historical meals.
+- Download and restore an encrypted vault backup; backups contain ciphertext, not a readable diary. Delete individual records or erase the account and active diary from Profile → Sicherheit; recipe deletion does not erase historical meals.
 
 ## Privacy and scope
 

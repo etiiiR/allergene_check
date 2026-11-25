@@ -85,6 +85,7 @@ type AccountRepository interface {
 	DeleteSession(context.Context, string) error
 	DeleteOtherSessions(context.Context, string) (int, error)
 	UpdatePasswordAndDeleteOtherSessions(context.Context, accountRecord, string) (int, error)
+	DeleteAccountAndDiary(context.Context) error
 	SetRecoveryCodeHash(context.Context, string) error
 	RecoverAccountPassword(context.Context, string, string, accountRecord) error
 }
@@ -181,6 +182,31 @@ func (r *surrealAccountRepository) UpdatePasswordAndDeleteOtherSessions(ctx cont
 		return 0, err
 	}
 	return deleted, nil
+}
+
+// DeleteAccountAndDiary atomically removes the sole account, all sessions, the
+// encrypted vault, and any legacy plaintext diary records from primary storage.
+// It intentionally leaves database schema and operator-managed backups intact.
+func (r *surrealAccountRepository) DeleteAccountAndDiary(ctx context.Context) error {
+	return r.store.WithTransaction(ctx, func(tx *surrealdb.Transaction) error {
+		for _, table := range []string{
+			"diary_account_sessions",
+			"diary_account",
+			"diary_vault",
+			"diary_recipes",
+			"diary_meals",
+			"diary_checkins",
+			"diary_profile",
+			"diary_recipe_flags",
+			"diary_stools",
+			"diary_stress",
+		} {
+			if _, err := surrealdb.Delete[any](ctx, tx, models.Table(table)); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (r *surrealAccountRepository) SetRecoveryCodeHash(ctx context.Context, hash string) error {
@@ -375,6 +401,41 @@ func (s *accountService) ChangePassword(ctx context.Context, ip, token, currentP
 	}
 	s.clearLoginAttempts(ip)
 	return deleted, nil
+}
+
+// DeleteAccountAndDiary reauthenticates the current device, rate-limits
+// password checks, then removes the account and its primary diary data in one
+// repository transaction. Exported files and operator-managed snapshots are
+// outside the app's control and are never described as deleted here.
+func (s *accountService) DeleteAccountAndDiary(ctx context.Context, ip, token, currentPassword, confirmation string) error {
+	if confirmation != "LÖSCHEN" {
+		return invalid("Gib zur Bestätigung LÖSCHEN ein.")
+	}
+	if len(currentPassword) > 1024 {
+		return NewAppError(fiber.StatusUnauthorized, "account_password_incorrect", "Das aktuelle Kontopasswort stimmt nicht.")
+	}
+	if !s.allowLogin(ip) {
+		return NewAppError(429, "login_rate_limited", "Zu viele Versuche. Bitte warte 15 Minuten.")
+	}
+	valid, err := s.ValidSession(ctx, token)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return NewAppError(fiber.StatusUnauthorized, "account_sign_in_required", "Bitte melde dich erneut an.")
+	}
+	account, err := s.repository.Account(ctx)
+	if err != nil {
+		return err
+	}
+	if account == nil || !accountPasswordMatches(account, currentPassword) {
+		return NewAppError(fiber.StatusUnauthorized, "account_password_incorrect", "Das aktuelle Kontopasswort stimmt nicht.")
+	}
+	if err := s.repository.DeleteAccountAndDiary(ctx); err != nil {
+		return err
+	}
+	s.clearLoginAttempts(ip)
+	return nil
 }
 
 // SetAccountRecoveryCode stores only a digest of a cryptographically random

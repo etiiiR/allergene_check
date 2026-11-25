@@ -96,6 +96,13 @@ func (r *surrealVaultRepository) SaveVault(ctx context.Context, expected int64, 
 	}
 	var next EncryptedVault
 	err = r.store.WithTransaction(ctx, func(tx *surrealdb.Transaction) error {
+		account, err := surrealdb.Select[accountRecord](ctx, tx, models.NewRecordID("diary_account", accountRecordKey))
+		if err != nil {
+			return err
+		}
+		if account == nil {
+			return NewAppError(401, "account_sign_in_required", "Bitte melde dich erneut an.")
+		}
 		id := r.recordID()
 		current, err := surrealdb.Select[surrealVaultRecord](ctx, tx, id)
 		if err != nil {
@@ -141,7 +148,7 @@ func (r *surrealVaultRepository) SaveVault(ctx context.Context, expected int64, 
 	})
 	if err != nil {
 		var appErr *AppError
-		if errors.As(err, &appErr) && appErr.Code == "vault_revision_conflict" {
+		if errors.As(err, &appErr) {
 			return EncryptedVault{}, err
 		}
 		// Concurrent transactions may both observe the same revision. If the
